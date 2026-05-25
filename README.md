@@ -6,7 +6,7 @@
 
 ## 🛠️ 使用方法
 1. 下载本项目发布的最新版 `AutoWikiBuilder.exe`。
-2. 将游戏最新的 `master_data.s2b` 文件直接拖拽到 `AutoWikiBuilder.exe` 图标上。
+2. 打开 `AutoWikiBuilder.exe` ，选择游戏最新的 `master_data.s2b` 文件进行解析。
 3. 运行完成后，程序会在同目录下生成一份排版好的 `.xlsx` Excel 表格，可以直接进行后续翻译工作的开展。
 
 ---
