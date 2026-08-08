@@ -3,7 +3,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from toolkit.domains.audio import extract_text_metadata, scan_card_voices, text_to_html
+from toolkit.domains.audio import (
+    _scan_all_text_metadata,
+    extract_text_metadata,
+    scan_card_voices,
+    text_to_html,
+)
 from toolkit.core.cri_utf import CriUtfError, parse_utf
 
 
@@ -38,6 +43,26 @@ class AudioMetadataTests(unittest.TestCase):
             cards, warnings = scan_card_voices(directory)
             self.assertEqual({}, cards)
             self.assertEqual(1, len(warnings))
+
+    def test_all_text_index_keeps_cue_audit_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "voice_example.acb"
+            path.write_bytes(
+                b"binary\x00"
+                + "title:{季節}text:{一行目\\n二行目}".encode("utf-8")
+                + b"\x00"
+            )
+
+            records, unstable = _scan_all_text_metadata(directory)
+
+            self.assertEqual([], unstable)
+            self.assertEqual(1, len(records))
+            self.assertEqual("", records[0]["CueName"])
+            self.assertIsNone(records[0]["CueIndex"])
+            self.assertIsNone(records[0]["CueId"])
+            self.assertEqual("matched_by_title_fallback", records[0]["MatchStatus"])
+            self.assertTrue(records[0]["StableRead"])
+            self.assertEqual("一行目<br>二行目", records[0]["TextHtml"])
 
     def test_invalid_utf_is_rejected_for_safe_fallback(self):
         with self.assertRaises(CriUtfError):

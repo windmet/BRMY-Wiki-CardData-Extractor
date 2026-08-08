@@ -266,10 +266,15 @@ def _scan_all_text_metadata(input_path):
                 "AcbFile": os.path.relpath(path, input_path),
                 "Category": category,
                 "MetadataNo": index,
+                "CueName": item.get("CueName", ""),
+                "CueIndex": item.get("CueIndex"),
+                "CueId": item.get("CueId"),
+                "MatchStatus": item.get("MatchStatus", ""),
                 "Title": item["Title"],
                 "Text": item["Text"],
                 "TextHtml": text_to_html(item["Text"]),
                 "HasText": bool(item["Text"]),
+                "StableRead": stable,
             })
     return records, unstable
 
@@ -334,16 +339,26 @@ def run(input_path=None):
     )
 
     text_rows = [
-        [item["AcbFile"], item["Category"], item["MetadataNo"], item["Title"], item["TextHtml"], item["HasText"]]
+        [
+            item["AcbFile"], item["Category"], item["MetadataNo"],
+            item["CueName"], item["CueIndex"], item["CueId"], item["MatchStatus"],
+            item["Title"], item["TextHtml"], item["HasText"], item["StableRead"],
+        ]
         for item in all_text
     ]
     write_xlsx(
         text_rows,
         os.path.join(xlsx_dir, "voice_texts.xlsx"),
-        ["ACB文件", "分类", "元数据序号", "标题", "日文台词", "是否有文本"],
+        [
+            "ACB文件", "分类", "元数据序号", "Cue名", "Cue索引", "Cue ID",
+            "匹配方式", "标题", "日文台词", "是否有文本", "读取时文件稳定",
+        ],
         sheet_title="voice_texts",
-        col_widths={"A": 34, "B": 20, "C": 14, "D": 26, "E": 70, "F": 14},
-        wrap_cols=[4],
+        col_widths={
+            "A": 34, "B": 20, "C": 14, "D": 28, "E": 12, "F": 12,
+            "G": 24, "H": 30, "I": 70, "J": 14, "K": 18,
+        },
+        wrap_cols=[8],
     )
 
     print(
