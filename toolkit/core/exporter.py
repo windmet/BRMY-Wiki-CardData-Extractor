@@ -1,5 +1,6 @@
 """通用导出：XLSX + 输出目录管理。"""
 import os
+from datetime import datetime
 
 try:
     from openpyxl import Workbook
@@ -96,6 +97,16 @@ def write_workbook(path, sheets):
                 )
 
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-    wb.save(path)
-    print(f"  [xlsx] {path}")
-    return True
+    actual_path = path
+    try:
+        wb.save(actual_path)
+    except PermissionError:
+        stem, extension = os.path.splitext(path)
+        actual_path = f"{stem}_new{extension}"
+        if os.path.exists(actual_path):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            actual_path = f"{stem}_new_{timestamp}{extension}"
+        wb.save(actual_path)
+        print(f"  [!] 原 XLSX 正被占用，已改存: {actual_path}")
+    print(f"  [xlsx] {actual_path}")
+    return actual_path

@@ -8,6 +8,7 @@ from toolkit.domains.home_voices import (
     apply_reference_records,
     build_home_voice_catalog,
     export_home_voice_catalog,
+    render_audit_markdown,
 )
 
 try:
@@ -140,7 +141,7 @@ class HomeVoiceCatalogTests(unittest.TestCase):
         self.assertEqual("not_needed", repaired[1]["MetadataRepairStatus"])
 
     @unittest.skipIf(load_workbook is None, "openpyxl not installed")
-    def test_export_has_four_audit_layers_and_single_subject_sheet(self):
+    def test_export_is_wiki_facing_and_uses_real_excel_line_breaks(self):
         scanned = [
             {
                 "SpeakerCharacterId": speaker, "AcbFile": f"voice_{speaker}_2.acb",
@@ -161,13 +162,29 @@ class HomeVoiceCatalogTests(unittest.TestCase):
             workbook = load_workbook(paths["catalog"], read_only=True)
             subject_workbook = load_workbook(paths["subject"], read_only=True)
 
-            self.assertEqual(["主体索引", "Wiki长表", "原始审计", "异常"], workbook.sheetnames)
+            self.assertEqual(["Wiki长表", "完整度"], workbook.sheetnames)
             self.assertEqual(3, workbook["Wiki长表"].max_row)
             self.assertEqual("中文翻译", workbook["Wiki长表"]["E1"].value)
+            self.assertEqual("一行1\n二行", workbook["Wiki长表"]["D2"].value)
+            self.assertNotIn("<br>", workbook["Wiki长表"]["D2"].value)
+            self.assertEqual(2, workbook["完整度"].max_row)
             self.assertEqual(["Wiki主体表"], subject_workbook.sheetnames)
             self.assertEqual(3, subject_workbook["Wiki主体表"].max_row)
+            self.assertEqual("一行1\n二行", subject_workbook["Wiki主体表"]["D2"].value)
             workbook.close()
             subject_workbook.close()
+
+            catalog["SourceRoot"] = "current"
+            catalog["MasterdataPath"] = "master_data.json"
+            catalog["ReferenceAcbRoot"] = "reference"
+            catalog["Summary"] = {
+                "RecordCount": 2, "SubjectCount": 1, "CompleteSubjectCount": 1,
+                "AcbOnlySubjectCount": 0, "ReferenceRepairCount": 0,
+            }
+            report = render_audit_markdown(catalog)
+            self.assertIn("## 数据完整度", report)
+            self.assertIn("## 待行动异常", report)
+            self.assertIn("2/2", report)
 
 
 if __name__ == "__main__":

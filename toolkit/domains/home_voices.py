@@ -392,27 +392,25 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
     return {"Records": records, "Subjects": subjects}
 
 
-def _subject_index_sheet(subjects):
+def _completeness_sheet(subjects):
     headers = [
-        "主体Key", "主体类型", "主体", "CueName", "HomeVoiceNo", "分类代码",
-        "行数", "角色数", "是否完整", "缺失角色序号", "重复角色序号",
-        "masterdata状态", "标题变体",
+        "主体", "主体类型", "CueName", "应有角色数", "已有角色数",
+        "缺失角色序号", "数据完整性", "Masterdata状态", "备注",
     ]
     rows = [
         [
-            item["SubjectKey"], item["SubjectType"], item["SubjectDisplayName"],
-            item["CueName"], item["HomeVoiceNo"], item["HomeVoiceCategory"],
-            item["RowCount"], item["SpeakerCount"], "是" if item["Complete"] else "否",
+            item["SubjectDisplayName"], item["SubjectType"], item["CueName"],
+            item["SpeakerCount"] + len(item["MissingCharacterIds"]), item["SpeakerCount"],
             ",".join(map(str, item["MissingCharacterIds"])),
-            ",".join(map(str, item["DuplicateSpeakerIds"])), item["MasterdataStatus"],
-            " | ".join(item["TitleVariants"]),
+            "完整" if item["Complete"] else "不完整", item["MasterdataStatus"],
+            "当前 ACB 有文本、masterdata 无映射" if item["MasterdataStatus"] != "matched" else "",
         ]
         for item in subjects
     ]
     return {
-        "title": "主体索引", "headers": headers, "rows": rows,
-        "col_widths": {"A": 42, "B": 18, "C": 34, "D": 26, "I": 12, "J": 18, "K": 18, "L": 20, "M": 50},
-        "wrap_cols": [3, 13],
+        "title": "完整度", "headers": headers, "rows": rows,
+        "col_widths": {"A": 38, "B": 18, "C": 28, "D": 14, "E": 14, "F": 18, "G": 14, "H": 20, "I": 42},
+        "wrap_cols": [1, 9],
     }
 
 
@@ -423,45 +421,12 @@ def _wiki_sheet(records, title="Wiki长表"):
         "rows": [
             [
                 row["SubjectDisplayName"], row["SpeakerCharacterId"],
-                row["SpeakerCharacterName"], row["TextWiki"], "",
+                row["SpeakerCharacterName"], row["TextWiki"].replace("<br>", "\n"), "",
             ]
             for row in records
         ],
         "col_widths": {"A": 36, "B": 12, "C": 18, "D": 72, "E": 72},
         "wrap_cols": [1, 4, 5],
-    }
-
-
-def _audit_sheet(records):
-    headers = [
-        "主体Key", "主体类型", "主体", "主体角色ID", "角色序号", "角色名",
-        "HomeVoiceNo", "分类代码", "KeyTargetValue", "SeasonId", "ServiceYears",
-        "StartTime", "EndTime", "ACB文件", "候选重复ACB", "包序号", "CueName",
-        "CueIndex", "CueId", "原始标题", "多数标题", "原始文本", "Wiki文本",
-        "masterdata匹配", "元数据匹配", "读取稳定", "修复状态", "参考ACB",
-        "修复前标题", "修复前文本", "信息标记", "审计标记",
-    ]
-    rows = [
-        [
-            row["SubjectKey"], row["SubjectType"], row["SubjectDisplayName"],
-            row["SubjectCharacterId"], row["SpeakerCharacterId"], row["SpeakerCharacterName"],
-            row["HomeVoiceNo"], row["HomeVoiceCategory"], row["KeyTargetValue"],
-            row["SeasonId"], row["ServiceYears"], row["StartTime"], row["EndTime"],
-            row["AcbFile"], " | ".join(row.get("AlternateAcbFiles", [])), row["AcbBucket"],
-            row["CueName"], row["CueIndex"], row["CueId"], row["TitleRaw"],
-            row["CanonicalTitle"], row["TextRaw"], row["TextWiki"],
-            row["MasterdataMatchStatus"], row["MetadataMatchStatus"],
-            "是" if row["StableRead"] else "否", row.get("MetadataRepairStatus", "not_needed"),
-            row.get("ReferenceAcbFile", ""), row.get("OriginalTitleRaw", ""),
-            row.get("OriginalTextRaw", ""), ";".join(row["InfoFlags"]),
-            ";".join(row["AuditFlags"]),
-        ]
-        for row in records
-    ]
-    return {
-        "title": "原始审计", "headers": headers, "rows": rows,
-        "col_widths": {"A": 42, "C": 34, "F": 18, "N": 30, "O": 30, "Q": 28, "T": 34, "U": 34, "V": 72, "W": 72, "AB": 28, "AC": 30, "AD": 34, "AE": 72, "AF": 34, "AG": 38},
-        "wrap_cols": [3, 20, 21, 22, 23, 30, 31, 32, 33],
     }
 
 
@@ -509,6 +474,87 @@ def _anomaly_sheet(catalog):
     }
 
 
+def _md_cell(value):
+    return (
+        str(value if value is not None else "")
+        .replace("|", "\\|")
+        .replace("\r", " ")
+        .replace("\n", "<br>")
+    )
+
+
+def render_audit_markdown(catalog):
+    """Render the technical audit outside the Wiki-facing workbook."""
+    summary = catalog.get("Summary", {})
+    lines = [
+        "# 主页语音内部审计报告",
+        "",
+        f"- ACB 来源：`{catalog.get('SourceRoot', '')}`",
+        f"- Masterdata：`{catalog.get('MasterdataPath', '')}`",
+        f"- 参考旧 ACB：`{catalog.get('ReferenceAcbRoot') or '未使用'}`",
+        f"- 记录数：{summary.get('RecordCount', len(catalog['Records']))}",
+        f"- 主体数：{summary.get('SubjectCount', len(catalog['Subjects']))}",
+        f"- 完整主体：{summary.get('CompleteSubjectCount', sum(item['Complete'] for item in catalog['Subjects']))}",
+        f"- ACB-only 主体：{summary.get('AcbOnlySubjectCount', sum(item['MasterdataStatus'] != 'matched' for item in catalog['Subjects']))}",
+        f"- 参考旧包修复：{summary.get('ReferenceRepairCount', 0)}",
+        "",
+        "## 数据完整度",
+        "",
+        "| 主体 | CueName | 已有/应有 | 缺失角色序号 | 状态 |",
+        "| --- | --- | ---: | --- | --- |",
+    ]
+    for subject in catalog["Subjects"]:
+        expected = subject["SpeakerCount"] + len(subject["MissingCharacterIds"])
+        lines.append(
+            "| " + " | ".join([
+                _md_cell(subject["SubjectDisplayName"]),
+                _md_cell(subject["CueName"]),
+                f"{subject['SpeakerCount']}/{expected}",
+                _md_cell(",".join(map(str, subject["MissingCharacterIds"]))),
+                "完整" if subject["Complete"] else "不完整",
+            ]) + " |"
+        )
+
+    repairs = [
+        record for record in catalog["Records"]
+        if record.get("MetadataRepairStatus") == "repaired_from_reference_acb"
+    ]
+    lines.extend(["", "## 参考旧包修复", ""])
+    if not repairs:
+        lines.append("无。")
+    else:
+        lines.extend([
+            "| 角色序号 | 角色名 | CueName | 当前 ACB | 参考 ACB |",
+            "| ---: | --- | --- | --- | --- |",
+        ])
+        for record in repairs:
+            lines.append(
+                "| " + " | ".join(_md_cell(value) for value in [
+                    record["SpeakerCharacterId"], record["SpeakerCharacterName"],
+                    record["CueName"], record["AcbFile"], record["ReferenceAcbFile"],
+                ]) + " |"
+            )
+
+    anomaly = _anomaly_sheet(catalog)
+    lines.extend([
+        "", "## 待行动异常", "",
+        "| " + " | ".join(anomaly["headers"]) + " |",
+        "| " + " | ".join("---" for _ in anomaly["headers"]) + " |",
+    ])
+    for row in anomaly["rows"]:
+        lines.append("| " + " | ".join(_md_cell(value) for value in row) + " |")
+
+    info_counts = Counter(flag for record in catalog["Records"] for flag in record["InfoFlags"])
+    lines.extend(["", "## 非阻断审计信息", ""])
+    if info_counts:
+        for flag, count in sorted(info_counts.items()):
+            lines.append(f"- `{flag}`：{count}")
+    else:
+        lines.append("无。")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def select_subject_records(catalog, selector):
     """Select a subject by stable key, cue name, or exact display name."""
     if not selector:
@@ -527,16 +573,14 @@ def select_subject_records(catalog, selector):
 
 
 def export_home_voice_catalog(catalog, output_dir, selected_subject=None):
-    """Export the full four-sheet workbook and an optional single-subject workbook."""
+    """Export the Wiki workbook and an optional single-subject workbook."""
     output_dir = os.path.abspath(output_dir)
     os.makedirs(output_dir, exist_ok=True)
     workbook_path = os.path.join(output_dir, "home_voice_catalog.xlsx")
-    write_workbook(workbook_path, [
-        _subject_index_sheet(catalog["Subjects"]),
+    workbook_path = write_workbook(workbook_path, [
         _wiki_sheet(catalog["Records"]),
-        _audit_sheet(catalog["Records"]),
-        _anomaly_sheet(catalog),
-    ])
+        _completeness_sheet(catalog["Subjects"]),
+    ]) or workbook_path
     paths = {"catalog": workbook_path}
 
     if selected_subject:
@@ -544,7 +588,9 @@ def export_home_voice_catalog(catalog, output_dir, selected_subject=None):
         cue_name = selected[0]["CueName"]
         safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", cue_name).strip("_") or "subject"
         subject_path = os.path.join(output_dir, f"home_voice_subject_{safe_name}.xlsx")
-        write_workbook(subject_path, [_wiki_sheet(selected, title="Wiki主体表")])
+        subject_path = write_workbook(
+            subject_path, [_wiki_sheet(selected, title="Wiki主体表")]
+        ) or subject_path
         paths["subject"] = subject_path
     return paths
 
@@ -587,7 +633,11 @@ def run(acb_root, masterdata_path=None, selected_subject=None, reference_acb_roo
     xlsx_dir = os.path.join(base_dir, "xlsx_output")
     os.makedirs(json_dir, exist_ok=True)
     save_json(catalog, os.path.join(json_dir, "Home_Voice_Catalog.json"))
+    audit_path = os.path.join(json_dir, "home_voice_audit.md")
+    with open(audit_path, "w", encoding="utf-8", newline="\n") as stream:
+        stream.write(render_audit_markdown(catalog))
     paths = export_home_voice_catalog(catalog, xlsx_dir, selected_subject=selected_subject)
+    paths["audit"] = audit_path
     print(
         f"[+] 主页语音 {catalog['Summary']['RecordCount']} 行，"
         f"{catalog['Summary']['SubjectCount']} 个主体，"
