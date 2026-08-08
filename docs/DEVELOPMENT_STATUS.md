@@ -1,6 +1,6 @@
 # BMC 数据提取工具箱开发现状
 
-> **文档状态说明（2026-08-08）**：本文主体是 2026-07-16 旧工作目录的历史快照，旧 EXE 哈希和菜单 1 至 12 只用于回溯，不能代表当前独立仓库发布状态。当前开发目录为 `E:\Web_build\BRMY-Wiki-CardData-Extractor`，源码已有 13 个 domain、20 项自动化测试，并新增 `home_voices` 的 2099 行/100 主体 ACB 拉表能力；新 EXE 在完成独立构建验收前不得标记为已发布。当前语音设计与验收数字见 [`ACB_HOME_VOICE_EXTRACTION_PLAN.md`](ACB_HOME_VOICE_EXTRACTION_PLAN.md)。
+> **文档状态说明（2026-08-08）**：本文主体是 2026-07-16 旧工作目录的历史快照，旧 EXE 哈希和菜单 1 至 12 只用于回溯，不能代表当前独立仓库发布状态。当前开发目录为 `E:\Web_build\BRMY-Wiki-CardData-Extractor`，源码已有 13 个 domain、20 项自动化测试，并新增 `home_voices` 的 2099 行/100 主体 ACB 拉表能力。根目录已有通过真实输入验收的本地 QA EXE，但尚未发布 GitHub Release；当前构建哈希、环境警告和语音验收数字见 [`ACB_HOME_VOICE_EXTRACTION_PLAN.md`](ACB_HOME_VOICE_EXTRACTION_PLAN.md)。
 
 > 最后核对：2026-07-16  
 > 原工作目录：`<workspace>\tools\masterdata`  

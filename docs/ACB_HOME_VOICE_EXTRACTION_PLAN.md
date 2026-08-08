@@ -21,7 +21,18 @@
 - 真实本地资源回归为 2099 行、100 个主体、99 个完整主体、7 个 ACB-only 主体。
 - 唯一缺失仍是 `vo_home_10_83` 的 CharacterId 19，未用空行掩盖。
 
-源码与 CLI 已完成；独立仓库的发布 EXE 尚未构建和验收。
+源码、CLI 和交互菜单已完成。本地 QA EXE 已完成真实输入验收；正式 GitHub Release 尚未发布。
+
+本地 QA 构建：
+
+```text
+路径: E:\Web_build\BRMY-Wiki-CardData-Extractor\bmc_toolkit.exe
+大小: 26,387,456 bytes
+SHA-256: A56ED09DE24DA77384AFD41334F882A79F184512CD3386545B55690DA2C4F945
+环境: Python 3.14.4 / Nuitka 4.1.2
+```
+
+Nuitka 4.1.2 对 Python 3.14 给出了实验支持警告，因此该文件用于本地 QA，不直接认定为正式 Release 构建。EXE 使用真实 ACB 和临时 masterdata 副本验收通过，输出仍为 2099 行、100 个主体、99 个完整主体、7 个 ACB-only 主体；四张工作表和单主体筛选均已实际打开核对。
 
 ## 2. 本地资源盘点
 
@@ -334,7 +345,7 @@ toolkit/domains/home_voices.py
 4. [已完成] 实现长表记录和完整度报告。
 5. [已完成] 用当前本地目录跑全量审计，确认 2099 行和已知异常。
 6. [已完成] 实现 Wiki 长表与单主体导出。
-7. [已完成] 接入 CLI 和交互菜单；[待完成] 构建并验收独立仓库 EXE。
+7. [已完成] 接入 CLI、交互菜单并构建本地 QA EXE；[待完成] 使用固定稳定环境生成正式 Release。
 
 CLI 示例：
 

@@ -33,6 +33,8 @@ python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.js
 ./scripts/verify.ps1
 ```
 
+本地构建后的易用入口为仓库根目录 `bmc_toolkit.exe`。EXE 属于忽略的发布产物，不提交进 Git 历史；正式发布时应在固定 Python/Nuitka 环境重建并附 SHA-256。
+
 `legacy/` 保存迁移前的单用途脚本，只用于核对旧行为。新功能进入 `toolkit/core` 或 `toolkit/domains`。
 
 ## 仓库迁移
