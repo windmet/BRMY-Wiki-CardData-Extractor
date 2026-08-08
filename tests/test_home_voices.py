@@ -1,7 +1,14 @@
 import unittest
+import tempfile
+from pathlib import Path
 
 from toolkit.core.tables import TableCatalog
-from toolkit.domains.home_voices import build_home_voice_catalog
+from toolkit.domains.home_voices import build_home_voice_catalog, export_home_voice_catalog
+
+try:
+    from openpyxl import load_workbook
+except ImportError:
+    load_workbook = None
 
 
 def catalog_with(tables):
@@ -93,6 +100,36 @@ class HomeVoiceCatalogTests(unittest.TestCase):
         result = build_home_voice_catalog(tables, scanned, expected_character_ids=(1,))
 
         self.assertNotIn("package_year_mismatch", result["Records"][0]["AuditFlags"])
+
+    @unittest.skipIf(load_workbook is None, "openpyxl not installed")
+    def test_export_has_four_audit_layers_and_single_subject_sheet(self):
+        scanned = [
+            {
+                "SpeakerCharacterId": speaker, "AcbFile": f"voice_{speaker}_2.acb",
+                "AcbBucket": 2, "CueName": "vo_home_2_83", "CueIndex": 4,
+                "CueId": 10, "TitleRaw": "角色二の誕生日 [2年目]",
+                "TextRaw": f"一行{speaker}\\n二行", "TextWiki": f"一行{speaker}<br>二行",
+                "MetadataMatchStatus": "matched_by_acb_utf", "StableRead": True,
+                "AlternateAcbFiles": [],
+            }
+            for speaker in (1, 2)
+        ]
+        catalog = build_home_voice_catalog(self.tables, scanned, expected_character_ids=(1, 2))
+
+        with tempfile.TemporaryDirectory() as directory:
+            paths = export_home_voice_catalog(
+                catalog, directory, selected_subject="vo_home_2_83"
+            )
+            workbook = load_workbook(paths["catalog"], read_only=True)
+            subject_workbook = load_workbook(paths["subject"], read_only=True)
+
+            self.assertEqual(["主体索引", "Wiki长表", "原始审计", "异常"], workbook.sheetnames)
+            self.assertEqual(3, workbook["Wiki长表"].max_row)
+            self.assertEqual("中文翻译", workbook["Wiki长表"]["E1"].value)
+            self.assertEqual(["Wiki主体表"], subject_workbook.sheetnames)
+            self.assertEqual(3, subject_workbook["Wiki主体表"].max_row)
+            workbook.close()
+            subject_workbook.close()
 
 
 if __name__ == "__main__":
