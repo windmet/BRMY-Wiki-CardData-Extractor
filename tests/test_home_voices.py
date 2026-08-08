@@ -3,7 +3,11 @@ import tempfile
 from pathlib import Path
 
 from toolkit.core.tables import TableCatalog
-from toolkit.domains.home_voices import build_home_voice_catalog, export_home_voice_catalog
+from toolkit.domains.home_voices import (
+    apply_reference_records,
+    build_home_voice_catalog,
+    export_home_voice_catalog,
+)
 
 try:
     from openpyxl import load_workbook
@@ -57,7 +61,7 @@ class HomeVoiceCatalogTests(unittest.TestCase):
         self.assertEqual("角色二的生日全员祝福 [2年目]", subject["SubjectDisplayName"])
         self.assertTrue(subject["Complete"])
         self.assertEqual("matched", subject["MasterdataStatus"])
-        self.assertIn("title_outlier", result["Records"][0]["AuditFlags"])
+        self.assertIn("title_conflict", result["Records"][0]["AuditFlags"])
 
     def test_acb_only_subject_is_retained_and_missing_speaker_is_reported(self):
         scanned = [{
@@ -75,7 +79,8 @@ class HomeVoiceCatalogTests(unittest.TestCase):
         self.assertEqual([2], subject["MissingCharacterIds"])
         self.assertFalse(subject["Complete"])
         self.assertEqual("acb_only", result["Records"][0]["MasterdataMatchStatus"])
-        self.assertIn("masterdata_missing", result["Records"][0]["AuditFlags"])
+        self.assertIn("masterdata_missing", result["Records"][0]["InfoFlags"])
+        self.assertNotIn("masterdata_missing", result["Records"][0]["AuditFlags"])
 
     def test_non_birthday_key_target_does_not_trigger_package_year_warning(self):
         tables = catalog_with({
@@ -100,6 +105,35 @@ class HomeVoiceCatalogTests(unittest.TestCase):
         result = build_home_voice_catalog(tables, scanned, expected_character_ids=(1,))
 
         self.assertNotIn("package_year_mismatch", result["Records"][0]["AuditFlags"])
+
+    def test_reference_acb_repairs_only_a_duplicated_current_cue(self):
+        current = [
+            {
+                "SpeakerCharacterId": 4, "CueName": cue, "TitleRaw": title,
+                "TextRaw": "重复文本", "TextWiki": "重复文本", "AcbFile": "current.acb",
+            }
+            for cue, title in (("vo_home_6_79", "错误标题"), ("vo_home_7_80", "正确标题"))
+        ]
+        reference = [
+            {
+                "SpeakerCharacterId": 4, "CueName": "vo_home_6_79",
+                "TitleRaw": "修复标题", "TextRaw": "旧包正确文本",
+                "TextWiki": "旧包正确文本", "AcbFile": "reference.acb",
+            },
+            {
+                "SpeakerCharacterId": 4, "CueName": "vo_home_7_80",
+                "TitleRaw": "正确标题", "TextRaw": "重复文本",
+                "TextWiki": "重复文本", "AcbFile": "reference.acb",
+            },
+        ]
+
+        repaired, count = apply_reference_records(current, reference)
+
+        self.assertEqual(1, count)
+        self.assertEqual("旧包正确文本", repaired[0]["TextRaw"])
+        self.assertEqual("重复文本", repaired[0]["OriginalTextRaw"])
+        self.assertEqual("reference.acb", repaired[0]["ReferenceAcbFile"])
+        self.assertEqual("not_needed", repaired[1]["MetadataRepairStatus"])
 
     @unittest.skipIf(load_workbook is None, "openpyxl not installed")
     def test_export_has_four_audit_layers_and_single_subject_sheet(self):

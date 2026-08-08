@@ -112,6 +112,64 @@ def _mode(values):
     return min(counts, key=lambda value: (-counts[value], value))
 
 
+def _normalized_text(value):
+    return re.sub(r"\\n|\s+", "", value or "")
+
+
+def _normalized_title(value):
+    value = re.sub(r"\s+", " ", (value or "").strip())
+    return re.sub(r"\s*\[", " [", value)
+
+
+def apply_reference_records(scanned_records, reference_records):
+    """Repair duplicated current metadata when an older ACB has distinct cue text."""
+    duplicate_groups = defaultdict(list)
+    for record in scanned_records:
+        normalized = _normalized_text(record.get("TextRaw"))
+        if normalized:
+            duplicate_groups[(record["SpeakerCharacterId"], normalized)].append(record)
+    duplicated_keys = {
+        (record["SpeakerCharacterId"], record["CueName"])
+        for group in duplicate_groups.values()
+        if len({record["CueName"] for record in group}) > 1
+        for record in group
+    }
+    reference_index = {
+        (record["SpeakerCharacterId"], record["CueName"]): record
+        for record in reference_records
+    }
+
+    repaired = []
+    repair_count = 0
+    for source in scanned_records:
+        record = dict(source)
+        record.setdefault("MetadataRepairStatus", "not_needed")
+        record.setdefault("ReferenceAcbFile", "")
+        record.setdefault("OriginalTitleRaw", "")
+        record.setdefault("OriginalTextRaw", "")
+        key = (record["SpeakerCharacterId"], record["CueName"])
+        reference = reference_index.get(key)
+        if key in duplicated_keys and reference:
+            reference_text = reference.get("TextRaw", "")
+            if reference_text and _normalized_text(reference_text) != _normalized_text(record.get("TextRaw")):
+                record["OriginalTitleRaw"] = record.get("TitleRaw", "")
+                record["OriginalTextRaw"] = record.get("TextRaw", "")
+                record["TitleRaw"] = reference.get("TitleRaw", record["TitleRaw"])
+                record["TextRaw"] = reference_text
+                record["TextWiki"] = text_to_html(reference_text)
+                record["MetadataRepairStatus"] = "repaired_from_reference_acb"
+                record["ReferenceAcbFile"] = reference.get("AcbFile", "")
+                repair_count += 1
+        repaired.append(record)
+    return repaired, repair_count
+
+
+def apply_reference_acb(scanned_records, reference_acb_root):
+    reference_records, warnings = scan_character_home_voice_packages(reference_acb_root)
+    repaired, repair_count = apply_reference_records(scanned_records, reference_records)
+    return repaired, repair_count, warnings
+
+
 def _subject_identity(record, names, season_lookup):
     cue_name = record["CueName"]
     category = record.get("HomeVoiceCategory")
@@ -165,10 +223,14 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
     if not isinstance(tables, TableCatalog):
         tables = TableCatalog(tables)
 
-    character_names = {
-        row["CharacterId"]: row.get("CharacterNameJpn", f"角色{row['CharacterId']}")
+    character_rows = {
+        row["CharacterId"]: row
         for row in _active_rows(tables, "mst_character")
         if row.get("CharacterId") in expected_character_ids
+    }
+    character_names = {
+        row["CharacterId"]: row.get("CharacterNameJpn", f"角色{row['CharacterId']}")
+        for row in character_rows.values()
     }
     home_index = defaultdict(list)
     for row in _active_rows(tables, "mst_home_voice"):
@@ -197,6 +259,7 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
         record["SpeakerCharacterName"] = character_names.get(speaker_id, f"角色{speaker_id}")
         matches = home_index.get((speaker_id, record["CueName"]), [])
         flags = []
+        info_flags = []
         if len(matches) == 1:
             master = matches[0]
             record.update({
@@ -214,7 +277,7 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
                 "MotionCharacterId": None,
                 "MasterdataMatchStatus": "acb_only",
             })
-            flags.append("masterdata_missing")
+            info_flags.append("masterdata_missing")
         else:
             master = matches[0]
             record.update({
@@ -248,12 +311,13 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
         ):
             flags.append("package_year_mismatch")
         if record.get("AlternateAcbFiles"):
-            flags.append("duplicate_source_package")
+            info_flags.append("duplicate_source_package")
         if record.get("MetadataMatchStatus") != "matched_by_acb_utf":
             flags.append("metadata_fallback")
         if not record.get("StableRead", True):
             flags.append("unstable_read")
         record["AuditFlags"] = flags
+        record["InfoFlags"] = info_flags
         records.append(record)
 
     by_subject = defaultdict(list)
@@ -269,8 +333,22 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
         for row in subject_records:
             row["CanonicalTitle"] = canonical_title
             row["SubjectDisplayName"] = generated_name
-            if row.get("TitleRaw") and row["TitleRaw"] != canonical_title:
-                row["AuditFlags"].append("title_outlier")
+            raw_title = row.get("TitleRaw", "")
+            title_matches = _normalized_title(raw_title) == _normalized_title(canonical_title)
+            if row["SubjectType"] == "birthday" and row.get("SubjectCharacterId"):
+                character = character_rows.get(row["SubjectCharacterId"], {})
+                aliases = {
+                    character.get("CharacterNameJpn", ""),
+                    character.get("CharacterLastNameJpn", ""),
+                }
+                year = row.get("KeyTargetValue") or row.get("AcbBucket") or 0
+                expected_titles = {
+                    _normalized_title(f"{alias}の誕生日 [{year}年目]")
+                    for alias in aliases if alias
+                }
+                title_matches = _normalized_title(raw_title) in expected_titles
+            if raw_title and not title_matches:
+                row["AuditFlags"].append("title_conflict")
 
     by_speaker_text = defaultdict(list)
     for record in records:
@@ -360,7 +438,8 @@ def _audit_sheet(records):
         "HomeVoiceNo", "分类代码", "KeyTargetValue", "SeasonId", "ServiceYears",
         "StartTime", "EndTime", "ACB文件", "候选重复ACB", "包序号", "CueName",
         "CueIndex", "CueId", "原始标题", "多数标题", "原始文本", "Wiki文本",
-        "masterdata匹配", "元数据匹配", "读取稳定", "审计标记",
+        "masterdata匹配", "元数据匹配", "读取稳定", "修复状态", "参考ACB",
+        "修复前标题", "修复前文本", "信息标记", "审计标记",
     ]
     rows = [
         [
@@ -372,14 +451,17 @@ def _audit_sheet(records):
             row["CueName"], row["CueIndex"], row["CueId"], row["TitleRaw"],
             row["CanonicalTitle"], row["TextRaw"], row["TextWiki"],
             row["MasterdataMatchStatus"], row["MetadataMatchStatus"],
-            "是" if row["StableRead"] else "否", ";".join(row["AuditFlags"]),
+            "是" if row["StableRead"] else "否", row.get("MetadataRepairStatus", "not_needed"),
+            row.get("ReferenceAcbFile", ""), row.get("OriginalTitleRaw", ""),
+            row.get("OriginalTextRaw", ""), ";".join(row["InfoFlags"]),
+            ";".join(row["AuditFlags"]),
         ]
         for row in records
     ]
     return {
         "title": "原始审计", "headers": headers, "rows": rows,
-        "col_widths": {"A": 42, "C": 34, "F": 18, "N": 30, "O": 30, "Q": 28, "T": 34, "U": 34, "V": 72, "W": 72, "AA": 38},
-        "wrap_cols": [3, 20, 21, 22, 23, 27],
+        "col_widths": {"A": 42, "C": 34, "F": 18, "N": 30, "O": 30, "Q": 28, "T": 34, "U": 34, "V": 72, "W": 72, "AB": 28, "AC": 30, "AD": 34, "AE": 72, "AF": 34, "AG": 38},
+        "wrap_cols": [3, 20, 21, 22, 23, 30, 31, 32, 33],
     }
 
 
@@ -398,6 +480,12 @@ def _anomaly_sheet(catalog):
                 "duplicate_speakers", subject["SubjectKey"], subject["SubjectDisplayName"],
                 "", "", subject["CueName"], "",
                 "重复角色序号: " + ",".join(map(str, subject["DuplicateSpeakerIds"])),
+            ])
+        if subject["MasterdataStatus"] != "matched":
+            rows.append([
+                "acb_only_subject", subject["SubjectKey"], subject["SubjectDisplayName"],
+                "", "", subject["CueName"], "",
+                f"ACB 有 {subject['SpeakerCount']} 名角色文本，当前 masterdata 无映射",
             ])
     for record in catalog["Records"]:
         for flag in record["AuditFlags"]:
@@ -454,7 +542,7 @@ def export_home_voice_catalog(catalog, output_dir, selected_subject=None):
     return paths
 
 
-def run(acb_root, masterdata_path=None, selected_subject=None):
+def run(acb_root, masterdata_path=None, selected_subject=None, reference_acb_root=None):
     """Scan ACBs, join masterdata, and write Wiki/audit outputs beside masterdata."""
     acb_root = os.path.abspath(acb_root)
     masterdata_path = os.path.abspath(masterdata_path or "master_data.json")
@@ -465,15 +553,26 @@ def run(acb_root, masterdata_path=None, selected_subject=None):
 
     tables = TableCatalog(load_json(masterdata_path))
     scanned, warnings = scan_character_home_voice_packages(acb_root)
+    repair_count = 0
+    if reference_acb_root:
+        reference_acb_root = os.path.abspath(reference_acb_root)
+        if not os.path.isdir(reference_acb_root):
+            raise ValueError(f"参考 ACB 输入必须是目录: {reference_acb_root}")
+        scanned, repair_count, reference_warnings = apply_reference_acb(
+            scanned, reference_acb_root
+        )
+        warnings.extend(reference_warnings)
     catalog = build_home_voice_catalog(tables, scanned)
     catalog["SourceRoot"] = acb_root
     catalog["MasterdataPath"] = masterdata_path
     catalog["Warnings"] = warnings
+    catalog["ReferenceAcbRoot"] = reference_acb_root or ""
     catalog["Summary"] = {
         "RecordCount": len(catalog["Records"]),
         "SubjectCount": len(catalog["Subjects"]),
         "CompleteSubjectCount": sum(subject["Complete"] for subject in catalog["Subjects"]),
         "AcbOnlySubjectCount": sum(subject["MasterdataStatus"] != "matched" for subject in catalog["Subjects"]),
+        "ReferenceRepairCount": repair_count,
     }
 
     base_dir = os.path.dirname(masterdata_path)

@@ -29,7 +29,9 @@ python -m pip install -e .
 python -m toolkit list
 python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json"
 # 可选第三参数：按 SubjectKey、CueName 或主体名另导出单个主体
-python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" vo_home_13_126
+python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" --subject vo_home_13_126
+# 可选：提供旧 ACB 目录，在当前元数据跨 Cue 重复时尝试恢复旧版正确文本
+python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" --reference-acb "E:\path\to\old\Sound"
 ./scripts/verify.ps1
 ```
 

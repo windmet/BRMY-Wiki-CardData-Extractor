@@ -14,7 +14,8 @@
 [CRI 音频]
     run audio <Musics目录>                     ACB清单、语音文本与卡面语音索引
     run cards [Musics目录]                     提取卡表，并可选填入卡面日文语音
-    run home_voices <Musics目录> [master_data.json] [主体]
+    run home_voices <Musics目录> [master_data.json] [--subject 主体]
+                    [--reference-acb 旧ACB目录]
                                               主页/季节/生日语音 Wiki 表
 
 [通用]
@@ -186,10 +187,28 @@ def cmd_run(domain_name, input_paths=None):
             if not input_paths:
                 print("[!] home_voices 需要 Musics 目录")
                 return
+            positional = []
+            options = {}
+            index = 0
+            while index < len(input_paths):
+                value = input_paths[index]
+                if value in {"--subject", "--reference-acb"}:
+                    if index + 1 >= len(input_paths):
+                        print(f"[!] {value} 缺少参数")
+                        return
+                    options[value] = input_paths[index + 1]
+                    index += 2
+                    continue
+                positional.append(value)
+                index += 1
+            if not positional:
+                print("[!] home_voices 需要 Musics 目录")
+                return
             mod.run(
-                input_paths[0],
-                input_paths[1] if len(input_paths) >= 2 else None,
-                input_paths[2] if len(input_paths) >= 3 else None,
+                positional[0],
+                positional[1] if len(positional) >= 2 else None,
+                options.get("--subject") or (positional[2] if len(positional) >= 3 else None),
+                options.get("--reference-acb"),
             )
         elif input_paths:
             mod.run(input_paths[0])
