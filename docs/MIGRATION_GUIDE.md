@@ -7,7 +7,7 @@
 ## 当前本地基线
 
 - 本地调试目录：`E:\Web_build\BRMY-Wiki-CardData-Extractor`
-- 自动化测试：20 项通过
+- 自动化测试：21 项通过
 - Python wheel：可构建
 - CLI：`python -m toolkit list` 可运行
 - 远端 GitHub：未修改

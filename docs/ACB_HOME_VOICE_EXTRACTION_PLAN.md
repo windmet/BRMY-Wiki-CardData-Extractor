@@ -20,6 +20,8 @@
 - 可按 SubjectKey、CueName 或完整主体显示名单独导出一个主体。
 - 真实本地资源回归为 2099 行、100 个主体、99 个完整主体、7 个 ACB-only 主体。
 - 唯一缺失仍是 `vo_home_10_83` 的 CharacterId 19，未用空行掩盖。
+- 可选参考旧 ACB 目录只在当前不同 Cue 出现重复文本、旧包提供不同文本时修复；当前实际修复 1 条 `voice_ayato_2.acb / vo_home_6_79`。
+- 异常表已从按角色展开的 187 条审计标记收敛为 15 个待行动项：待主数据 7、源元数据 5、需核听 2、阻断 1。
 
 源码、CLI 和交互菜单已完成。本地 QA EXE 已完成真实输入验收；正式 GitHub Release 尚未发布。
 
@@ -27,12 +29,12 @@
 
 ```text
 路径: E:\Web_build\BRMY-Wiki-CardData-Extractor\bmc_toolkit.exe
-大小: 26,387,456 bytes
-SHA-256: A56ED09DE24DA77384AFD41334F882A79F184512CD3386545B55690DA2C4F945
+大小: 26,396,672 bytes
+SHA-256: DDDF5EEE8305E2854C778165F6216D413EE7F06A01DAFCECF0E06551642625FE
 环境: Python 3.14.4 / Nuitka 4.1.2
 ```
 
-Nuitka 4.1.2 对 Python 3.14 给出了实验支持警告，因此该文件用于本地 QA，不直接认定为正式 Release 构建。EXE 使用真实 ACB 和临时 masterdata 副本验收通过，输出仍为 2099 行、100 个主体、99 个完整主体、7 个 ACB-only 主体；四张工作表和单主体筛选均已实际打开核对。
+Nuitka 4.1.2 对 Python 3.14 给出了实验支持警告，因此该文件用于本地 QA，不直接认定为正式 Release 构建。EXE 使用真实 ACB、参考旧 ACB 和临时 masterdata 副本验收通过，输出仍为 2099 行、100 个主体、99 个完整主体、7 个 ACB-only 主体；四张工作表、参考修复和异常分级均已实际打开核对。
 
 ## 2. 本地资源盘点
 
@@ -292,7 +294,14 @@ vo_home_17_130
 1. `主体索引`: 主体键、类型、显示名、人数、缺失角色
 2. `Wiki长表`: 按主体、角色序号排序的可用文本
 3. `原始审计`: ACB、Cue、Masterdata 连接和原始标题
-4. `异常`: 缺失、重复文本、标题冲突和 ACB-only 记录
+4. `异常`: 只保留需要行动的缺失、重复文本、标题冲突和 ACB-only 主体
+
+跨年度包复用和逐角色 `masterdata_missing` 放在 `原始审计` 的信息标记列，不再膨胀异常表。当前异常级别为：
+
+- `阻断`: 本地 ACB 缺少角色 Cue。
+- `需核听`: 不同 Cue 的文本元数据重复，但音频流不同。
+- `源元数据`: 官方 ACB 标题与多数主体关系冲突。
+- `待主数据`: ACB 已有完整文本，当前 masterdata 尚无映射。
 
 ### Wiki 长表字段
 
@@ -351,5 +360,6 @@ CLI 示例：
 
 ```powershell
 python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json"
-python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" vo_home_13_126
+python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" --subject vo_home_13_126
+python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" --reference-acb "E:\path\to\old\Sound"
 ```
