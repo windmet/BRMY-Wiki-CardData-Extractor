@@ -11,6 +11,7 @@
 - 导出 Wiki 可直接继续加工的 XLSX/JSON
 - 解析独立的歌词、脚本和谱面 S2B 文件
 - 使用 ACB 元数据补充卡面语音字段
+- 从 21 人角色 ACB 包提取主页、季节和生日语音，按 Wiki 主体生成长表与审计表
 - 根据 masterdata 对 Spin/Snap 资源进行编号、角色、卡面、服装和活动归类
 
 ## Spin/Snap 边界
@@ -26,6 +27,9 @@ Wiki 的 Spin 相片终稿以游戏内实际截图为准。本工具不会把本
 ```powershell
 python -m pip install -e .
 python -m toolkit list
+python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json"
+# 可选第三参数：按 SubjectKey、CueName 或主体名另导出单个主体
+python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" vo_home_13_126
 ./scripts/verify.ps1
 ```
 

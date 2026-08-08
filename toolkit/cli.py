@@ -14,6 +14,8 @@
 [CRI 音频]
     run audio <Musics目录>                     ACB清单、语音文本与卡面语音索引
     run cards [Musics目录]                     提取卡表，并可选填入卡面日文语音
+    run home_voices <Musics目录> [master_data.json] [主体]
+                                              主页/季节/生日语音 Wiki 表
 
 [通用]
     list                                      列出所有可用域
@@ -48,6 +50,9 @@ def cmd_list():
     mod = DOMAINS.get('audio')
     doc = (mod.__doc__ or "").strip().split('\n')[0]
     print(f"    {'audio':15s} — {doc}")
+    mod = DOMAINS.get('home_voices')
+    doc = (mod.__doc__ or "").strip().split('\n')[0]
+    print(f"    {'home_voices':15s} — {doc}")
 
 
 def cmd_decrypt():
@@ -170,14 +175,24 @@ def cmd_export(domain_name):
         print(f"[!] {domain_name} 没有导出步骤")
 
 
-def cmd_run(domain_name, input_path=None):
+def cmd_run(domain_name, input_paths=None):
     mod = DOMAINS.get(domain_name)
     if not mod:
         print(f"[!] 未知域: {domain_name}")
         return
     if hasattr(mod, 'run'):
-        if input_path is not None:
-            mod.run(input_path)
+        input_paths = input_paths or []
+        if domain_name == 'home_voices':
+            if not input_paths:
+                print("[!] home_voices 需要 Musics 目录")
+                return
+            mod.run(
+                input_paths[0],
+                input_paths[1] if len(input_paths) >= 2 else None,
+                input_paths[2] if len(input_paths) >= 3 else None,
+            )
+        elif input_paths:
+            mod.run(input_paths[0])
         else:
             mod.run()
     else:
@@ -224,7 +239,7 @@ def main():
     elif cmd == 'export' and len(args) >= 2:
         cmd_export(args[1])
     elif cmd == 'run' and len(args) >= 2:
-        cmd_run(args[1], args[2] if len(args) >= 3 else None)
+        cmd_run(args[1], args[2:])
     else:
         print_usage()
 

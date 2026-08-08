@@ -19,9 +19,9 @@ except ImportError:
     input("按回车键退出...")
     sys.exit(1)
 
-MASTERDATA_DOMAINS = {'1', '2', '3', '4', '5', '6', '7', '11'}
+MASTERDATA_DOMAINS = {'1', '2', '3', '4', '5', '6', '7', '11', '13'}
 S2B_FILE_DOMAINS = {'8', '9', '10'}
-AUDIO_DOMAINS = {'12'}
+AUDIO_DOMAINS = {'12', '13'}
 
 DOMAIN_MAP = {
     '1': ('cards', '卡牌数据'),
@@ -36,6 +36,7 @@ DOMAIN_MAP = {
     '9': ('scripts', '脚本解析 (.s2bscript)'),
     '10': ('charts', 'OJT表解析 (.s2bchart)'),
     '12': ('audio', 'ACB音频/语音索引'),
+    '13': ('home_voices', '主页/季节/生日 ACB 语音表'),
 }
 
 
@@ -153,6 +154,7 @@ def show_menu():
     print()
     print("  --- CRI 音频资源（选择包含 ACB/AWB 的目录） ---")
     print("  [12] ACB音频清单、语音文本与卡面语音索引")
+    print("  [13] 主页/季节/生日 ACB 语音 Wiki 表（同时需要 masterdata）")
     print()
     print("  [Q] 退出")
     print("-" * 50)
@@ -293,18 +295,18 @@ def run():
                     return
 
         # 卡牌可选关联 ACB；独立音频域则必须选择音频目录。
-        if '12' in valid or '1' in valid or '2' in valid:
+        if '12' in valid or '13' in valid or '1' in valid or '2' in valid:
             print()
-            if '12' in valid:
+            if '12' in valid or '13' in valid:
                 print("[*] ACB 音频索引需要选择 Musics 目录...")
             else:
                 print("[*] 可选择 Musics 目录填充卡面日文语音；取消则保持语音列为空...")
-            audio_input = select_audio_directory(required='12' in valid)
+            audio_input = select_audio_directory(required='12' in valid or '13' in valid)
             if audio_input:
                 print(f"[*] 音频输入: {audio_input}")
-            elif '12' in valid:
+            elif '12' in valid or '13' in valid:
                 print("[!] 未选择音频目录，跳过 ACB 音频索引")
-                valid = [key for key in valid if key != '12']
+                valid = [key for key in valid if key not in {'12', '13'}]
 
         # Step 3: 执行
         from .domains import DOMAINS
@@ -340,7 +342,10 @@ def run():
             if key in AUDIO_DOMAINS:
                 try:
                     result_dir = mod.run(audio_input)
-                    if result_dir:
+                    if isinstance(result_dir, dict):
+                        for path in result_dir.values():
+                            output_dirs.add(os.path.dirname(os.path.abspath(path)))
+                    elif result_dir:
                         output_dirs.add(os.path.abspath(result_dir))
                     print(f"  [+] {desc} — 完成")
                 except Exception as e:
