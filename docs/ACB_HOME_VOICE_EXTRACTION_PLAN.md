@@ -16,12 +16,12 @@
 
 - `audio.py` 已在通用索引中保留 CueName、CueIndex、CueId 和匹配状态。
 - `home_voices.py` 已完成 21 人包识别、masterdata 连接、主体建模、完整度与异常检测。
-- 已生成 `主体索引`、`Wiki长表`、`原始审计`、`异常` 四层工作簿。
+- 默认 XLSX 只生成 `Wiki长表` 和 `完整度`，技术审计迁移到 JSON 与 Markdown。
 - 可按 SubjectKey、CueName 或完整主体显示名单独导出一个主体。
 - 真实本地资源回归为 2099 行、100 个主体、99 个完整主体、7 个 ACB-only 主体。
 - 唯一缺失仍是 `vo_home_10_83` 的 CharacterId 19，未用空行掩盖。
 - 可选参考旧 ACB 目录只在当前不同 Cue 出现重复文本、旧包提供不同文本时修复；当前实际修复 1 条 `voice_ayato_2.acb / vo_home_6_79`。
-- 异常表已从按角色展开的 187 条审计标记收敛为 15 个待行动项：待主数据 7、源元数据 5、需核听 2、阻断 1。
+- 内部审计已从按角色展开的 187 条标记收敛为 15 个待行动项：待主数据 7、源元数据 5、需核听 2、阻断 1。
 
 源码、CLI 和交互菜单已完成。本地 QA EXE 已完成真实输入验收；正式 GitHub Release 尚未发布。
 
@@ -29,12 +29,12 @@
 
 ```text
 路径: E:\Web_build\BRMY-Wiki-CardData-Extractor\bmc_toolkit.exe
-大小: 26,396,672 bytes
-SHA-256: DDDF5EEE8305E2854C778165F6216D413EE7F06A01DAFCECF0E06551642625FE
+大小: 26,403,328 bytes
+SHA-256: AD0DDBC9B952AE51710C55B24C441192185864B5F784F319EC64C180FAF1FDFA
 环境: Python 3.14.4 / Nuitka 4.1.2
 ```
 
-Nuitka 4.1.2 对 Python 3.14 给出了实验支持警告，因此该文件用于本地 QA，不直接认定为正式 Release 构建。EXE 使用真实 ACB、参考旧 ACB 和临时 masterdata 副本验收通过，输出仍为 2099 行、100 个主体、99 个完整主体、7 个 ACB-only 主体；四张工作表、参考修复和异常分级均已实际打开核对。
+Nuitka 4.1.2 对 Python 3.14 给出了实验支持警告，因此该文件用于本地 QA，不直接认定为正式 Release 构建。EXE 使用真实 ACB、参考旧 ACB 和临时 masterdata 副本验收通过，输出仍为 2099 行、100 个主体、99 个完整主体、7 个 ACB-only 主体；XLSX 仅含两张 Wiki 工作表且不存在 `<br>`。
 
 ## 2. 本地资源盘点
 
@@ -287,16 +287,21 @@ vo_home_17_130
 
 ## 8. 推荐输出
 
-### 完整工作簿
+### Wiki 工作簿
 
 `home_voice_catalog.xlsx`：
 
-1. `主体索引`: 主体键、类型、显示名、人数、缺失角色
-2. `Wiki长表`: 按主体、角色序号排序的可用文本
-3. `原始审计`: ACB、Cue、Masterdata 连接和原始标题
-4. `异常`: 只保留需要行动的缺失、重复文本、标题冲突和 ACB-only 主体
+1. `Wiki长表`: 按主体、角色序号排序的可用文本
+2. `完整度`: 每个主体应有/已有角色数、缺失角色和 Masterdata 状态
 
-跨年度包复用和逐角色 `masterdata_missing` 放在 `原始审计` 的信息标记列，不再膨胀异常表。当前异常级别为：
+XLSX 不再放主体键、CueIndex、原始标题、修复前文本等维护字段。日文台词中的 `<br>` 在写入 Excel 时转换成单元格内真实换行。
+
+### 内部审计
+
+- `json_output/Home_Voice_Catalog.json`: 保留全部 2099 行技术字段与原始证据。
+- `json_output/home_voice_audit.md`: 汇总完整度、参考旧包修复、待行动异常和非阻断信息。
+
+跨年度包复用和逐角色 `masterdata_missing` 放在内部审计，不再膨胀 Wiki 工作簿。当前异常级别为：
 
 - `阻断`: 本地 ACB 缺少角色 Cue。
 - `需核听`: 不同 Cue 的文本元数据重复，但音频流不同。
