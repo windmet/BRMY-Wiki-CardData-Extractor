@@ -4,6 +4,7 @@ from pathlib import Path
 
 from toolkit.core.tables import TableCatalog
 from toolkit.domains.home_voices import (
+    _anomaly_sheet,
     apply_reference_records,
     build_home_voice_catalog,
     export_home_voice_catalog,
@@ -81,6 +82,9 @@ class HomeVoiceCatalogTests(unittest.TestCase):
         self.assertEqual("acb_only", result["Records"][0]["MasterdataMatchStatus"])
         self.assertIn("masterdata_missing", result["Records"][0]["InfoFlags"])
         self.assertNotIn("masterdata_missing", result["Records"][0]["AuditFlags"])
+        anomaly_rows = _anomaly_sheet(result)["rows"]
+        self.assertEqual(1, sum(row[1] == "acb_only_subject" for row in anomaly_rows))
+        self.assertEqual(0, sum(row[1] == "masterdata_missing" for row in anomaly_rows))
 
     def test_non_birthday_key_target_does_not_trigger_package_year_warning(self):
         tables = catalog_with({

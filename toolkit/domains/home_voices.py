@@ -466,39 +466,46 @@ def _audit_sheet(records):
 
 
 def _anomaly_sheet(catalog):
-    headers = ["异常类型", "主体Key", "主体", "角色序号", "角色名", "CueName", "ACB文件", "详情"]
+    headers = ["级别", "异常类型", "主体Key", "主体", "角色序号", "角色名", "CueName", "ACB文件", "详情"]
     rows = []
     for subject in catalog["Subjects"]:
         if subject["MissingCharacterIds"]:
             rows.append([
-                "missing_speakers", subject["SubjectKey"], subject["SubjectDisplayName"],
+                "阻断", "missing_speakers", subject["SubjectKey"], subject["SubjectDisplayName"],
                 "", "", subject["CueName"], "",
                 "缺失角色序号: " + ",".join(map(str, subject["MissingCharacterIds"])),
             ])
         if subject["DuplicateSpeakerIds"]:
             rows.append([
-                "duplicate_speakers", subject["SubjectKey"], subject["SubjectDisplayName"],
+                "冲突", "duplicate_speakers", subject["SubjectKey"], subject["SubjectDisplayName"],
                 "", "", subject["CueName"], "",
                 "重复角色序号: " + ",".join(map(str, subject["DuplicateSpeakerIds"])),
             ])
         if subject["MasterdataStatus"] != "matched":
             rows.append([
-                "acb_only_subject", subject["SubjectKey"], subject["SubjectDisplayName"],
+                "待主数据", "acb_only_subject", subject["SubjectKey"], subject["SubjectDisplayName"],
                 "", "", subject["CueName"], "",
                 f"ACB 有 {subject['SpeakerCount']} 名角色文本，当前 masterdata 无映射",
             ])
     for record in catalog["Records"]:
         for flag in record["AuditFlags"]:
+            level = {
+                "title_conflict": "源元数据",
+                "duplicate_text_other_cue": "需核听",
+                "package_year_mismatch": "冲突",
+                "metadata_fallback": "需检查",
+                "unstable_read": "需重扫",
+            }.get(flag, "需检查")
             rows.append([
-                flag, record["SubjectKey"], record["SubjectDisplayName"],
+                level, flag, record["SubjectKey"], record["SubjectDisplayName"],
                 record["SpeakerCharacterId"], record["SpeakerCharacterName"],
                 record["CueName"], record["AcbFile"],
                 f"原始标题={record['TitleRaw']}; 多数标题={record['CanonicalTitle']}",
             ])
     return {
         "title": "异常", "headers": headers, "rows": rows,
-        "col_widths": {"A": 28, "B": 42, "C": 34, "E": 18, "F": 28, "G": 30, "H": 72},
-        "wrap_cols": [3, 8],
+        "col_widths": {"A": 12, "B": 28, "C": 42, "D": 34, "F": 18, "G": 28, "H": 30, "I": 72},
+        "wrap_cols": [4, 9],
     }
 
 
