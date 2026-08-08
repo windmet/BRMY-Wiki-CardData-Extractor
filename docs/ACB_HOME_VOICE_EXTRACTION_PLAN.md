@@ -10,6 +10,19 @@
 
 该功能独立于卡面语音表，也暂不处理 Spin/Snap 分类。
 
+## 当前实现状态（2026-08-08）
+
+该方案已在独立调试仓库中实现：
+
+- `audio.py` 已在通用索引中保留 CueName、CueIndex、CueId 和匹配状态。
+- `home_voices.py` 已完成 21 人包识别、masterdata 连接、主体建模、完整度与异常检测。
+- 已生成 `主体索引`、`Wiki长表`、`原始审计`、`异常` 四层工作簿。
+- 可按 SubjectKey、CueName 或完整主体显示名单独导出一个主体。
+- 真实本地资源回归为 2099 行、100 个主体、99 个完整主体、7 个 ACB-only 主体。
+- 唯一缺失仍是 `vo_home_10_83` 的 CharacterId 19，未用空行掩盖。
+
+源码与 CLI 已完成；独立仓库的发布 EXE 尚未构建和验收。
+
 ## 2. 本地资源盘点
 
 扫描目录：`1/Musics`。
@@ -61,7 +74,7 @@ CueNameTable.CueIndex
 - UserData 标题
 - UserData 日文文本
 
-现有 `_scan_all_text_metadata()` 在生成通用语音表时丢弃了 CueName、CueIndex 和 CueId，只保留文件、标题和文本。因此现有 `voice_texts.xlsx` 不足以可靠建立主体表。
+旧版 `_scan_all_text_metadata()` 在生成通用语音表时会丢弃 CueName、CueIndex 和 CueId。当前实现已经保留这些字段，`home_voices.py` 直接使用 Cue 关系建立主体表。
 
 ## 4. Masterdata 关系
 
@@ -202,7 +215,7 @@ CueName：`vo_home_user_29/73/113`。
 主体键示例：
 
 ```text
-birthday:user:year=3
+user_birthday:year=3
 ```
 
 ### 季节语音
@@ -212,8 +225,8 @@ birthday:user:year=3
 主体键必须包含 HomeVoiceNo，避免同一月份存在多代文本：
 
 ```text
-season:09-10:home_voice_no=71
-season:09-10:home_voice_no=111
+season:5:home_voice_no=71
+season:5:home_voice_no=111
 ```
 
 Wiki 显示名可以使用“秋季主页语音”，但原始月份范围和 HomeVoiceNo 必须保留在审计数据中。
@@ -250,7 +263,7 @@ vo_home_17_130
 
 建议状态：
 
-- `master_mapped`: ACB 与 Masterdata 均存在
+- `matched`: ACB 与 Masterdata 均存在
 - `acb_only`: ACB 有文本，当前 Masterdata 无关系
 - `master_only`: Masterdata 期望 Cue，但本地 ACB 缺失
 - `metadata_conflict`: 标题或文本发生明显冲突
@@ -294,7 +307,7 @@ vo_home_17_130
 
 选择后生成只包含该主体、按 CharacterId 1~21 排序的小表。全量导出仍使用长表，避免默认生成上百个工作表或文件。
 
-## 9. 实现模块建议
+## 9. 实现模块
 
 保留 `audio.py` 作为 CRI/ACB 底层扫描器，新增独立领域模块：
 
@@ -313,13 +326,19 @@ toolkit/domains/home_voices.py
 
 不把该逻辑放进 `cards.py`，卡面语音与主页语音是不同数据产品。
 
-## 10. 推荐实施顺序
+## 10. 实施记录
 
-1. 为 21 个 ACB 文件名建立显式 CharacterId 映射。
-2. 修改通用文本索引，保留 CueName/CueIndex/CueId。
-3. 新增 3~5 个脱敏 ACB/masterdata 连接测试。
-4. 实现长表记录和完整度报告。
-5. 用当前本地目录跑全量审计，确认 2099 行和已知异常。
-6. 实现 Wiki 长表与单主体导出。
-7. 最后接入 GUI 和 EXE 构建。
+1. [已完成] 为 21 个 ACB 文件名建立显式 CharacterId 映射。
+2. [已完成] 修改通用文本索引，保留 CueName/CueIndex/CueId。
+3. [已完成] 新增脱敏 ACB/masterdata 连接与导出测试。
+4. [已完成] 实现长表记录和完整度报告。
+5. [已完成] 用当前本地目录跑全量审计，确认 2099 行和已知异常。
+6. [已完成] 实现 Wiki 长表与单主体导出。
+7. [已完成] 接入 CLI 和交互菜单；[待完成] 构建并验收独立仓库 EXE。
 
+CLI 示例：
+
+```powershell
+python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json"
+python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" vo_home_13_126
+```

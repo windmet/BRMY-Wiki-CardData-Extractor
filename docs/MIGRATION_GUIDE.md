@@ -7,7 +7,7 @@
 ## 当前本地基线
 
 - 本地调试目录：`E:\Web_build\BRMY-Wiki-CardData-Extractor`
-- Masterdata 测试：15 项通过
+- 自动化测试：20 项通过
 - Python wheel：可构建
 - CLI：`python -m toolkit list` 可运行
 - 远端 GitHub：未修改
@@ -36,6 +36,7 @@
 - `card_relations.py`: 卡池、活动、兑换和角色关系。
 - `card_export.py`: Wiki 列和文本格式。
 - `audio.py`: ACB/Cue 元数据。
+- `home_voices.py`: 主页、季节、生日和限定语音的主体建模与 Wiki 导出。
 - 新增独立的 Spin/Snap 分类域，不引入 Unity 或渲染依赖。
 
 每次只移动一个职责，并保持所有回归测试通过。
