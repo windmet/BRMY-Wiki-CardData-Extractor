@@ -1,0 +1,136 @@
+{
+  "acquisition": {
+    "event_reward": {
+      "card_id": 426,
+      "raw": {
+        "CardRouteCode": 2,
+        "ReleaseDateTime": "2026-06-23T16:00:00+00:00"
+      },
+      "events": [
+        {
+          "EventId": 49,
+          "EventTitle": "Vignette",
+          "StartTime": "2026-06-22T16:00:00+00:00",
+          "EndTime": "2026-07-05T04:00:00+00:00",
+          "Roles": ["pickup_reward", "event_featured"]
+        }
+      ],
+      "gachas": [],
+      "exchanges": [],
+      "reward_groups": [5426],
+      "expected": {
+        "Method": "活动报酬",
+        "SourceName": "Vignette",
+        "Confidence": "high"
+      }
+    },
+    "exchange_reward": {
+      "card_id": 160,
+      "raw": {
+        "CardRouteCode": 2,
+        "ReleaseDateTime": "2025-01-01T12:00:00+00:00"
+      },
+      "events": [],
+      "gachas": [],
+      "exchanges": [
+        {
+          "ExchangeName": "交換所 [2025 Happy New Year!]",
+          "StartTime": "2025-01-01T12:00:00+00:00",
+          "EndTime": "2025-01-05T04:00:00+00:00"
+        }
+      ],
+      "reward_groups": [5160],
+      "expected": {
+        "Method": "活动报酬",
+        "SourceName": "2025 Happy New Year!"
+      }
+    },
+    "initial_permanent": {
+      "card_id": 1,
+      "raw": {
+        "CardRouteCode": 1,
+        "ReleaseDateTime": "2024-05-09T00:00:00+00:00"
+      },
+      "events": [],
+      "gachas": [
+        {
+          "GachaNames": ["Kosaka&Tateshina Megamix!"]
+        }
+      ],
+      "exchanges": [],
+      "reward_groups": [],
+      "expected": {
+        "Method": "常驻",
+        "SourceName": "",
+        "Confidence": "high"
+      }
+    }
+  },
+  "export": {
+    "cr_partner_voices": {
+      "card_id": "426",
+      "card": {
+        "Meta": {
+          "CharId": 1,
+          "CharName": "Primary",
+          "Rarity": "CR"
+        },
+        "Relations": {
+          "AdditionalCharacters": [
+            {
+              "CharacterId": 17,
+              "CharacterName": "Partner"
+            }
+          ]
+        },
+        "Acquisition": {},
+        "Voice": [
+          {
+            "CueName": "card_vo_home_4",
+            "TextHtml": "home<br>four"
+          },
+          {
+            "CueName": "card_vo_skill_1",
+            "TextHtml": "primary skill"
+          },
+          {
+            "CueName": "card_vo_skill_17",
+            "TextHtml": "partner skill"
+          }
+        ]
+      },
+      "expected": {
+        "character_names": "Primary,Partner",
+        "voice_home_4_j": "homefour",
+        "voice_skill_j": "primary skill",
+        "voice_partner_skill_j": "partner skill"
+      }
+    },
+    "standard_combi": {
+      "card_id": "403",
+      "card": {
+        "Meta": {
+          "CharId": 18,
+          "CharName": "Character"
+        },
+        "Relations": {},
+        "Acquisition": {},
+        "Voice": [
+          {
+            "CueName": "card_vo_skill",
+            "TextHtml": "skill"
+          },
+          {
+            "CueName": "card_vo_skill_combi",
+            "TextHtml": "combi"
+          }
+        ]
+      },
+      "expected": {
+        "voice_skill_j": "skill",
+        "voice_combi_j": "combi",
+        "voice_partner_skill_j": ""
+      }
+    }
+  }
+}
