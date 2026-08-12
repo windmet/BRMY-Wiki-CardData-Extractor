@@ -28,7 +28,7 @@
 本地 QA 构建：
 
 ```text
-路径: E:\Web_build\BRMY-Wiki-CardData-Extractor\bmc_toolkit.exe
+路径: <repository-root>\bmc_toolkit.exe
 大小: 26,403,328 bytes
 SHA-256: AD0DDBC9B952AE51710C55B24C441192185864B5F784F319EC64C180FAF1FDFA
 环境: Python 3.14.4 / Nuitka 4.1.2

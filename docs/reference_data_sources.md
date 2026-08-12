@@ -1,12 +1,3 @@
----
-name: data-sources
-description: "All known data sources — master_data tables, DevMaster, IL2CPP metadata, S3 bucket, story scripts, Live2D, audio"
-metadata: 
-  node_type: memory
-  type: reference
-  originSessionId: c2a73b49-ffac-41c0-a940-4b4d8a2f1d35
----
-
 # Data Sources Reference
 
 > 本文保留早期数据源调查过程。当前功能与主页语音的最终结论请同时参阅 [BMC 数据提取工具箱开发现状](DEVELOPMENT_STATUS.md)。

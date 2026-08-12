@@ -1,72 +1,38 @@
 # Masterdata 工具迁移指南
 
-## 目标
+## 文档定位
 
-把现有 GitHub 项目 `windmet/BRMY-Wiki-CardData-Extractor` 升级为独立的 Masterdata/Wiki 拉表工具。Spine 资源复刻和桌宠开发不迁入这个仓库。
+本文记录从散落脚本到独立 Masterdata/Wiki 工具箱的实现过程。GitHub 仓库升级、旧历史保留和回滚方案以 [`V2_MIGRATION.md`](V2_MIGRATION.md) 为准。
 
-## 当前本地基线
+Spine 资源复刻、游戏画面还原和桌宠开发不迁入本仓库。Masterdata 对 Spin/Snap 只负责字段归类、索引和统计；Wiki 最终图片仍以游戏内截图为准。
 
-- 本地调试目录：`E:\Web_build\BRMY-Wiki-CardData-Extractor`
-- 自动化测试：21 项通过
-- Python wheel：可构建
+## 当前基线
+
+- 自动化测试：21 项
 - CLI：`python -m toolkit list` 可运行
-- 远端 GitHub：未修改
+- Python 包：可安装并构建 wheel
+- 易用入口：本地可构建 `bmc_toolkit.exe`，但 EXE 不进入 Git 历史
+- 数据边界：不提交游戏原始数据、音频、图片和批量导出结果
 
-## 迁移顺序
+## 已完成的职责拆分
 
-### 1. 固定字段与输出契约
+- `toolkit/core`：解密、装载、表索引、导出和公共格式化
+- `toolkit/domains/cards.py`：卡面流程编排
+- `toolkit/domains/card_relations.py`：卡池、活动、兑换和角色关系
+- `toolkit/domains/card_export.py`：Wiki 列和文本格式
+- `toolkit/domains/audio.py`：ACB/Cue 元数据
+- `toolkit/domains/home_voices.py`：主页、季节、生日和限定语音主体建模与 Wiki 导出
+- 独立 S2B 解析：歌词、脚本和谱面不依赖 Masterdata 解密流程
 
-当前最高优先级是主页、季节、生日和期间限定 ACB 语音拉表。具体结构、连接键和输出方案见 [`ACB_HOME_VOICE_EXTRACTION_PLAN.md`](ACB_HOME_VOICE_EXTRACTION_PLAN.md)。Spin/Snap 分类表暂时后移。
+新增或调整职责时，每次只移动一个边界，并保持回归测试通过。技能匹配等已有多层规则应先补夹具，再修改实现。
 
-优先为下列行为补脱敏夹具：
+## 当前优先级
 
-- 常驻、活动、兑换和卡池获取方式。
-- CR 双角色和主/副技能语音。
-- `voice_431/432` 等源元数据异常。
-- 新活动机制出现新表或缺失旧表。
-- Wiki 列顺序、空值、换行和文件名后缀。
-- 主页语音 Cue、主体归类、21 人完整度和异常元数据。
-
-这一阶段不改技能匹配算法，只把现有正确行为锁定。
-
-### 2. 简化 Masterdata 流程
-
-- `core`: 解密、装载、表索引、导出。
-- `cards.py`: 卡面流程编排。
-- `card_relations.py`: 卡池、活动、兑换和角色关系。
-- `card_export.py`: Wiki 列和文本格式。
-- `audio.py`: ACB/Cue 元数据。
-- `home_voices.py`: 主页、季节、生日和限定语音的主体建模与 Wiki 导出。
-- 新增独立的 Spin/Snap 分类域，不引入 Unity 或渲染依赖。
-
-每次只移动一个职责，并保持所有回归测试通过。
-
-### 3. 完成发布构建
-
-- 固定 Python 3.12 和 Nuitka 版本。
-- 增加 `--version`。
-- 在 ASCII 临时目录构建 EXE。
-- 对 EXE 执行 `list` 和脱敏输入烟雾测试。
-- EXE 和 SHA-256 上传 GitHub Release，不提交到 Git 历史。
-
-### 4. 升级现有 GitHub 仓库
-
-推荐在新的发布工作区操作：
-
-```powershell
-cd E:\Web_build
-git clone https://github.com/windmet/BRMY-Wiki-CardData-Extractor.git BRMY-Wiki-CardData-Extractor-publish
-cd BRMY-Wiki-CardData-Extractor-publish
-git switch -c migration/masterdata-toolkit
-```
-
-随后：
-
-1. 为旧版本创建 `legacy/card-extractor-v1` 分支或标签。
-2. 将旧根脚本移动到 `legacy/original-card-extractor/`。
-3. 把本地调试副本覆盖到发布工作区，但不复制 `.git`、输入数据和输出产物。
-4. 运行 `./scripts/verify.ps1`。
-5. 通过普通分支和 PR 合并，不 force push。
+1. 稳定主页、季节、生日和期间限定 ACB 语音拉表。
+2. 为常驻/活动/兑换/卡池、CR 双角色与多技能语音补脱敏夹具。
+3. 处理 Cue 重复、源元数据异常和新活动机制中的缺表情况。
+4. 保持 Wiki XLSX 简洁，把索引、来源和异常详情放入 JSON/Markdown 审计输出。
+5. Spin/Snap 映射表延后到语音和卡面管线稳定之后。
 
 ## 日常验收
 
@@ -75,4 +41,6 @@ git switch -c migration/masterdata-toolkit
 git diff --check
 ```
 
-正式发布前还必须确认源码许可证、README 免责声明和 Release 内不包含游戏数据。
+正式 Release 还需要固定 Python/Nuitka 版本，在 ASCII 临时目录重建 EXE，并对 EXE 执行 `list` 与脱敏输入烟雾测试。EXE 和 SHA-256 应作为 GitHub Release 资产发布，不提交到源码历史。
+
+项目许可证仍需单独决定；迁移 PR 不代替许可证选择。

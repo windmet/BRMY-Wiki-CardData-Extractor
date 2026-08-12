@@ -1,12 +1,3 @@
----
-name: scripts-and-tools
-description: "Key scripts and tools locations — s2bscript_to_ass.py, char_colors.json, s2b parsers, external tools"
-metadata: 
-  node_type: memory
-  type: reference
-  originSessionId: c2a73b49-ffac-41c0-a940-4b4d8a2f1d35
----
-
 # Scripts & Tools Reference
 
 ## ASS Subtitle Converter

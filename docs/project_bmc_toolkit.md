@@ -1,12 +1,3 @@
----
-name: bmc-toolkit
-description: "Break My Case wiki data extraction toolkit — exe build, domain structure, data sources, story/ASS converter"
-metadata: 
-  node_type: memory
-  type: project
-  originSessionId: c2a73b49-ffac-41c0-a940-4b4d8a2f1d35
----
-
 # BMC Toolkit Project
 
 > 历史重构记录：本文中的目录、菜单和 EXE 状态停留在早期版本。当前状态请以 [BMC 数据提取工具箱开发现状](DEVELOPMENT_STATUS.md) 为准。
@@ -20,7 +11,7 @@ Additional data from S3 bucket: `https://coly-s2b-client-stg.s3.ap-northeast-1.a
 ## Key Directory Layout
 
 ```
-D:\Files\Downloads\Compressed\masterdata\
+<legacy-workspace>\masterdata\
   run.py                    # CLI entry (double-click = interactive, args = CLI)
   build.bat                 # Nuitka one-click build
   bmc_toolkit/              # Main package

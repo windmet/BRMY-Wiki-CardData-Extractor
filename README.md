@@ -49,10 +49,10 @@ python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.js
 
 ## 仓库迁移
 
-现有 GitHub 仓库的升级步骤见 [`docs/MIGRATION_GUIDE.md`](docs/MIGRATION_GUIDE.md)。当前本地目录是隔离调试副本，尚未连接或修改远端仓库。
+本仓库由 v1 单脚本卡牌工具迁移为 v2 Masterdata 工具箱。迁移边界、历史保留和审计步骤见 [`docs/V2_MIGRATION.md`](docs/V2_MIGRATION.md)，实现阶段记录见 [`docs/MIGRATION_GUIDE.md`](docs/MIGRATION_GUIDE.md)。旧版源码和 Release 通过 `v1.0.0` 标签及 `legacy/v1-main` 分支保留。
 
 当前优先开发的主页、季节和生日 ACB 语音拉表方案见 [`docs/ACB_HOME_VOICE_EXTRACTION_PLAN.md`](docs/ACB_HOME_VOICE_EXTRACTION_PLAN.md)。
 
 ## 数据与许可
 
-仓库只保存源码、文档和人工构造的脱敏测试夹具，不提交游戏数据、音频、图片或批量导出结果。项目自身开源许可证尚待确定。
+仓库只保存源码、文档和人工构造的脱敏测试夹具，不提交游戏数据、音频、图片或批量导出结果。项目自身许可证尚待确定；加入 `LICENSE` 文件前不声明特定开源许可证。
