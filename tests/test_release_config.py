@@ -41,6 +41,7 @@ class ReleaseConfigTests(unittest.TestCase):
         self.assertIn('$expectedPython = "3.12.9"', script)
         self.assertIn('$expectedNuitka = "4.1.2"', script)
         self.assertIn('python-version: "3.12.9"', workflow)
+        self.assertIn("github.event.pull_request.head.sha || github.sha", workflow)
 
 
 if __name__ == "__main__":
