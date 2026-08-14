@@ -1,32 +1,32 @@
 """生日台词数据提取 + 导出。"""
-from ..core.scanner import walk, load_json, save_json
+from ..core.scanner import load_json, save_json
 from ..core.exporter import write_xlsx, json_path, xlsx_path
 from ..core.data import clean_text
+from ..core.tables import TableCatalog
 
 INPUT_JSON = 'master_data.json'
 TARGET_CYCLE = 3
 
 
 def extract(session=None):
-    data = session.data if session else load_json(INPUT_JSON)
+    tables = session.tables if session else TableCatalog(load_json(INPUT_JSON))
     characters = {}
     raw_texts = {}
 
-    for obj in walk(data):
-        if 'CharacterId' in obj and 'CharacterNameJpn' in obj and 'BirthMonth' in obj:
-            cid = obj['CharacterId']
-            if 1 <= cid <= 21:
-                characters[cid] = {
-                    "Name": obj['CharacterNameJpn'],
-                    "Month": obj['BirthMonth'],
-                    "Day": obj['BirthDay'],
-                }
-        if 'CharacterBirthdayTextNo' in obj and 'Text' in obj and 'Year' in obj:
-            cid = obj.get('CharacterId')
-            year = obj.get('Year')
-            text_no = obj.get('CharacterBirthdayTextNo')
-            if cid and year and text_no:
-                raw_texts.setdefault(cid, {}).setdefault(year, {})[text_no] = obj['Text']
+    for obj in tables.require('mst_character'):
+        cid = obj['CharacterId']
+        if 1 <= cid <= 21:
+            characters[cid] = {
+                "Name": obj['CharacterNameJpn'],
+                "Month": obj['BirthMonth'],
+                "Day": obj['BirthDay'],
+            }
+    for obj in tables.require('mst_character_birthday_mini_game_text'):
+        cid = obj.get('CharacterId')
+        year = obj.get('Year')
+        text_no = obj.get('CharacterBirthdayTextNo')
+        if cid and year and text_no:
+            raw_texts.setdefault(cid, {}).setdefault(year, {})[text_no] = obj['Text']
 
     bday_texts = {}
     for cid, info in characters.items():

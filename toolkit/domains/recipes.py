@@ -1,52 +1,50 @@
 """酒保配方数据提取 + 导出。"""
-from ..core.scanner import walk, load_json, save_json
+from ..core.scanner import load_json, save_json
 from ..core.exporter import write_xlsx, json_path, xlsx_path
 from ..core.data import clean_text
+from ..core.tables import TableCatalog
 
 INPUT_JSON = 'master_data.json'
 
 
 def extract(session=None):
-    data = session.data if session else load_json(INPUT_JSON)
+    tables = session.tables if session else TableCatalog(load_json(INPUT_JSON))
     character_map = {}
     event_map = {}
     ingredients = {}
     recipes = {}
     shift_menus = {}
 
-    for obj in walk(data):
-        if 'CharacterId' in obj and 'CharacterNameJpn' in obj:
-            character_map[obj['CharacterId']] = obj['CharacterNameJpn']
-        if 'EventId' in obj and 'EventTitle' in obj:
-            event_map[obj['EventId']] = obj['EventTitle']
-        if 'IngredientId' in obj and 'IngredientName' in obj:
-            iid = obj['IngredientId']
-            ingredients[iid] = {
-                "Id": iid, "Name": obj.get('IngredientName', ''),
-                "Desc": obj.get('IngredientDescription', ''),
-                "Icon": obj.get('IngredientFileName', ''),
-            }
-        if 'ShiftId' in obj and 'MenuSequenceNo' in obj and 'RecipeId' in obj:
-            sid = obj['ShiftId']
-            shift_menus.setdefault(sid, []).append({
-                "MenuSequenceNo": obj['MenuSequenceNo'],
-                "RecipeId": obj['RecipeId'],
-            })
-
-    for obj in walk(data):
-        if 'RecipeId' in obj and 'RecipeName' in obj and 'IngredientIds' in obj:
-            rid = obj['RecipeId']
-            recipes[rid] = {
-                "RecipeId": rid, "RecipeName": obj.get('RecipeName', ''),
-                "RecipeMemo": obj.get('RecipeMemo', ''),
-                "EventId": obj.get('EventId', 0),
-                "RecommendCharacterId": obj.get('RecommendCharacterId', 0),
-                "Price": obj.get('Price', 0),
-                "RequiredSecond": obj.get('RequiredSecond', 0),
-                "RecipeDifficulty": obj.get('RecipeDifficulty', 1),
-                "IngredientIds": obj.get('IngredientIds', []),
-                "RecipeFileName": obj.get('RecipeFileName', ''),
-            }
+    for obj in tables.require('mst_character') + tables.rows('mst_character_collaboration'):
+        character_map[obj['CharacterId']] = obj['CharacterNameJpn']
+    for obj in tables.require('mst_event'):
+        event_map[obj['EventId']] = obj['EventTitle']
+    for obj in tables.require('mst_event_ingredient'):
+        iid = obj['IngredientId']
+        ingredients[iid] = {
+            "Id": iid, "Name": obj.get('IngredientName', ''),
+            "Desc": obj.get('IngredientDescription', ''),
+            "Icon": obj.get('IngredientFileName', ''),
+        }
+    for obj in tables.require('mst_event_menu'):
+        sid = obj['ShiftId']
+        shift_menus.setdefault(sid, []).append({
+            "MenuSequenceNo": obj['MenuSequenceNo'],
+            "RecipeId": obj['RecipeId'],
+        })
+    for obj in tables.require('mst_event_recipe'):
+        rid = obj['RecipeId']
+        recipes[rid] = {
+            "RecipeId": rid, "RecipeName": obj.get('RecipeName', ''),
+            "RecipeMemo": obj.get('RecipeMemo', ''),
+            "EventId": obj.get('EventId', 0),
+            "RecommendCharacterId": obj.get('RecommendCharacterId', 0),
+            "Price": obj.get('Price', 0),
+            "RequiredSecond": obj.get('RequiredSecond', 0),
+            "RecipeDifficulty": obj.get('RecipeDifficulty', 1),
+            "IngredientIds": obj.get('IngredientIds', []),
+            "RecipeFileName": obj.get('RecipeFileName', ''),
+        }
 
     out = json_path('bar_extract.json')
     save_json({

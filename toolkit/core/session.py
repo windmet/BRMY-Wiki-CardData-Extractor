@@ -43,6 +43,25 @@ REQUIRED_SCHEMA = {
     "mst_mission_sequence": {
         "MissionId", "MissionSequenceNo", "Border", "IsHidden", "IsActive"
     },
+    "mst_spin_sticky_note": {"StickyNoteId", "CharacterId", "Comment", "IsActive"},
+    "mst_spin_snapshot": {
+        "SnapshotId", "SnapshotCharacterIds", "SpinSetId", "Comment", "IsActive"
+    },
+    "mst_spin_set": {"SpinSetId", "SpinMotionIds", "IsActive"},
+    "mst_spin_motion": {"SpinMotionId", "SpinCharacterMotionIds", "IsActive"},
+    "mst_spin_character_motion": {
+        "SpinCharacterMotionId", "SpinCharacterMotionFileName", "IsActive"
+    },
+    "mst_character_birthday_mini_game_text": {
+        "CharacterId", "CharacterBirthdayTextNo", "Text", "Year", "IsActive"
+    },
+    "mst_event_ingredient": {
+        "IngredientId", "IngredientName", "IngredientDescription", "IngredientFileName", "IsActive"
+    },
+    "mst_event_menu": {"ShiftId", "MenuSequenceNo", "RecipeId", "IsActive"},
+    "mst_event_recipe": {
+        "RecipeId", "RecipeName", "IngredientIds", "EventId", "IsActive"
+    },
 }
 
 

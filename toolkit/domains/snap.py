@@ -1,16 +1,17 @@
 """Snap 拍立得数据提取 + 导出。"""
 from collections import defaultdict
 
-from ..core.scanner import walk, load_json, save_json
+from ..core.scanner import load_json, save_json
 from ..core.exporter import write_xlsx, json_path, xlsx_path
 from ..core.data import CHAR_MAP, NAME_MAP, translate_scene
+from ..core.tables import TableCatalog
 
 INPUT_JSON = 'master_data.json'
 
 
 def extract(session=None):
     """从 master_data.json 提取 Snap 数据 → json_output/intermediate_snaps.json"""
-    data = session.data if session else load_json(INPUT_JSON)
+    tables = session.tables if session else TableCatalog(load_json(INPUT_JSON))
 
     sticky_notes = {}
     raw_snapshots = []
@@ -18,23 +19,21 @@ def extract(session=None):
     map_motion = {}
     map_char_motion = {}
 
-    for obj in walk(data):
-        if 'StickyNoteId' in obj and 'SnapshotId' not in obj:
-            s_id = obj.get('StickyNoteId')
-            c_id = obj.get('CharacterId', 0)
-            sticky_notes[s_id] = {
-                'text': obj.get('Comment', ''),
-                'char_id': c_id,
-                'char_name': CHAR_MAP.get(c_id, f"未知({c_id})"),
-            }
-        elif 'SnapshotId' in obj and 'Comment' in obj:
-            raw_snapshots.append(obj)
-        elif 'SpinSetId' in obj and 'SpinMotionIds' in obj:
-            map_spin_set[obj['SpinSetId']] = obj.get('SpinMotionIds', [])
-        elif 'SpinMotionId' in obj and 'SpinCharacterMotionIds' in obj:
-            map_motion[obj['SpinMotionId']] = obj.get('SpinCharacterMotionIds', [])
-        elif 'SpinCharacterMotionId' in obj and 'SpinCharacterMotionFileName' in obj:
-            map_char_motion[obj['SpinCharacterMotionId']] = obj.get('SpinCharacterMotionFileName', '')
+    for obj in tables.require('mst_spin_sticky_note'):
+        s_id = obj.get('StickyNoteId')
+        c_id = obj.get('CharacterId', 0)
+        sticky_notes[s_id] = {
+            'text': obj.get('Comment', ''),
+            'char_id': c_id,
+            'char_name': CHAR_MAP.get(c_id, f"未知({c_id})"),
+        }
+    raw_snapshots.extend(tables.require('mst_spin_snapshot'))
+    for obj in tables.require('mst_spin_set'):
+        map_spin_set[obj['SpinSetId']] = obj.get('SpinMotionIds', [])
+    for obj in tables.require('mst_spin_motion'):
+        map_motion[obj['SpinMotionId']] = obj.get('SpinCharacterMotionIds', [])
+    for obj in tables.require('mst_spin_character_motion'):
+        map_char_motion[obj['SpinCharacterMotionId']] = obj.get('SpinCharacterMotionFileName', '')
 
     rarity_map = {1: "N", 2: "R", 3: "SR"}
     processed = []

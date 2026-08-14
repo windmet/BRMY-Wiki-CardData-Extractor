@@ -68,7 +68,7 @@ masterdata/
 
 - `data[0]` 是 244 张表的索引字典，结构为 `表名 -> [偏移, 长度]`。
 - `data[1:]` 是与索引顺序对应的表数据列表。
-- `cards.py`、`music.py`、`items.py` 和 `missions.py` 已使用 `TableCatalog` 按表名读取；`events.py` 仍使用自有具名表目录辅助函数，snap/birthday/recipes 仍保留早期特征字段扫描。
+- `cards.py`、`music.py`、`items.py`、`missions.py`、`snap.py`、`birthday.py` 和 `recipes.py` 已使用 `TableCatalog` 按表名读取；`events.py` 仍使用自有具名表目录辅助函数。
 
 解密链：
 
@@ -464,11 +464,11 @@ Nuitka/SCons 在当前中文路径下曾因 GBK/路径编码失败。已验证�
 3. **构建脚本不完全适配中文路径**：建议让 `build.bat` 自动复制到 ASCII 临时目录构建。
 4. **源码与旧 notes 有差异**：旧文档仍写“主页语音文本未找到”和旧菜单编号，应以本文为准，后续逐步修订旧文档。
 5. **masterdata 解密存在两套实现**：`interactive.py` 与 `cli.py` 重复，应收敛到一个 core 模块，避免修复只落一处。
-6. **domain 识表方式不统一**：`cards`、`events` 使用表名，其他早期模块使用字段特征扫描。
+6. **events 尚未统一到公共具名表 API**：其余 masterdata domain 已使用 `TableCatalog`，`events.py` 仍保留自有 `_tables/_group/_by_id`。
 7. **输出目录依赖 `os.chdir()`**：交互流程可用，但共享模块的路径语义不够明确，未来适合改为显式传递工作目录。
 8. **部分奖励对象尚未映射名称**：奖励枚举已按 `dump.cs` 修正，但主页背景、服装、音乐等类型仍需各自目标表补全名称。
 9. **技能文本包含经验规则**：部分百分比替换和获取方式属于推断，Wiki 使用时应保留原始字段以便复核。
-10. **自动化测试仍集中于卡牌链路**：当前 14 项覆盖具名表、获取方式、奖励枚举、CR 导出和 ACB 回退；其他 domain 仍以样本烟雾测试为主。
+10. **自动化测试仍需继续扩展**：当前 40 项已覆盖解码缓存、schema/session、具名表撞名、卡牌关系、活动奖励和 ACB 关联；各 domain 的新机制与更新差分仍需持续增加夹具。
 
 ## 13. 推荐后续顺序
 
