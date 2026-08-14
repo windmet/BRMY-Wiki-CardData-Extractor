@@ -29,7 +29,7 @@
 
 | 审计项 | 当前结论 | 后续边界 |
 | --- | --- | --- |
-| 多数域仍靠字段特征识别 | 大部分处理 | music/items/missions/snap/birthday/recipes 已迁入 `TableCatalog` 并用字段撞名 decoy 测试；events 仍需删除自有 `_tables/_group/_by_id`。 |
+| 多数域仍靠字段特征识别 | 已处理 | 所有 masterdata domain 已迁入 `TableCatalog`；字段撞名 decoy 和缺少活动可选扩展表均有测试。 |
 | `all` 重复加载 JSON | 已处理 | CLI/交互全选共享一个只读 `MasterDataSession`；真实全域运行以守卫确认 masterdata 只加载一次。 |
 | 缺少 schema 漂移检测 | 已处理 | 已增加表/字段/类型/行数快照、稳定 schema fingerprint、关键字段阻断和本地前次成功基线比较。 |
 | birthday 写死 cycle/年份 | 成立 | 从数据推导最新周期，并提供显式覆盖参数；先保留旧快照契约测试。 |
@@ -40,4 +40,4 @@
 
 ## 下一批建议
 
-本批后续已完成 schema fingerprint、运行清单与只读 `MasterDataSession`：真实 433 卡全选只加载一次 JSON，连续两次运行分别为基线初始化告警和 PASS，原有 Wiki 输出语义不变。music/items/missions/snap/birthday/recipes 均已完成具名表迁移；40 项测试通过，固定快照的 6 个 JSON 对象与 8 个 XLSX 全部等值。配方回归曾准确发现并保留 `mst_character_collaboration` 的 6 名联动角色，证明中间层完整度也在比较范围内。下一批应统一 events 公共 API；Update/Diff Mode 和 GUI 属于后续独立产品批次。
+本批后续已完成 schema fingerprint、运行清单与只读 `MasterDataSession`：真实 433 卡全选只加载一次 JSON，连续两次运行分别为基线初始化告警和 PASS，原有 Wiki 输出语义不变。所有 masterdata domain 均已完成具名表迁移；41 项测试通过，固定快照的 6 个 JSON 对象与 8 个 XLSX 全部等值。配方回归曾准确发现并保留 `mst_character_collaboration` 的 6 名联动角色，证明中间层完整度也在比较范围内。Update/Diff Mode、GUI 和新版活动机制建模属于后续独立产品批次。

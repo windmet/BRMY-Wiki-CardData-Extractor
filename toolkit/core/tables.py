@@ -39,16 +39,24 @@ class TableCatalog:
             raise KeyError(f"required masterdata table is missing: {name}")
         return self.rows(name, active_only=active_only)
 
-    def by_id(self, name, key, *, active_only=True):
+    def by_id(self, name, key, *, active_only=True, required=True):
+        rows = (
+            self.require(name, active_only=active_only)
+            if required else self.rows(name, active_only=active_only)
+        )
         return {
             row[key]: row
-            for row in self.require(name, active_only=active_only)
+            for row in rows
             if isinstance(row, dict) and key in row
         }
 
-    def group_by(self, name, key, *, active_only=True):
+    def group_by(self, name, key, *, active_only=True, required=True):
         grouped = defaultdict(list)
-        for row in self.require(name, active_only=active_only):
+        rows = (
+            self.require(name, active_only=active_only)
+            if required else self.rows(name, active_only=active_only)
+        )
+        for row in rows:
             if isinstance(row, dict) and key in row:
                 grouped[row[key]].append(row)
         return dict(grouped)

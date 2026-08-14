@@ -22,6 +22,8 @@ class TableCatalogTests(unittest.TestCase):
         self.assertEqual([], catalog.rows("mst_missing"))
         with self.assertRaisesRegex(KeyError, "mst_missing"):
             catalog.require("mst_missing")
+        self.assertEqual({}, catalog.by_id("mst_missing", "Id", required=False))
+        self.assertEqual({}, catalog.group_by("mst_missing", "Id", required=False))
 
     def test_rejects_truncated_payload(self):
         with self.assertRaisesRegex(ValueError, "declares 2 tables"):

@@ -1,9 +1,8 @@
 """Event archive extraction and export."""
-from collections import defaultdict
-
 from ..core.scanner import load_json, save_json
 from ..core.exporter import json_path, xlsx_path
 from ..core.data import clean_text
+from ..core.tables import TableCatalog
 
 INPUT_JSON = 'master_data.json'
 
@@ -42,28 +41,6 @@ REWARD_TYPE_MAP = {
     101: {"Key": "ingredient", "Label": "活动材料"},
     102: {"Key": "travel_coin", "Label": "旅行币"},
 }
-
-
-def _tables(data):
-    if not isinstance(data, list) or not data or not isinstance(data[0], dict):
-        return {}
-    names = list(data[0].keys())
-    return {name: data[i + 1] for i, name in enumerate(names) if i + 1 < len(data)}
-
-
-def _active(rows):
-    return [row for row in rows if isinstance(row, dict) and row.get("IsActive", True)]
-
-
-def _group(rows, key):
-    grouped = defaultdict(list)
-    for row in _active(rows):
-        grouped[row.get(key)].append(row)
-    return grouped
-
-
-def _by_id(rows, key):
-    return {row.get(key): row for row in _active(rows) if key in row}
 
 
 def _names(ids, mapping):
@@ -123,36 +100,42 @@ def _present_rewards(present_id, present_by_id, maps):
 
 
 def extract(session=None):
-    data = session.data if session else load_json(INPUT_JSON)
-    tables = _tables(data)
+    tables = session.tables if session else TableCatalog(load_json(INPUT_JSON))
 
-    events = _active(tables.get("mst_event", []))
-    event_a = _by_id(tables.get("mst_event_a", []), "EventId")
-    event_b = _by_id(tables.get("mst_event_b", []), "EventId")
-    event_c = _by_id(tables.get("mst_event_c", []), "EventId")
-    event_acc = _by_id(tables.get("mst_event_accumulate_item", []), "EventId")
-    event_story = _by_id(tables.get("mst_event_story", []), "EventId")
-    stories = _group(tables.get("mst_event_story_section", []), "EventId")
-    rules = _group(tables.get("mst_event_rule_window", []), "EventId")
-    shifts = _group(tables.get("mst_event_shift", []), "EventId")
-    ojt_shifts = _group(tables.get("mst_event_ojt_shift", []), "EventId")
-    special_by_shift = _group(tables.get("mst_event_special_time", []), "ShiftId")
-    recipes = _group(tables.get("mst_event_recipe", []), "EventId")
-    accumulate_rewards = _group(tables.get("mst_event_accumulate_item_reward", []), "EventId")
-    sales_rewards = _group(tables.get("mst_event_sales_reward", []), "EventId")
-    ranking_rewards = _group(tables.get("mst_event_ranking_reward", []), "EventId")
-    ingredient_stages = _group(tables.get("mst_event_puzzle_stage_ingredient", []), "EventId")
-    direct_by_group = _group(tables.get("mst_direct_reward", []), "DirectRewardGroupId")
-    present_by_id = _group(tables.get("mst_present", []), "PresentId")
+    events = tables.require("mst_event", active_only=True)
 
-    characters = _by_id(tables.get("mst_character", []), "CharacterId")
-    cards = _by_id(tables.get("mst_character_card", []), "CharacterCardId")
-    items = _by_id(tables.get("mst_item", []), "ItemId")
-    ingredients = _by_id(tables.get("mst_event_ingredient", []), "IngredientId")
-    titles = _by_id(tables.get("mst_title", []), "TitleId")
-    pins = _by_id(tables.get("mst_pin", []), "PinId")
-    honors = _by_id(tables.get("mst_honor", []), "HonorId")
-    home_voice_products = _by_id(tables.get("mst_home_voice_product", []), "HomeVoiceProductId")
+    def optional_by_id(name, key):
+        return tables.by_id(name, key, required=False)
+
+    def optional_group(name, key):
+        return tables.group_by(name, key, required=False)
+
+    event_a = optional_by_id("mst_event_a", "EventId")
+    event_b = optional_by_id("mst_event_b", "EventId")
+    event_c = optional_by_id("mst_event_c", "EventId")
+    event_acc = optional_by_id("mst_event_accumulate_item", "EventId")
+    event_story = optional_by_id("mst_event_story", "EventId")
+    stories = optional_group("mst_event_story_section", "EventId")
+    rules = optional_group("mst_event_rule_window", "EventId")
+    shifts = optional_group("mst_event_shift", "EventId")
+    ojt_shifts = optional_group("mst_event_ojt_shift", "EventId")
+    special_by_shift = optional_group("mst_event_special_time", "ShiftId")
+    recipes = optional_group("mst_event_recipe", "EventId")
+    accumulate_rewards = optional_group("mst_event_accumulate_item_reward", "EventId")
+    sales_rewards = optional_group("mst_event_sales_reward", "EventId")
+    ranking_rewards = optional_group("mst_event_ranking_reward", "EventId")
+    ingredient_stages = optional_group("mst_event_puzzle_stage_ingredient", "EventId")
+    direct_by_group = optional_group("mst_direct_reward", "DirectRewardGroupId")
+    present_by_id = optional_group("mst_present", "PresentId")
+
+    characters = optional_by_id("mst_character", "CharacterId")
+    cards = optional_by_id("mst_character_card", "CharacterCardId")
+    items = optional_by_id("mst_item", "ItemId")
+    ingredients = optional_by_id("mst_event_ingredient", "IngredientId")
+    titles = optional_by_id("mst_title", "TitleId")
+    pins = optional_by_id("mst_pin", "PinId")
+    honors = optional_by_id("mst_honor", "HonorId")
+    home_voice_products = optional_by_id("mst_home_voice_product", "HomeVoiceProductId")
 
     character_map = {k: v.get("CharacterNameJpn", "") for k, v in characters.items()}
     card_map = {k: _card_summary(v, character_map) for k, v in cards.items()}

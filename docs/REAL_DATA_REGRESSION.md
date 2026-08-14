@@ -28,6 +28,7 @@ python scripts/compare_exports.py <accepted-output-root> <candidate-output-root>
 - 当前四类技能表中不存在非连续 `SkillValue` 行
 - 全域改前/改后：6 个 JSON 对象完全相等，8 个 XLSX 全部单元格相等
 - music/items/missions/snap/birthday/recipes 迁移到具名表后再次全域验证，结果仍为 6 个 JSON 对象与 8 个 XLSX 全部等值
+- events 统一到 `TableCatalog` 后第三次全域验证，活动 JSON 与多工作表 XLSX 仍完全等值
 - cards + ACB：455 个包、1907 条非空语音文本；与已接受的 433 卡 JSON/XLSX 完全相等
 - MasterDataSession 全选只加载一次 `master_data.json`；首次 schema 基线为 `PASS_WITH_WARNINGS`，第二次固定输入为 `PASS`
 
