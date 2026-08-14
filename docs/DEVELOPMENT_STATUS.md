@@ -68,7 +68,7 @@ masterdata/
 
 - `data[0]` 是 244 张表的索引字典，结构为 `表名 -> [偏移, 长度]`。
 - `data[1:]` 是与索引顺序对应的表数据列表。
-- `cards.py` 和 `events.py` 已使用 `TableCatalog` 按表名读取；其他早期 domain 仍通过特征字段扫描。
+- `cards.py`、`music.py`、`items.py` 和 `missions.py` 已使用 `TableCatalog` 按表名读取；`events.py` 仍使用自有具名表目录辅助函数，snap/birthday/recipes 仍保留早期特征字段扫描。
 
 解密链：
 

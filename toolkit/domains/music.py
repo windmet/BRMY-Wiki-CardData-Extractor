@@ -1,9 +1,10 @@
 """音乐数据提取 + 导出。"""
 import os
 
-from ..core.scanner import walk, load_json, save_json
+from ..core.scanner import load_json, save_json
 from ..core.exporter import write_xlsx, json_path, xlsx_path
 from ..core.data import format_duration
+from ..core.tables import TableCatalog
 
 try:
     from mutagen.mp3 import MP3
@@ -14,27 +15,26 @@ except ImportError:
 
 INPUT_JSON = 'master_data.json'
 def extract(audio_dir=None, session=None):
-    data = session.data if session else load_json(INPUT_JSON)
+    tables = session.tables if session else TableCatalog(load_json(INPUT_JSON))
     music_db = {}
 
-    for obj in walk(data):
-        if 'MusicId' in obj and 'DisplayName' in obj:
-            mid = obj['MusicId']
-            audio_raw = obj.get('AudioFileName', '')
-            audio_file = f"{audio_raw}.mp3" if audio_raw else ''
-            jacket_raw = obj.get('JacketFileName', '')
-            jacket_file = f"{jacket_raw}.png" if jacket_raw else ''
-            artist = obj.get('ArtistNameInformal', '') or obj.get('ArtistName', '')
+    for obj in tables.require('mst_music'):
+        mid = obj['MusicId']
+        audio_raw = obj.get('AudioFileName', '')
+        audio_file = f"{audio_raw}.mp3" if audio_raw else ''
+        jacket_raw = obj.get('JacketFileName', '')
+        jacket_file = f"{jacket_raw}.png" if jacket_raw else ''
+        artist = obj.get('ArtistNameInformal', '') or obj.get('ArtistName', '')
 
-            music_db[mid] = {
-                "MusicId": mid,
-                "DisplayName": obj.get('DisplayName', ''),
-                "ArtistName": artist,
-                "AudioFileName": audio_file,
-                "JacketFileName": jacket_file,
-                "DurationStr": "",
-                "_raw_duration_sec": obj.get('Duration', obj.get('PlayTime', 0)),
-            }
+        music_db[mid] = {
+            "MusicId": mid,
+            "DisplayName": obj.get('DisplayName', ''),
+            "ArtistName": artist,
+            "AudioFileName": audio_file,
+            "JacketFileName": jacket_file,
+            "DurationStr": "",
+            "_raw_duration_sec": obj.get('Duration', obj.get('PlayTime', 0)),
+        }
 
     if audio_dir and os.path.exists(audio_dir) and HAS_MUTAGEN:
         print(f"[*] 扫描本地音频目录: {audio_dir}")

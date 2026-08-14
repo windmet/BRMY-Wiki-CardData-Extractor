@@ -1,31 +1,15 @@
 """隐藏任务提取 + 导出 XLSX。"""
 from ..core.scanner import load_json
 from ..core.exporter import write_xlsx, xlsx_path
+from ..core.tables import TableCatalog
 
 INPUT_JSON = 'master_data.json'
 
 
 def run(session=None):
-    data = session.data if session else load_json(INPUT_JSON)
-
-    mission_master = []
-    sequence_rewards = []
-
-    if isinstance(data, list):
-        for sub_list in data:
-            if not isinstance(sub_list, list) or len(sub_list) == 0:
-                continue
-            first_item = sub_list[0]
-            if not isinstance(first_item, dict):
-                continue
-            if "MissionId" in first_item and "Description" in first_item:
-                mission_master = sub_list
-            elif "MissionId" in first_item and "IsHidden" in first_item:
-                sequence_rewards = sub_list
-
-    if not mission_master or not sequence_rewards:
-        print("[!] 未能定位到任务表，跳过隐藏任务提取")
-        return
+    tables = session.tables if session else TableCatalog(load_json(INPUT_JSON))
+    mission_master = tables.require("mst_mission")
+    sequence_rewards = tables.require("mst_mission_sequence")
 
     mission_map = {m["MissionId"]: m for m in mission_master}
     results = []

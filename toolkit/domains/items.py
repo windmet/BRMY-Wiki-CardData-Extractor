@@ -3,6 +3,7 @@ from collections import Counter
 
 from ..core.scanner import load_json
 from ..core.exporter import write_xlsx, xlsx_path
+from ..core.tables import TableCatalog
 
 INPUT_JSON = 'master_data.json'
 
@@ -32,18 +33,8 @@ def _clean(text):
 
 
 def run(session=None):
-    data = session.data if session else load_json(INPUT_JSON)
-
-    items = []
-    for sub in data:
-        if isinstance(sub, list) and sub and isinstance(sub[0], dict):
-            if "ItemId" in sub[0] and "ItemTypeCode" in sub[0]:
-                items = sub
-                break
-
-    if not items:
-        print("[!] 未找到道具数据")
-        return
+    tables = session.tables if session else TableCatalog(load_json(INPUT_JSON))
+    items = tables.require("mst_item")
 
     headers = [
         "道具ID", "道具名", "类型", "稀有度",
