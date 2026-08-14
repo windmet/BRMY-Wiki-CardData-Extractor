@@ -14,6 +14,8 @@
 [CRI 音频]
     run audio <Musics目录>                     ACB清单、语音文本与卡面语音索引
     run cards [Musics目录]                     提取卡表，并可选填入卡面日文语音
+    run birthday [--year 周期起始年] [--cycle 周期号]
+                                              自动选择最新生日周期，或显式覆盖
     run home_voices <Musics目录> [master_data.json] [--subject 主体]
                     [--reference-acb 旧ACB目录]
                                               主页/季节/生日语音 Wiki 表
@@ -160,6 +162,43 @@ def cmd_run(domain_name, input_paths=None):
                 options.get("--subject") or (positional[2] if len(positional) >= 3 else None),
                 options.get("--reference-acb"),
             )
+        elif domain_name == 'birthday':
+            options = {}
+            index = 0
+            while index < len(input_paths):
+                value = input_paths[index]
+                if value not in {"--year", "--cycle"}:
+                    print(f"[!] birthday 未知参数: {value}")
+                    return False
+                if index + 1 >= len(input_paths):
+                    print(f"[!] {value} 缺少参数")
+                    return False
+                try:
+                    options[value] = int(input_paths[index + 1])
+                except ValueError:
+                    print(f"[!] {value} 必须是整数: {input_paths[index + 1]}")
+                    return False
+                index += 2
+            try:
+                mod.run(
+                    session=session,
+                    target_year=options.get("--year"),
+                    target_cycle=options.get("--cycle"),
+                )
+            except ValueError as error:
+                print(f"[!] birthday 参数错误: {error}")
+                if session:
+                    session.write_audit(
+                        [{
+                            "name": domain_name,
+                            "status": "FAIL",
+                            "duration_seconds": round(time.perf_counter() - started, 3),
+                            "error": str(error),
+                        }],
+                        started_at=started_at,
+                        success=False,
+                    )
+                return False
         elif input_paths:
             if session:
                 mod.run(input_paths[0], session=session)

@@ -27,6 +27,9 @@ Wiki 的 Spin 相片终稿以游戏内实际截图为准。本工具不会把本
 ```powershell
 python -m pip install -e .
 python -m toolkit list
+python -m toolkit run birthday                 # 自动选择最新生日轮次
+python -m toolkit run birthday --cycle 1       # 第一轮；也支持 2/3
+python -m toolkit run birthday --year 2026     # 按轮次起始年覆盖
 python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json"
 # 可选第三参数：按 SubjectKey、CueName 或主体名另导出单个主体
 python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" --subject vo_home_13_126
@@ -46,6 +49,8 @@ Masterdata 域在一次运行中共享同一个 `MasterDataSession`，不会为�
 首次运行因建立基线显示 `PASS_WITH_WARNINGS` 属正常情况；同一输入再次运行应为 `PASS`。必需表或字段消失时会在导出前阻断。
 
 涉及字段、关系或导出行为的改动还应按 [`docs/REAL_DATA_REGRESSION.md`](docs/REAL_DATA_REGRESSION.md) 使用固定真实输入执行改前/改后语义比较。
+
+生日庆典 masterdata 的三轮编号方式不同；轮次推导、原始编号保留和真实数据分布见 [`docs/BIRTHDAY_CYCLES.md`](docs/BIRTHDAY_CYCLES.md)。
 
 主页语音默认生成：
 

@@ -274,14 +274,17 @@
 
 ### 4.2 生日台词
 
-通过 `CharacterBirthdayTextNo` + `Text` + `Year` 识别。
+从具名表 `mst_character_birthday_mini_game_text` 读取。轮次由 `Year` 与角色生日相对周年边界共同决定；编号形态不能单独决定轮次。
 
 | 字段名 | 类型 | 说明 |
 |--------|------|------|
-| `CharacterBirthdayTextNo` | int | 台词编号 (1/2/3，对应三段庆典台词) |
+| `CharacterBirthdayTextNo` | int | 原始台词序号；第一轮多为偏移分段号，第二轮多为 1-5，第三轮为 1-3 |
+| `KeyTargetValue` | int | 第一、二轮为 0；当前第三轮与 1-3 的台词顺序对应，作为格式审计证据保留 |
 | `Text` | str | 台词原文 |
 | `Year` | int | 台词对应年份 |
 | `CharacterId` | int | 角色 ID |
+
+详见 [`BIRTHDAY_CYCLES.md`](BIRTHDAY_CYCLES.md)。
 
 ---
 

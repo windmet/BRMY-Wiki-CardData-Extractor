@@ -53,7 +53,7 @@ REQUIRED_SCHEMA = {
         "SpinCharacterMotionId", "SpinCharacterMotionFileName", "IsActive"
     },
     "mst_character_birthday_mini_game_text": {
-        "CharacterId", "CharacterBirthdayTextNo", "Text", "Year", "IsActive"
+        "CharacterId", "CharacterBirthdayTextNo", "KeyTargetValue", "Text", "Year", "IsActive"
     },
     "mst_event_ingredient": {
         "IngredientId", "IngredientName", "IngredientDescription", "IngredientFileName", "IsActive"

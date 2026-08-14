@@ -20,6 +20,20 @@ class _RecordingDomain:
         cls.sessions.append(session)
 
 
+class _RecordingBirthdayDomain:
+    calls = []
+
+    @classmethod
+    def run(cls, session=None, target_year=None, target_cycle=None):
+        cls.calls.append((session, target_year, target_cycle))
+
+
+class _RejectingBirthdayDomain:
+    @staticmethod
+    def run(session=None, target_year=None, target_cycle=None):
+        raise ValueError("synthetic birthday option failure")
+
+
 class _Assessment:
     errors = []
 
@@ -85,6 +99,43 @@ class CliTests(unittest.TestCase):
 
         self.assertFalse(result)
         self.assertEqual([], _RecordingDomain.sessions)
+        self.assertFalse(session.audit_calls[-1][1])
+
+    def test_birthday_accepts_year_and_cycle_overrides(self):
+        session = _Session()
+        _RecordingBirthdayDomain.calls = []
+        with patch.dict(cli.DOMAINS, {"birthday": _RecordingBirthdayDomain}, clear=True):
+            with patch.object(cli, "prepare_masterdata", return_value="master_data.json"):
+                with patch.object(cli.MasterDataSession, "open", return_value=session):
+                    result = cli.cmd_run("birthday", ["--year", "2026", "--cycle", "3"])
+
+        self.assertTrue(result)
+        self.assertEqual([(session, 2026, 3)], _RecordingBirthdayDomain.calls)
+        self.assertTrue(session.audit_calls[-1][1])
+
+    def test_birthday_rejects_unknown_options(self):
+        session = _Session()
+        output = io.StringIO()
+        with patch.dict(cli.DOMAINS, {"birthday": _RecordingBirthdayDomain}, clear=True):
+            with patch.object(cli, "prepare_masterdata", return_value="master_data.json"):
+                with patch.object(cli.MasterDataSession, "open", return_value=session):
+                    with redirect_stdout(output):
+                        result = cli.cmd_run("birthday", ["--unknown", "3"])
+
+        self.assertFalse(result)
+        self.assertIn("未知参数", output.getvalue())
+
+    def test_birthday_validation_failure_is_recorded(self):
+        session = _Session()
+        output = io.StringIO()
+        with patch.dict(cli.DOMAINS, {"birthday": _RejectingBirthdayDomain}, clear=True):
+            with patch.object(cli, "prepare_masterdata", return_value="master_data.json"):
+                with patch.object(cli.MasterDataSession, "open", return_value=session):
+                    with redirect_stdout(output):
+                        result = cli.cmd_run("birthday", ["--cycle", "3"])
+
+        self.assertFalse(result)
+        self.assertIn("参数错误", output.getvalue())
         self.assertFalse(session.audit_calls[-1][1])
 
 

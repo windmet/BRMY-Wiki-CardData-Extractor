@@ -165,6 +165,21 @@ def show_menu():
     print("  输出: 在所选文件/目录旁边生成 json_output/ 和 xlsx_output/")
 
 
+def parse_birthday_selection(value):
+    value = value.strip().lower()
+    if value in {'', 'a', 'auto'}:
+        return None, None
+    try:
+        number = int(value)
+    except ValueError as exc:
+        raise ValueError('请输入 1/2/3、四位起始年份，或直接回车') from exc
+    if 1 <= number <= 99:
+        return None, number
+    if 2000 <= number <= 9999:
+        return number, None
+    raise ValueError('请输入 1/2/3、四位起始年份，或直接回车')
+
+
 def decrypt_s2b(s2b_path, out_dir):
     """严格解码 s2b，并仅复用哈希匹配的 master_data.json。"""
     from .core.masterdata import ensure_masterdata_json
@@ -195,6 +210,18 @@ def run():
             continue
 
         needs_masterdata = any(v in MASTERDATA_DOMAINS for v in valid)
+        birthday_year = None
+        birthday_cycle = None
+        if '4' in valid and choice != 'A':
+            while True:
+                value = input(
+                    ">>> 生日轮次（回车=自动最新；输入 1/2/3 或轮次起始年份）: "
+                )
+                try:
+                    birthday_year, birthday_cycle = parse_birthday_selection(value)
+                    break
+                except ValueError as error:
+                    print(f"[!] {error}")
 
         output_dirs = set()
         out_dir = os.getcwd()
@@ -330,6 +357,12 @@ def run():
                 if hasattr(mod, 'run'):
                     if key in {'1', '2'}:
                         mod.run(audio_input, session=master_session)
+                    elif key == '4':
+                        mod.run(
+                            session=master_session,
+                            target_year=birthday_year,
+                            target_cycle=birthday_cycle,
+                        )
                     elif key in MASTERDATA_DOMAINS:
                         mod.run(session=master_session)
                     else:
