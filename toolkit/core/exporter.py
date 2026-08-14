@@ -29,6 +29,23 @@ def xlsx_path(filename):
     return os.path.join(XLSX_DIR, filename)
 
 
+def save_workbook_safely(workbook, path):
+    """Save without replacing an Excel-locked workbook; return the actual path."""
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    actual_path = path
+    try:
+        workbook.save(actual_path)
+    except PermissionError:
+        stem, extension = os.path.splitext(path)
+        actual_path = f"{stem}_new{extension}"
+        if os.path.exists(actual_path):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            actual_path = f"{stem}_new_{timestamp}{extension}"
+        workbook.save(actual_path)
+        print(f"  [!] 原 XLSX 正被占用，已改存: {actual_path}")
+    return actual_path
+
+
 def _coerce_excel_value(value, column_type, column_index):
     if column_type is None or value is None:
         return value
@@ -98,8 +115,9 @@ def write_xlsx(
                 if cell.value and isinstance(cell.value, str) and '<br>' in str(cell.value):
                     cell.alignment = Alignment(wrap_text=True, vertical='center')
 
-    wb.save(path)
-    print(f"  [xlsx] {path}")
+    actual_path = save_workbook_safely(wb, path)
+    print(f"  [xlsx] {actual_path}")
+    return actual_path
 
 
 def write_workbook(path, sheets):
@@ -134,17 +152,6 @@ def write_workbook(path, sheets):
                     wrap_text=True, vertical="top"
                 )
 
-    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-    actual_path = path
-    try:
-        wb.save(actual_path)
-    except PermissionError:
-        stem, extension = os.path.splitext(path)
-        actual_path = f"{stem}_new{extension}"
-        if os.path.exists(actual_path):
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            actual_path = f"{stem}_new_{timestamp}{extension}"
-        wb.save(actual_path)
-        print(f"  [!] 原 XLSX 正被占用，已改存: {actual_path}")
+    actual_path = save_workbook_safely(wb, path)
     print(f"  [xlsx] {actual_path}")
     return actual_path

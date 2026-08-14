@@ -9,6 +9,7 @@ import re
 class CardColumn:
     key: str
     header: str
+    manual: bool = False
 
 
 # The original 47 columns remain in their historical order. New mechanism and
@@ -18,7 +19,7 @@ CARD_COLUMNS = (
     CardColumn("card_id", "卡牌编号"),
     CardColumn("character_names", "卡牌角色名"),
     CardColumn("card_name", "卡牌名"),
-    CardColumn("translated_name", "卡牌译名"),
+    CardColumn("translated_name", "卡牌译名", manual=True),
     CardColumn("attribute", "卡牌属性"),
     CardColumn("rarity", "卡牌稀有度"),
     CardColumn("character_id", "卡牌角色编号"),
@@ -49,24 +50,26 @@ CARD_COLUMNS = (
     CardColumn("combi_lv1", "协作效果Lv1"),
     CardColumn("combi_max", "协作效果满级"),
     CardColumn("voice_home_1_j", "卡牌语音①J"),
-    CardColumn("voice_home_1_c", "卡牌语音①C"),
+    CardColumn("voice_home_1_c", "卡牌语音①C", manual=True),
     CardColumn("voice_home_2_j", "卡牌语音②J"),
-    CardColumn("voice_home_2_c", "卡牌语音②C"),
+    CardColumn("voice_home_2_c", "卡牌语音②C", manual=True),
     CardColumn("voice_home_3_j", "卡牌语音③J"),
-    CardColumn("voice_home_3_c", "卡牌语音③C"),
+    CardColumn("voice_home_3_c", "卡牌语音③C", manual=True),
     CardColumn("voice_skill_j", "卡牌技能语音J"),
-    CardColumn("voice_skill_c", "卡牌技能语音C"),
+    CardColumn("voice_skill_c", "卡牌技能语音C", manual=True),
     CardColumn("voice_combi_j", "卡牌协作语音J"),
-    CardColumn("voice_combi_c", "卡牌协作语音C"),
+    CardColumn("voice_combi_c", "卡牌协作语音C", manual=True),
     CardColumn("upgrade_item_1", "卡牌升级道具1"),
     CardColumn("upgrade_item_2", "卡牌升级道具2"),
     CardColumn("upgrade_item_3", "卡牌升级道具3"),
     CardColumn("additional_characters", "卡牌附加角色名"),
     CardColumn("voice_home_4_j", "卡牌语音④J"),
-    CardColumn("voice_home_4_c", "卡牌语音④C"),
+    CardColumn("voice_home_4_c", "卡牌语音④C", manual=True),
     CardColumn("voice_partner_skill_j", "卡牌副角色技能语音J"),
-    CardColumn("voice_partner_skill_c", "卡牌副角色技能语音C"),
+    CardColumn("voice_partner_skill_c", "卡牌副角色技能语音C", manual=True),
 )
+
+CARD_MANUAL_HEADERS = tuple(column.header for column in CARD_COLUMNS if column.manual)
 
 
 def _level_pair(skill):

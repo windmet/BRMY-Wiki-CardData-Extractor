@@ -5,6 +5,8 @@
     decrypt                                   解密 s2b → master_data.json
     run cards|music|snap|birthday|recipes|... 提取 + 导出一条龙
     all                                       全量跑所有 masterdata 域
+    update cards <旧cards_data.xlsx> [Musics目录]
+                                              保留人工列并生成增删改清单
 
 [s2b 文件解析] — 可指定文件或目录；不指定则扫描当前目录
     run lyrics [文件或目录]                    歌词解析 (.s2blyrics → JSON+LRC)
@@ -76,6 +78,8 @@ def cmd_list():
     mod = DOMAINS.get('home_voices')
     doc = (mod.__doc__ or "").strip().split('\n')[0]
     print(f"    {'home_voices':15s} — {doc}")
+    print("\n  --- 增量更新 ---")
+    print("    update cards <旧XLSX> [Musics目录] — 保留卡牌人工列并生成差分")
 
 
 def cmd_decrypt():
@@ -281,6 +285,57 @@ def cmd_all():
     return True
 
 
+def cmd_update_cards(old_workbook, audio_dir=None):
+    configure_console()
+    if not os.path.isfile(old_workbook):
+        print(f"[!] 旧卡牌工作簿不存在: {old_workbook}")
+        return False
+    if audio_dir and not os.path.isdir(audio_dir):
+        print(f"[!] Musics 目录不存在: {audio_dir}")
+        return False
+    masterdata_path = prepare_masterdata()
+    if not masterdata_path:
+        return False
+    started_at = utc_now()
+    session = MasterDataSession.open(masterdata_path)
+    if session.assessment.errors:
+        for error in session.assessment.errors:
+            print(f"[!] Schema: {error}")
+        session.write_audit([], started_at=started_at, success=False)
+        return False
+
+    started = time.perf_counter()
+    try:
+        DOMAINS['card_update'].run(
+            old_workbook,
+            audio_dir=audio_dir,
+            session=session,
+        )
+    except Exception as error:
+        print(f"[!] 卡牌增量更新失败: {error}")
+        session.write_audit(
+            [{
+                "name": "card_update",
+                "status": "FAIL",
+                "duration_seconds": round(time.perf_counter() - started, 3),
+                "error": str(error),
+            }],
+            started_at=started_at,
+            success=False,
+        )
+        return False
+    session.write_audit(
+        [{
+            "name": "card_update",
+            "status": "PASS",
+            "duration_seconds": round(time.perf_counter() - started, 3),
+        }],
+        started_at=started_at,
+        success=True,
+    )
+    return True
+
+
 def main():
     configure_console()
     args = sys.argv[1:]
@@ -305,6 +360,9 @@ def main():
         cmd_export(args[1])
     elif cmd == 'run' and len(args) >= 2:
         if not cmd_run(args[1], args[2:]):
+            raise SystemExit(1)
+    elif cmd == 'update' and len(args) in {3, 4} and args[1].lower() == 'cards':
+        if not cmd_update_cards(args[2], args[3] if len(args) == 4 else None):
             raise SystemExit(1)
     else:
         print_usage()

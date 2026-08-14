@@ -23,7 +23,7 @@ except ImportError:
     input("按回车键退出...")
     sys.exit(1)
 
-MASTERDATA_DOMAINS = {'1', '2', '3', '4', '5', '6', '7', '11', '13'}
+MASTERDATA_DOMAINS = {'1', '2', '3', '4', '5', '6', '7', '11', '13', '14'}
 S2B_FILE_DOMAINS = {'8', '9', '10'}
 AUDIO_DOMAINS = {'12', '13'}
 
@@ -41,6 +41,7 @@ DOMAIN_MAP = {
     '10': ('charts', 'OJT表解析 (.s2bchart)'),
     '12': ('audio', 'ACB音频/语音索引'),
     '13': ('home_voices', '主页/季节/生日 ACB 语音表'),
+    '14': ('card_update', '卡牌增量更新（保留人工列）'),
 }
 
 
@@ -132,6 +133,26 @@ def select_audio_directory(required=False):
     return None
 
 
+def select_old_card_workbook():
+    """Select the Wiki-maintained cards workbook used as the update base."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+        path = filedialog.askopenfilename(
+            title="请选择旧 cards_data.xlsx（不会覆盖）",
+            filetypes=[("Excel 工作簿", "*.xlsx"), ("所有文件", "*.*")],
+        )
+        root.destroy()
+        if path and os.path.isfile(path):
+            return os.path.abspath(path)
+    except Exception:
+        pass
+    return None
+
+
 def show_menu():
     print()
     print("=" * 50)
@@ -159,6 +180,7 @@ def show_menu():
     print("  --- CRI 音频资源（选择包含 ACB/AWB 的目录） ---")
     print("  [12] ACB音频清单、语音文本与卡面语音索引")
     print("  [13] 主页/季节/生日 ACB 语音 Wiki 表（同时需要 masterdata）")
+    print("  [14] 卡牌增量更新（保留旧表人工列，生成增删改清单）")
     print()
     print("  [Q] 退出")
     print("-" * 50)
@@ -226,6 +248,7 @@ def run():
         output_dirs = set()
         out_dir = os.getcwd()
         audio_input = None
+        card_update_input = None
         master_session = None
         run_started_at = utc_now()
 
@@ -265,8 +288,16 @@ def run():
                     input("按回车键退出...")
                     return
 
+        if '14' in valid:
+            print()
+            print("[*] 请选择旧 cards_data.xlsx；工具不会覆盖它...")
+            card_update_input = select_old_card_workbook()
+            if not card_update_input:
+                print("[!] 未选择旧卡牌工作簿，跳过增量更新")
+                valid = [key for key in valid if key != '14']
+
         # 卡牌可选关联 ACB；独立音频域则必须选择音频目录。
-        if '12' in valid or '13' in valid or '1' in valid or '2' in valid:
+        if '12' in valid or '13' in valid or '1' in valid or '2' in valid or '14' in valid:
             print()
             if '12' in valid or '13' in valid:
                 print("[*] ACB 音频索引需要选择 Musics 目录...")
@@ -357,6 +388,12 @@ def run():
                 if hasattr(mod, 'run'):
                     if key in {'1', '2'}:
                         mod.run(audio_input, session=master_session)
+                    elif key == '14':
+                        mod.run(
+                            card_update_input,
+                            audio_dir=audio_input,
+                            session=master_session,
+                        )
                     elif key == '4':
                         mod.run(
                             session=master_session,

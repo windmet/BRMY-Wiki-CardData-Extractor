@@ -30,6 +30,7 @@ python -m toolkit list
 python -m toolkit run birthday                 # 自动选择最新生日轮次
 python -m toolkit run birthday --cycle 1       # 第一轮；也支持 2/3
 python -m toolkit run birthday --year 2026     # 按轮次起始年覆盖
+python -m toolkit update cards "E:\path\to\old_cards_data.xlsx"
 python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json"
 # 可选第三参数：按 SubjectKey、CueName 或主体名另导出单个主体
 python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" --subject vo_home_13_126
@@ -51,6 +52,8 @@ Masterdata 域在一次运行中共享同一个 `MasterDataSession`，不会为�
 涉及字段、关系或导出行为的改动还应按 [`docs/REAL_DATA_REGRESSION.md`](docs/REAL_DATA_REGRESSION.md) 使用固定真实输入执行改前/改后语义比较。
 
 通用 XLSX 导出默认保留原始值类型，不会再把所有纯数字字符串猜成整数。需要数值转换的列必须显式声明列类型；真实回归同时比较单元格值、Excel 数据类型与数字格式。
+
+对已有 Wiki 人工列的卡牌表，使用增量更新模式保留译名、中文语音列和自定义列，并单独生成变更表；详见 [`docs/CARD_UPDATE_MODE.md`](docs/CARD_UPDATE_MODE.md)。
 
 生日庆典 masterdata 的三轮编号方式不同；轮次推导、原始编号保留和真实数据分布见 [`docs/BIRTHDAY_CYCLES.md`](docs/BIRTHDAY_CYCLES.md)。
 

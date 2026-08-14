@@ -1,6 +1,8 @@
 import io
+import tempfile
 import unittest
 from contextlib import redirect_stdout
+from pathlib import Path
 from unittest.mock import patch
 
 from toolkit import cli
@@ -32,6 +34,14 @@ class _RejectingBirthdayDomain:
     @staticmethod
     def run(session=None, target_year=None, target_cycle=None):
         raise ValueError("synthetic birthday option failure")
+
+
+class _RecordingCardUpdateDomain:
+    calls = []
+
+    @classmethod
+    def run(cls, old_workbook, audio_dir=None, session=None):
+        cls.calls.append((old_workbook, audio_dir, session))
 
 
 class _Assessment:
@@ -137,6 +147,31 @@ class CliTests(unittest.TestCase):
         self.assertFalse(result)
         self.assertIn("参数错误", output.getvalue())
         self.assertFalse(session.audit_calls[-1][1])
+
+    def test_card_update_passes_old_workbook_and_audio_directory(self):
+        session = _Session()
+        _RecordingCardUpdateDomain.calls = []
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old_workbook = root / "old.xlsx"
+            old_workbook.touch()
+            audio = root / "Musics"
+            audio.mkdir()
+            with patch.dict(
+                cli.DOMAINS,
+                {"card_update": _RecordingCardUpdateDomain},
+                clear=True,
+            ):
+                with patch.object(cli, "prepare_masterdata", return_value="master_data.json"):
+                    with patch.object(cli.MasterDataSession, "open", return_value=session):
+                        result = cli.cmd_update_cards(str(old_workbook), str(audio))
+
+        self.assertTrue(result)
+        self.assertEqual(
+            [(str(old_workbook), str(audio), session)],
+            _RecordingCardUpdateDomain.calls,
+        )
+        self.assertTrue(session.audit_calls[-1][1])
 
 
 if __name__ == "__main__":
