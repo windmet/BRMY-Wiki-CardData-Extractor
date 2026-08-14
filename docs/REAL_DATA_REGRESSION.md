@@ -12,7 +12,7 @@
 python scripts/compare_exports.py <accepted-output-root> <candidate-output-root>
 ```
 
-脚本对 JSON 做对象级比较，对 XLSX 比较工作表、尺寸、合并区域、公式和全部单元格值。它不比较 ZIP 时间戳等无关二进制差异。
+脚本对 JSON 做对象级比较，对 XLSX 比较工作表、尺寸、合并区域、公式、全部单元格值、Excel 数据类型和数字格式。它不比较 ZIP 时间戳等无关二进制差异。
 
 `audit_output/` 是每次运行的技术审计层，不参与 Wiki 表格等值比较；必须另外检查 `run_manifest.json` 的总状态、各域状态和 `schema_report.md`。
 
@@ -30,6 +30,7 @@ python scripts/compare_exports.py <accepted-output-root> <candidate-output-root>
 - music/items/missions/snap/birthday/recipes 迁移到具名表后再次全域验证，结果仍为 6 个 JSON 对象与 8 个 XLSX 全部等值
 - events 统一到 `TableCatalog` 后第三次全域验证，活动 JSON 与多工作表 XLSX 仍完全等值
 - birthday 自动轮次与多编号支持：第一轮 21 人/105 条、第二轮 21 人/105 条、第三轮当前 3 人/9 条；默认第三轮的旧核心 JSON 字段及 XLSX 等值，`birthday_extract.json` 仅新增轮次和原始编号审计字段
+- XLSX 自动数字字符串转换移除后：显式声明卡牌编号为整数，其余字符串原样保留；两次独立全域生成在 JSON、XLSX 值、数据类型和数字格式上完全等值
 - cards + ACB：455 个包、1907 条非空语音文本；与已接受的 433 卡 JSON/XLSX 完全相等
 - MasterDataSession 全选只加载一次 `master_data.json`；首次 schema 基线为 `PASS_WITH_WARNINGS`，第二次固定输入为 `PASS`
 

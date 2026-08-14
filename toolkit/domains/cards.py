@@ -404,7 +404,13 @@ def export(json_file=None):
     data = load_json(json_file)
     headers, rows = build_card_sheet(data)
     out = xlsx_path('cards_data.xlsx')
-    write_xlsx(rows, out, headers, sheet_title="cards_data")
+    write_xlsx(
+        rows,
+        out,
+        headers,
+        sheet_title="cards_data",
+        column_types={1: "integer"},
+    )
 
 
 def run(audio_dir=None, session=None):

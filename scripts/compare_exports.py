@@ -39,6 +39,17 @@ def compare_xlsx(expected, actual):
                         f"{title}!{left_cell.coordinate}: "
                         f"{left_cell.value!r} != {right_value!r}"
                     )
+                right_cell = right_sheet[left_cell.coordinate]
+                if left_cell.data_type != right_cell.data_type:
+                    return (
+                        f"{title}!{left_cell.coordinate}: data types differ: "
+                        f"{left_cell.data_type!r} != {right_cell.data_type!r}"
+                    )
+                if left_cell.number_format != right_cell.number_format:
+                    return (
+                        f"{title}!{left_cell.coordinate}: number formats differ: "
+                        f"{left_cell.number_format!r} != {right_cell.number_format!r}"
+                    )
     return None
 
 
@@ -82,7 +93,10 @@ def main():
         for failure in failures:
             print(f"- {failure}")
         raise SystemExit(1)
-    print("\nExport regression passed: all JSON objects and XLSX cells match.")
+    print(
+        "\nExport regression passed: all JSON objects and XLSX cell values, "
+        "types, and number formats match."
+    )
 
 
 if __name__ == "__main__":

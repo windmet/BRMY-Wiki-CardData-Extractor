@@ -1,5 +1,6 @@
 """通用导出：XLSX + 输出目录管理。"""
 import os
+import re
 from datetime import datetime
 
 try:
@@ -28,7 +29,34 @@ def xlsx_path(filename):
     return os.path.join(XLSX_DIR, filename)
 
 
-def write_xlsx(rows, path, headers=None, sheet_title="Sheet1", col_widths=None, wrap_cols=None):
+def _coerce_excel_value(value, column_type, column_index):
+    if column_type is None or value is None:
+        return value
+    if column_type == "text":
+        return str(value)
+    if column_type == "integer":
+        if isinstance(value, bool):
+            raise ValueError(f"column {column_index + 1} expects integer, got bool")
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str) and re.fullmatch(r"[+-]?\d+", value):
+            return int(value)
+        raise ValueError(
+            f"column {column_index + 1} expects integer, got {value!r}"
+        )
+    raise ValueError(f"unsupported Excel column type: {column_type!r}")
+
+
+def write_xlsx(
+    rows,
+    path,
+    headers=None,
+    sheet_title="Sheet1",
+    col_widths=None,
+    wrap_cols=None,
+    column_types=None,
+):
+    """Write one sheet while preserving values unless a zero-based column type is declared."""
     if not OPENPYXL:
         print("  [!] openpyxl 未安装，跳过 xlsx 生成")
         return
@@ -40,14 +68,24 @@ def write_xlsx(rows, path, headers=None, sheet_title="Sheet1", col_widths=None, 
     if headers:
         ws.append(headers)
 
+    column_types = dict(column_types or {})
+    for column_index, column_type in column_types.items():
+        if not isinstance(column_index, int) or column_index < 0:
+            raise ValueError("Excel column type indexes must be non-negative integers")
+        if column_type not in {"text", "integer"}:
+            raise ValueError(f"unsupported Excel column type: {column_type!r}")
     for row in rows:
-        cleaned = []
-        for item in row:
-            if isinstance(item, str) and item.isdigit():
-                cleaned.append(int(item))
-            else:
-                cleaned.append(item)
+        cleaned = [
+            _coerce_excel_value(item, column_types.get(index), index)
+            for index, item in enumerate(row)
+        ]
         ws.append(cleaned)
+
+    first_data_row = 2 if headers else 1
+    for column_index, column_type in column_types.items():
+        number_format = "@" if column_type == "text" else "0"
+        for row_index in range(first_data_row, ws.max_row + 1):
+            ws.cell(row=row_index, column=column_index + 1).number_format = number_format
 
     if col_widths:
         for col_letter, width in col_widths.items():

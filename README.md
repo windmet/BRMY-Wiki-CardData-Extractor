@@ -50,6 +50,8 @@ Masterdata 域在一次运行中共享同一个 `MasterDataSession`，不会为�
 
 涉及字段、关系或导出行为的改动还应按 [`docs/REAL_DATA_REGRESSION.md`](docs/REAL_DATA_REGRESSION.md) 使用固定真实输入执行改前/改后语义比较。
 
+通用 XLSX 导出默认保留原始值类型，不会再把所有纯数字字符串猜成整数。需要数值转换的列必须显式声明列类型；真实回归同时比较单元格值、Excel 数据类型与数字格式。
+
 生日庆典 masterdata 的三轮编号方式不同；轮次推导、原始编号保留和真实数据分布见 [`docs/BIRTHDAY_CYCLES.md`](docs/BIRTHDAY_CYCLES.md)。
 
 主页语音默认生成：
