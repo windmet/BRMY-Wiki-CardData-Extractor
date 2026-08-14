@@ -24,8 +24,10 @@
 
 [通用]
     list                                      列出所有可用域
+    doctor [--json]                           检查依赖、Tkinter 和域注册
 """
 
+import json
 import sys
 import os
 import time
@@ -57,6 +59,25 @@ def prepare_masterdata():
 
 def print_usage():
     print(__doc__)
+
+
+def cmd_doctor(as_json=False):
+    from .core.doctor import build_doctor_report
+
+    report = build_doctor_report(DOMAINS)
+    if as_json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        print(f"运行环境检查: {report['status']}")
+        print(f"  Python: {report['python_version']}")
+        print(f"  Frozen EXE: {'yes' if report['frozen'] else 'no'}")
+        for check in report["dependencies"]:
+            detail = check.get("version") or check.get("error", "")
+            print(f"  {check['status']:4s} {check['name']}: {detail}")
+        print(f"  Domains: {len(report['domains'])}")
+        if report["missing_domains"]:
+            print("  Missing domains: " + ", ".join(report["missing_domains"]))
+    return report["status"] == "PASS"
 
 
 def cmd_list():
@@ -348,6 +369,12 @@ def main():
 
     if cmd == 'list':
         cmd_list()
+    elif cmd == 'doctor' and len(args) <= 2:
+        if len(args) == 2 and args[1] != '--json':
+            print_usage()
+            raise SystemExit(1)
+        if not cmd_doctor(as_json=len(args) == 2):
+            raise SystemExit(1)
     elif cmd == 'decrypt':
         if not cmd_decrypt():
             raise SystemExit(1)

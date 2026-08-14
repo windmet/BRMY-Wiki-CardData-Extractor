@@ -27,6 +27,7 @@ Wiki 的 Spin 相片终稿以游戏内实际截图为准。本工具不会把本
 ```powershell
 python -m pip install -e .
 python -m toolkit list
+python -m toolkit doctor --json
 python -m toolkit run birthday                 # 自动选择最新生日轮次
 python -m toolkit run birthday --cycle 1       # 第一轮；也支持 2/3
 python -m toolkit run birthday --year 2026     # 按轮次起始年覆盖
@@ -65,7 +66,7 @@ Masterdata 域在一次运行中共享同一个 `MasterDataSession`，不会为�
 
 若目标 XLSX 正被 Excel 占用，工具会改存为 `home_voice_catalog_new.xlsx`，避免覆盖失败。
 
-本地构建后的易用入口为仓库根目录 `bmc_toolkit.exe`。EXE 属于忽略的发布产物，不提交进 Git 历史；正式发布时应在固定 Python/Nuitka 环境重建并附 SHA-256。
+本地构建后的易用入口为 `dist/bmc_toolkit.exe`。EXE 属于忽略的发布产物，不提交进 Git 历史。受控构建固定 Python 3.12.9、Nuitka 4.1.2 及全部构建包，并生成 EXE、SHA-256、manifest 和 smoke report；详见 [`docs/RELEASE_BUILD.md`](docs/RELEASE_BUILD.md)。
 
 `legacy/` 保存迁移前的单用途脚本，只用于核对旧行为。新功能进入 `toolkit/core` 或 `toolkit/domains`。
 

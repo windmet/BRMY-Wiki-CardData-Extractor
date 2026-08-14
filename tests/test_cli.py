@@ -1,4 +1,5 @@
 import io
+import json
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -59,6 +60,17 @@ class _Session:
 
 
 class CliTests(unittest.TestCase):
+    def test_doctor_json_reports_registered_runtime(self):
+        stream = io.StringIO()
+        with redirect_stdout(stream):
+            result = cli.cmd_doctor(as_json=True)
+
+        report = json.loads(stream.getvalue())
+        self.assertTrue(result)
+        self.assertEqual("PASS", report["status"])
+        self.assertIn("cards", report["domains"])
+        self.assertIn("tkinter", {item["name"] for item in report["dependencies"]})
+
     def test_all_returns_failure_when_any_domain_fails(self):
         output = io.StringIO()
         session = _Session()

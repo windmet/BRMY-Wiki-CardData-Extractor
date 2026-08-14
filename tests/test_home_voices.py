@@ -101,7 +101,7 @@ class HomeVoiceCatalogTests(unittest.TestCase):
         self.assertEqual((3, "masterdata_key_target"), third[:2])
         self.assertEqual((2, "acb_package"), one_and_half[:2])
 
-    def test_all_three_birthday_rounds_are_retained(self):
+    def test_real_birthday_marker_shapes_retain_all_three_rounds(self):
         tables = catalog_with({
             "mst_character": [
                 {"CharacterId": 1, "CharacterNameJpn": "キャラクター", "IsActive": True},
@@ -126,7 +126,16 @@ class HomeVoiceCatalogTests(unittest.TestCase):
             "mst_season": [],
             "mst_character_home_voice_season": [],
             "mst_character_home_voice_limited": [],
-            "mst_home_voice_product": [],
+            "mst_home_voice_product": [
+                {
+                    "HomeVoiceTypeCode": 1,
+                    "HomeVoiceTargetId": 1,
+                    "HomeVoiceNo": home_voice_no,
+                    "DisplayName": f"皇坂の誕生日 [{year}年目]",
+                    "IsActive": True,
+                }
+                for year, home_voice_no in ((1, 30), (2, 74))
+            ],
         })
         scanned = [
             {
@@ -147,6 +156,7 @@ class HomeVoiceCatalogTests(unittest.TestCase):
                 (1, "vo_home_1_30"),
                 (2, "vo_home_1_74"),
                 (3, "vo_home_1_117"),
+                (3, "vo_home_17_130"),
             )
         ]
 
@@ -157,9 +167,17 @@ class HomeVoiceCatalogTests(unittest.TestCase):
                 "birthday:character=1:year=1",
                 "birthday:character=1:year=2",
                 "birthday:character=1:year=3",
+                "birthday:character=17:year=3",
             },
             {subject["SubjectKey"] for subject in result["Subjects"]},
         )
+        records = {record["CueName"]: record for record in result["Records"]}
+        self.assertIn("masterdata_product_title", records["vo_home_1_30"]["ServiceYearCandidates"])
+        self.assertIn("masterdata_product_title", records["vo_home_1_74"]["ServiceYearCandidates"])
+        self.assertNotIn("masterdata_product_title", records["vo_home_1_117"]["ServiceYearCandidates"])
+        self.assertEqual("masterdata_key_target", records["vo_home_1_117"]["ServiceYearSource"])
+        self.assertEqual("acb_only", records["vo_home_17_130"]["MasterdataMatchStatus"])
+        self.assertEqual("acb_title", records["vo_home_17_130"]["ServiceYearSource"])
 
     def test_acb_only_subject_is_retained_and_missing_speaker_is_reported(self):
         scanned = [{

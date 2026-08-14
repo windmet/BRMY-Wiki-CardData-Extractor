@@ -8,7 +8,7 @@ Spine 资源复刻、游戏画面还原和桌宠开发不迁入本仓库。Maste
 
 ## 当前基线
 
-- 自动化测试：21 项
+- 自动化测试：以 `scripts/verify.ps1` 当前计数为准
 - CLI：`python -m toolkit list` 可运行
 - Python 包：可安装并构建 wheel
 - 易用入口：本地可构建 `bmc_toolkit.exe`，但 EXE 不进入 Git 历史
@@ -41,6 +41,6 @@ Spine 资源复刻、游戏画面还原和桌宠开发不迁入本仓库。Maste
 git diff --check
 ```
 
-正式 Release 还需要固定 Python/Nuitka 版本，在 ASCII 临时目录重建 EXE，并对 EXE 执行 `list` 与脱敏输入烟雾测试。EXE 和 SHA-256 应作为 GitHub Release 资产发布，不提交到源码历史。
+受控 EXE 构建、脱敏 masterdata 烟雾、SHA/manifest 和 Actions artifact 已实现，见 [`RELEASE_BUILD.md`](RELEASE_BUILD.md)。EXE 和 SHA-256 应作为 GitHub Release 资产发布，不提交到源码历史；正式 Release 仍需要许可证、版本 tag 和真实数据终验。
 
 项目许可证仍需单独决定；迁移 PR 不代替许可证选择。

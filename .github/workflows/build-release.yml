@@ -1,0 +1,29 @@
+name: build-release
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12.9"
+          cache: pip
+          cache-dependency-path: requirements/release-build.txt
+      - shell: pwsh
+        run: ./scripts/build_release.ps1 -PythonExe (Get-Command python).Source -InstallDependencies
+      - uses: actions/upload-artifact@v6
+        with:
+          name: brmy-wiki-toolkit-windows-x64
+          if-no-files-found: error
+          path: |
+            dist/bmc_toolkit.exe
+            dist/bmc_toolkit.exe.sha256
+            dist/build_manifest.json
+            dist/smoke_report.json

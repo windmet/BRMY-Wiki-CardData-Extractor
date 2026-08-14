@@ -1,4 +1,0 @@
-openpyxl>=3.0.0
-msgpack>=1.0.0
-lz4>=4.0.0
-mutagen>=1.45.0

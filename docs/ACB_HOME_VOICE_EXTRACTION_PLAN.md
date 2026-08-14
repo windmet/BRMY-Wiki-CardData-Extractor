@@ -23,9 +23,9 @@
 - 可选参考旧 ACB 目录只在当前不同 Cue 出现重复文本、旧包提供不同文本时修复；当前实际修复 1 条 `voice_ayato_2.acb / vo_home_6_79`。
 - 内部审计已从按角色展开的 187 条标记收敛为 15 个待行动项：待主数据 7、源元数据 5、需核听 2、阻断 1。
 
-源码、CLI 和交互菜单已完成。本地 QA EXE 已完成真实输入验收；正式 GitHub Release 尚未发布。
+源码、CLI 和交互菜单已完成。本地 QA EXE 已完成真实输入验收；固定 Python 3.12.9/Nuitka 4.1.2 的受控构建、SHA/manifest 和冻结烟雾也已实现。正式 GitHub Release 尚未发布，详见 [`RELEASE_BUILD.md`](RELEASE_BUILD.md)。
 
-本地 QA 构建：
+以下是 2026-08-08 历史 QA 构建，不是当前受控发布产物：
 
 ```text
 路径: <repository-root>\bmc_toolkit.exe
@@ -278,6 +278,16 @@ limited:home_voice_no=100
 5. 季节表的正数 `ServiceYears`。
 
 `1.5th Anniv.` 不解析为“第 5 年”，它使用第 2 包作为服务年次。候选年次不一致时添加 `service_year_conflict`，不静默选一个后丢弃其他证据。
+
+三轮角色生日的实际证据形态不同，回归验证不能只构造三条同形的 `KeyTargetValue` 记录：
+
+| 轮次 | `mst_home_voice` | `mst_home_voice_product` | ACB 元数据 | 当前固定数据结果 |
+| --- | --- | --- | --- | --- |
+| 一周年 | `KeyTargetValue=1` | 有 `[1年目]` | 标题有 `[1年目]`，位于 `_1.acb` | 21 个主体，441 条 |
+| 二周年 | `KeyTargetValue=2` | 有 `[2年目]` | 标题有 `[2年目]`，位于 `_2.acb` | 21 个主体，440 条 |
+| 三周年 | 已发布主体为 `KeyTargetValue=3`；118/130 尚无行 | 当前无对应商品行 | 标题有 `[3年目]`，位于 `_3.acb` | 5 个主体，105 条；其中 2 个 ACB-only |
+
+因此，第一、二轮优先由 `KeyTargetValue` 定年次，并用商品标题交叉验证；第三轮对 masterdata 尚未收录的主体，必须允许 ACB 标题和包序号独立建表。
 
 ## 7. Masterdata 与 ACB 的覆盖关系
 

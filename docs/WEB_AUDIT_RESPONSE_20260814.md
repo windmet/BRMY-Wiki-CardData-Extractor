@@ -35,7 +35,7 @@
 | birthday 写死 cycle/年份 | 已处理 | 从真实表推导 `05-14` 边界与最新轮次，支持 `--year/--cycle`；分别识别第一轮偏移编号、第二轮 1-5 及祠堂恭耶 76-80 例外、第三轮 `KeyTargetValue=1-3`。 |
 | Excel 数字字符串自动转 int | 已处理 | 默认保留原始值；仅显式 `column_types` 才转换。卡牌编号列声明为整数，`"00123"` 默认/文本 schema 的回归测试均保留前导零。 |
 | 缺少增量更新和人工列保留 | 已处理（卡牌域） | `update cards` 以卡牌编号为主键，保留译名、中文语音和自定义列，输出更新表、差异表与 JSON 审计；旧工作簿不原地覆盖。 |
-| Nuitka 与依赖未固定 | 成立 | 固定构建依赖、CI 产出 EXE/SHA-256，并执行安装版/EXE 烟雾测试后再发布。 |
+| Nuitka 与依赖未固定 | 已处理（构建层） | 固定 Python 3.12.9、Nuitka 4.1.2 和精确包版本；Actions 生成 EXE/SHA/manifest/smoke report。烟雾覆盖 frozen doctor、域注册与脱敏 ext99/LZ4 masterdata 解密。正式 Release 仍需 tag、LICENSE 和真实数据终验。 |
 | 文档存在历史与当前混杂 | 成立 | 用户指南、当前架构、字段参考、历史调查分层整理。 |
 
 ## 下一批建议
