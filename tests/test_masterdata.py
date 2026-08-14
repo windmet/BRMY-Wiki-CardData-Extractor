@@ -1,8 +1,10 @@
+import io
 import json
 import struct
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import lz4.block
 import msgpack
@@ -29,6 +31,28 @@ def _write_masterdata(path, card_id):
 
 
 class MasterDataCacheTests(unittest.TestCase):
+    def test_status_logging_does_not_fail_on_cp1252_console(self):
+        class Cp1252Stream(io.StringIO):
+            @property
+            def encoding(self):
+                return "cp1252"
+
+            def write(self, value):
+                value.encode(self.encoding)
+                return super().write(value)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "master_data.s2b"
+            _write_masterdata(source, 1)
+            stream = Cp1252Stream()
+
+            with patch("sys.stdout", stream):
+                result = ensure_masterdata_json(source, root)
+
+            self.assertFalse(result.reused)
+            self.assertIn("master_data.json", stream.getvalue())
+
     def test_cache_is_reused_only_for_the_same_source_and_parser(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

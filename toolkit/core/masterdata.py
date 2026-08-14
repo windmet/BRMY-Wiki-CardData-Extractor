@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -31,6 +32,13 @@ def _tool_version():
         return version("brmy-masterdata-toolkit")
     except PackageNotFoundError:
         return "development"
+
+
+def _log(message):
+    """Write user-facing status without crashing on legacy Windows code pages."""
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    safe_message = message.encode(encoding, errors="replace").decode(encoding)
+    print(safe_message)
 
 
 def sha256_file(path, chunk_size=1024 * 1024):
@@ -98,12 +106,12 @@ def ensure_masterdata_json(s2b_path, out_dir=None):
     )
     if reusable:
         table_count = manifest.get("output", {}).get("table_count", 0)
-        print(f"[*] 已验证 master_data.json 缓存（{table_count} 张表）")
+        _log(f"[*] 已验证 master_data.json 缓存（{table_count} 张表）")
         return MasterDataResult(
             str(json_path), str(manifest_path), source_hash, True, table_count
         )
 
-    print("[*] 正在严格解码 master_data.s2b ...")
+    _log("[*] 正在严格解码 master_data.s2b ...")
     data = decode_masterdata(source)
     catalog = validate_masterdata(data)
     _atomic_json_dump(data, json_path, indent=2)
@@ -125,7 +133,7 @@ def ensure_masterdata_json(s2b_path, out_dir=None):
         },
     }
     _atomic_json_dump(manifest, manifest_path, indent=2)
-    print(f"[+] master_data.json 已生成并校验（{len(catalog.names)} 张表）")
+    _log(f"[+] master_data.json 已生成并校验（{len(catalog.names)} 张表）")
     return MasterDataResult(
         str(json_path), str(manifest_path), source_hash, False, len(catalog.names)
     )
