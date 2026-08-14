@@ -27,6 +27,7 @@ import os
 import time
 
 from .domains import DOMAINS
+from .core.console import configure_console
 from .core.session import MasterDataSession, utc_now
 
 # 确保工作目录正确（通常放在 master_data.json 同级）
@@ -77,6 +78,7 @@ def cmd_list():
 
 def cmd_decrypt():
     """严格解码 master_data.s2b，并按源文件哈希管理 JSON 缓存。"""
+    configure_console()
     from .core.masterdata import ensure_masterdata_json
 
     s2b_path = os.path.join(MASTER_DIR, "master_data.s2b")
@@ -111,6 +113,7 @@ def cmd_export(domain_name):
 
 
 def cmd_run(domain_name, input_paths=None):
+    configure_console()
     mod = DOMAINS.get(domain_name)
     if not mod:
         print(f"[!] 未知域: {domain_name}")
@@ -184,6 +187,7 @@ def cmd_run(domain_name, input_paths=None):
 
 
 def cmd_all():
+    configure_console()
     print("=" * 50)
     print("  BMC Toolkit — 全量解包")
     print("=" * 50)
@@ -239,6 +243,7 @@ def cmd_all():
 
 
 def main():
+    configure_console()
     args = sys.argv[1:]
 
     if not args:

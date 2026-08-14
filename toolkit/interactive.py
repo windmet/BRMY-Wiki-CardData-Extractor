@@ -12,6 +12,7 @@ import os
 import time
 
 from .core.session import MasterDataSession, utc_now
+from .core.console import configure_console
 
 # ---- 预检查依赖（避免闪退） ----
 try:
@@ -172,6 +173,7 @@ def decrypt_s2b(s2b_path, out_dir):
 
 
 def run():
+    configure_console()
     # Step 1: 先出菜单，再决定流程
     show_menu()
 
