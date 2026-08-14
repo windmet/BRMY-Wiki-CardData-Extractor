@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import re
 from collections import Counter, defaultdict
+from datetime import date, datetime, timedelta
 
 from ..core.exporter import write_workbook
 from ..core.scanner import load_json, save_json
@@ -29,6 +30,8 @@ ANNIVERSARY_YEAR_RE = re.compile(
     r"(?<![\d.])(?P<year>\d+)(?:st|nd|rd|th)\s+Anniv(?:ersary)?\.?",
     re.IGNORECASE,
 )
+SEASON_MONTH_RE = re.compile(r"\((?P<start>\d{1,2})\s*[~～-]\s*(?P<end>\d{1,2})月\)")
+SERVICE_YEAR_ONE_START = date(2024, 5, 14)
 CATEGORY_NAMES = {
     2: "玩家生日",
     3: "角色本人生日",
@@ -641,6 +644,210 @@ def select_subject_records(catalog, selector):
     return sorted(selected, key=lambda row: row["SpeakerCharacterId"])
 
 
+def _parse_date(value):
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if not value:
+        return None
+    return datetime.fromisoformat(str(value).replace("Z", "+00:00")).date()
+
+
+def _service_year_start(service_year):
+    return date(SERVICE_YEAR_ONE_START.year + int(service_year) - 1, 5, 14)
+
+
+def _birthday_occurrence(service_year, month, day):
+    cycle_start = _service_year_start(service_year)
+    year = cycle_start.year if (month, day) >= (5, 14) else cycle_start.year + 1
+    return date(year, month, day)
+
+
+def _season_months(subject):
+    values = [subject.get("SubjectDisplayName", ""), *subject.get("TitleVariants", [])]
+    for value in values:
+        match = SEASON_MONTH_RE.search(value or "")
+        if match:
+            return int(match.group("start")), int(match.group("end"))
+    return None
+
+
+def _season_interval(months, year):
+    start_month, end_month = months
+    start = date(year, start_month, 1)
+    end_year = year + (end_month < start_month)
+    if end_month == 12:
+        end = date(end_year + 1, 1, 1) - timedelta(days=1)
+    else:
+        end = date(end_year, end_month + 1, 1) - timedelta(days=1)
+    return start, end
+
+
+def _season_intervals(subjects):
+    """Resolve season periods, including ServiceYears=0 rows bracketed by known cycles."""
+    seasons = sorted(
+        (subject for subject in subjects if subject.get("SubjectType") == "season"),
+        key=lambda subject: subject.get("HomeVoiceNo") or 0,
+    )
+    resolved = {}
+    for subject in seasons:
+        months = _season_months(subject)
+        service_year = subject.get("ServiceYear")
+        if not months or not service_year:
+            continue
+        cycle_start = _service_year_start(service_year)
+        occurrence_year = cycle_start.year if months[0] >= 5 else cycle_start.year + 1
+        resolved[subject["SubjectKey"]] = _season_interval(months, occurrence_year)
+
+    for index, subject in enumerate(seasons):
+        if subject["SubjectKey"] in resolved:
+            continue
+        months = _season_months(subject)
+        if not months:
+            continue
+        previous = next(
+            (resolved[item["SubjectKey"]] for item in reversed(seasons[:index])
+             if item["SubjectKey"] in resolved),
+            None,
+        )
+        following = next(
+            (resolved[item["SubjectKey"]] for item in seasons[index + 1:]
+             if item["SubjectKey"] in resolved),
+            None,
+        )
+        if not previous or not following:
+            continue
+        for occurrence_year in range(previous[0].year - 1, following[1].year + 2):
+            candidate = _season_interval(months, occurrence_year)
+            if candidate[0] > previous[1] and candidate[1] < following[0]:
+                resolved[subject["SubjectKey"]] = candidate
+                break
+    return resolved
+
+
+def build_recent_year_collection(catalog, tables, as_of_date):
+    """Select the preceding 365 days of Wiki-facing home and birthday voices."""
+    as_of = _parse_date(as_of_date)
+    if not as_of:
+        raise ValueError("recent-year requires an end date in YYYY-MM-DD format")
+    window_start = as_of - timedelta(days=365)
+    if not isinstance(tables, TableCatalog):
+        tables = TableCatalog(tables)
+
+    characters = {
+        row.get("CharacterId"): row
+        for row in _active_rows(tables, "mst_character")
+        if row.get("CharacterId") in EXPECTED_CHARACTER_IDS
+    }
+    records_by_subject = defaultdict(list)
+    for record in catalog["Records"]:
+        records_by_subject[record["SubjectKey"]].append(record)
+    season_intervals = _season_intervals(catalog["Subjects"])
+
+    home_subjects = []
+    birthday_subjects = []
+    selection = {}
+    for subject in catalog["Subjects"]:
+        subject_key = subject["SubjectKey"]
+        subject_type = subject.get("SubjectType")
+        selected_interval = None
+        basis = ""
+
+        if subject_type == "birthday":
+            character = characters.get(subject.get("SubjectCharacterId"), {})
+            service_year = subject.get("ServiceYear")
+            month, day = character.get("BirthMonth"), character.get("BirthDay")
+            if service_year and month and day:
+                occurrence = _birthday_occurrence(service_year, month, day)
+                selected_interval = (occurrence, occurrence)
+                basis = "character_birthday_and_service_year"
+            target = birthday_subjects
+        else:
+            target = home_subjects
+            if subject_type == "season":
+                selected_interval = season_intervals.get(subject_key)
+                basis = "season_month_range"
+            elif subject_type == "limited":
+                rows = records_by_subject[subject_key]
+                starts = [_parse_date(row.get("StartTime")) for row in rows]
+                ends = [_parse_date(row.get("EndTime")) for row in rows]
+                starts = [value for value in starts if value]
+                ends = [value for value in ends if value]
+                if starts:
+                    selected_interval = (min(starts), max(ends or starts))
+                    basis = "masterdata_limited_period"
+            elif subject_type in {"acb_only", "user_birthday"} and subject.get("ServiceYear"):
+                released = _service_year_start(subject["ServiceYear"])
+                selected_interval = (released, released)
+                basis = "service_year_release"
+
+        if not selected_interval:
+            continue
+        if selected_interval[1] < window_start or selected_interval[0] > as_of:
+            continue
+        target.append(subject)
+        selection[subject_key] = {
+            "SelectionBasis": basis,
+            "OccurrenceStart": selected_interval[0].isoformat(),
+            "OccurrenceEnd": selected_interval[1].isoformat(),
+        }
+
+    home_keys = {subject["SubjectKey"] for subject in home_subjects}
+    birthday_keys = {subject["SubjectKey"] for subject in birthday_subjects}
+    home_records = [record for record in catalog["Records"] if record["SubjectKey"] in home_keys]
+    birthday_records = [record for record in catalog["Records"] if record["SubjectKey"] in birthday_keys]
+    return {
+        "WindowStart": window_start.isoformat(),
+        "WindowEnd": as_of.isoformat(),
+        "HomeRecords": home_records,
+        "BirthdayRecords": birthday_records,
+        "HomeSubjects": home_subjects,
+        "BirthdaySubjects": birthday_subjects,
+        "Selection": selection,
+    }
+
+
+def export_recent_year_collection(collection, output_dir):
+    start = collection["WindowStart"].replace("-", "")
+    end = collection["WindowEnd"].replace("-", "")
+    path = os.path.join(output_dir, f"home_voice_recent_year_{start}_{end}.xlsx")
+    return write_workbook(path, [
+        _wiki_sheet(collection["HomeRecords"], title="主页与季节语音"),
+        _wiki_sheet(collection["BirthdayRecords"], title="生日祝福语音"),
+    ]) or path
+
+
+def recent_year_audit(collection):
+    def subjects(items):
+        return [
+            {
+                "SubjectKey": item["SubjectKey"],
+                "SubjectDisplayName": item["SubjectDisplayName"],
+                "SubjectType": item["SubjectType"],
+                "CueName": item["CueName"],
+                "HomeVoiceNo": item.get("HomeVoiceNo"),
+                "ServiceYear": item.get("ServiceYear"),
+                "RowCount": item["RowCount"],
+                "SpeakerCount": item["SpeakerCount"],
+                "Complete": item["Complete"],
+                **collection["Selection"][item["SubjectKey"]],
+            }
+            for item in items
+        ]
+
+    return {
+        "WindowStart": collection["WindowStart"],
+        "WindowEnd": collection["WindowEnd"],
+        "HomeSubjectCount": len(collection["HomeSubjects"]),
+        "HomeRecordCount": len(collection["HomeRecords"]),
+        "BirthdaySubjectCount": len(collection["BirthdaySubjects"]),
+        "BirthdayRecordCount": len(collection["BirthdayRecords"]),
+        "HomeSubjects": subjects(collection["HomeSubjects"]),
+        "BirthdaySubjects": subjects(collection["BirthdaySubjects"]),
+    }
+
+
 def export_home_voice_catalog(catalog, output_dir, selected_subject=None):
     """Export the Wiki workbook and an optional single-subject workbook."""
     output_dir = os.path.abspath(output_dir)
@@ -669,6 +876,7 @@ def run(
     masterdata_path=None,
     selected_subject=None,
     reference_acb_root=None,
+    recent_year_end=None,
     session=None,
 ):
     """Scan ACBs, join masterdata, and write Wiki/audit outputs beside masterdata."""
@@ -722,6 +930,17 @@ def run(
     with open(audit_path, "w", encoding="utf-8", newline="\n") as stream:
         stream.write(render_audit_markdown(catalog))
     paths = export_home_voice_catalog(catalog, xlsx_dir, selected_subject=selected_subject)
+    if recent_year_end:
+        recent = build_recent_year_collection(catalog, tables, recent_year_end)
+        paths["recent_year"] = export_recent_year_collection(recent, xlsx_dir)
+        recent_audit = recent_year_audit(recent)
+        recent_name = (
+            f"home_voice_recent_year_{recent['WindowStart'].replace('-', '')}_"
+            f"{recent['WindowEnd'].replace('-', '')}_audit.json"
+        )
+        recent_audit_path = os.path.join(json_dir, recent_name)
+        save_json(recent_audit, recent_audit_path)
+        paths["recent_year_audit"] = recent_audit_path
     paths["audit"] = audit_path
     print(
         f"[+] 主页语音 {catalog['Summary']['RecordCount']} 行，"

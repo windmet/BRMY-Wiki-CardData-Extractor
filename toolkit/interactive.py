@@ -10,6 +10,7 @@
 import sys
 import os
 import time
+from datetime import date
 
 from .core.session import MasterDataSession, utc_now
 from .core.console import configure_console
@@ -202,6 +203,18 @@ def parse_birthday_selection(value):
     raise ValueError('请输入 1/2/3、四位起始年份，或直接回车')
 
 
+def parse_recent_year_selection(value, today=None):
+    value = value.strip()
+    if not value:
+        return (today or date.today()).isoformat()
+    if value.lower() in {'n', 'no'}:
+        return None
+    try:
+        return date.fromisoformat(value).isoformat()
+    except ValueError as exc:
+        raise ValueError('请输入 YYYY-MM-DD、N，或直接回车') from exc
+
+
 def decrypt_s2b(s2b_path, out_dir):
     """严格解码 s2b，并仅复用哈希匹配的 master_data.json。"""
     from .core.masterdata import ensure_masterdata_json
@@ -234,6 +247,7 @@ def run():
         needs_masterdata = any(v in MASTERDATA_DOMAINS for v in valid)
         birthday_year = None
         birthday_cycle = None
+        recent_year_end = None
         if '4' in valid and choice != 'A':
             while True:
                 value = input(
@@ -241,6 +255,16 @@ def run():
                 )
                 try:
                     birthday_year, birthday_cycle = parse_birthday_selection(value)
+                    break
+                except ValueError as error:
+                    print(f"[!] {error}")
+        if '13' in valid:
+            while True:
+                value = input(
+                    ">>> 近一年双分表截止日（回车=今天；YYYY-MM-DD=固定日期；N=不生成）: "
+                )
+                try:
+                    recent_year_end = parse_recent_year_selection(value)
                     break
                 except ValueError as error:
                     print(f"[!] {error}")
@@ -359,7 +383,11 @@ def run():
             if key in AUDIO_DOMAINS:
                 try:
                     if key == '13' and master_session:
-                        result_dir = mod.run(audio_input, session=master_session)
+                        result_dir = mod.run(
+                            audio_input,
+                            recent_year_end=recent_year_end,
+                            session=master_session,
+                        )
                     else:
                         result_dir = mod.run(audio_input)
                     if isinstance(result_dir, dict):

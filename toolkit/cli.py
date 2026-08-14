@@ -19,7 +19,7 @@
     run birthday [--year 周期起始年] [--cycle 周期号]
                                               自动选择最新生日周期，或显式覆盖
     run home_voices <Musics目录> [master_data.json] [--subject 主体]
-                    [--reference-acb 旧ACB目录]
+                    [--reference-acb 旧ACB目录] [--recent-year YYYY-MM-DD]
                                               主页/季节/生日语音 Wiki 表
 
 [通用]
@@ -169,7 +169,7 @@ def cmd_run(domain_name, input_paths=None):
             index = 0
             while index < len(input_paths):
                 value = input_paths[index]
-                if value in {"--subject", "--reference-acb"}:
+                if value in {"--subject", "--reference-acb", "--recent-year"}:
                     if index + 1 >= len(input_paths):
                         print(f"[!] {value} 缺少参数")
                         return False
@@ -186,6 +186,7 @@ def cmd_run(domain_name, input_paths=None):
                 positional[1] if len(positional) >= 2 else None,
                 options.get("--subject") or (positional[2] if len(positional) >= 3 else None),
                 options.get("--reference-acb"),
+                options.get("--recent-year"),
             )
         elif domain_name == 'birthday':
             options = {}

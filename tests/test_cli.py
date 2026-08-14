@@ -45,6 +45,14 @@ class _RecordingCardUpdateDomain:
         cls.calls.append((old_workbook, audio_dir, session))
 
 
+class _RecordingHomeVoiceDomain:
+    calls = []
+
+    @classmethod
+    def run(cls, acb_root, masterdata_path, subject, reference_acb, recent_year):
+        cls.calls.append((acb_root, masterdata_path, subject, reference_acb, recent_year))
+
+
 class _Assessment:
     errors = []
 
@@ -159,6 +167,22 @@ class CliTests(unittest.TestCase):
         self.assertFalse(result)
         self.assertIn("参数错误", output.getvalue())
         self.assertFalse(session.audit_calls[-1][1])
+
+    def test_home_voices_accepts_recent_year_end_date(self):
+        _RecordingHomeVoiceDomain.calls = []
+        with patch.dict(
+            cli.DOMAINS, {"home_voices": _RecordingHomeVoiceDomain}, clear=True
+        ):
+            result = cli.cmd_run(
+                "home_voices",
+                ["Musics", "master_data.json", "--recent-year", "2026-08-15"],
+            )
+
+        self.assertTrue(result)
+        self.assertEqual(
+            [("Musics", "master_data.json", None, None, "2026-08-15")],
+            _RecordingHomeVoiceDomain.calls,
+        )
 
     def test_card_update_passes_old_workbook_and_audio_directory(self):
         session = _Session()

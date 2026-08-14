@@ -5,6 +5,7 @@ from pathlib import Path
 from toolkit.core.tables import TableCatalog
 from toolkit.domains.home_voices import (
     _anomaly_sheet,
+    build_recent_year_collection,
     _infer_service_year,
     apply_reference_records,
     build_home_voice_catalog,
@@ -200,6 +201,71 @@ class HomeVoiceCatalogTests(unittest.TestCase):
         anomaly_rows = _anomaly_sheet(result)["rows"]
         self.assertEqual(1, sum(row[1] == "acb_only_subject" for row in anomaly_rows))
         self.assertEqual(0, sum(row[1] == "masterdata_missing" for row in anomaly_rows))
+
+    def test_recent_year_uses_periods_and_birthday_dates_across_service_years(self):
+        tables = catalog_with({
+            "mst_character": [
+                {
+                    "CharacterId": 1, "CharacterNameJpn": "境界外",
+                    "BirthMonth": 8, "BirthDay": 14, "IsActive": True,
+                },
+                {
+                    "CharacterId": 2, "CharacterNameJpn": "境界内",
+                    "BirthMonth": 9, "BirthDay": 19, "IsActive": True,
+                },
+            ],
+        })
+
+        def subject(key, kind, name, no, year, target=None):
+            return {
+                "SubjectKey": key, "SubjectType": kind, "SubjectDisplayName": name,
+                "SubjectCharacterId": target, "HomeVoiceNo": no,
+                "ServiceYear": year, "CueName": f"cue_{no or target}",
+                "RowCount": 1, "SpeakerCount": 1, "Complete": True,
+                "TitleVariants": [name],
+            }
+
+        subjects = [
+            subject("limited:inside", "limited", "万圣节", 98, 2),
+            subject("limited:outside", "limited", "旧夏日", 97, 2),
+            subject("season:prev", "season", "季節のホームボイス(3~4月)", 108, 2),
+            subject("season:zero", "season", "季節のホームボイス(5~6月)", 109, None),
+            subject("season:next", "season", "季節のホームボイス(7~8月)", 110, 3),
+            subject("user:old", "user_birthday", "你的生日 [2年目]", 73, 2),
+            subject("user:new", "user_birthday", "你的生日 [3年目]", 113, 3),
+            subject("birthday:outside", "birthday", "境界外的生日", 76, 2, 1),
+            subject("birthday:inside", "birthday", "境界内的生日", 83, 2, 2),
+        ]
+        records = []
+        for item in subjects:
+            record = {
+                "SubjectKey": item["SubjectKey"],
+                "StartTime": None,
+                "EndTime": None,
+            }
+            if item["SubjectKey"] == "limited:inside":
+                record.update(StartTime="2025-10-24T16:00:00+00:00", EndTime="2025-11-05T16:00:00+00:00")
+            if item["SubjectKey"] == "limited:outside":
+                record.update(StartTime="2025-07-27T16:00:00+00:00", EndTime="2025-08-12T16:00:00+00:00")
+            records.append(record)
+
+        result = build_recent_year_collection(
+            {"Subjects": subjects, "Records": records}, tables, "2026-08-15"
+        )
+
+        self.assertEqual("2025-08-15", result["WindowStart"])
+        self.assertEqual(
+            {"limited:inside", "season:prev", "season:zero", "season:next", "user:new"},
+            {item["SubjectKey"] for item in result["HomeSubjects"]},
+        )
+        self.assertEqual(
+            {"birthday:inside"},
+            {item["SubjectKey"] for item in result["BirthdaySubjects"]},
+        )
+        self.assertEqual(
+            "2026-05-01",
+            result["Selection"]["season:zero"]["OccurrenceStart"],
+        )
 
     def test_non_birthday_key_target_does_not_trigger_package_year_warning(self):
         tables = catalog_with({
