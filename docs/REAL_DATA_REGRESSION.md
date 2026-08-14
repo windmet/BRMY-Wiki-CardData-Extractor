@@ -35,5 +35,7 @@ python scripts/compare_exports.py <accepted-output-root> <candidate-output-root>
 - MasterDataSession 全选只加载一次 `master_data.json`；首次 schema 基线为 `PASS_WITH_WARNINGS`，第二次固定输入为 `PASS`
 - 卡牌增量更新无变化验收：旧表/新表均为 433 卡，Added/Modified/Removed 均为 0，全部单元格值、数据类型和数字格式严格一致
 - 卡牌增量更新有变化验收：合成旧表检出新增 1、自动字段修改 1、移除 1，保留 4 个非空人工/自定义单元格及 1 个公式；旧工作簿 SHA-256 不变
+- home_voices 年次验收：2099 行/100 主体；角色生日第一轮 21 主体、第二轮 21、第三轮 5；`vo_home_63/96/135` 分别判定为第 1/2/3 年，`vo_home_65/106` 分别为 1st/2nd Anniv.，年次候选冲突为 0
+- home_voices 年次审计只新增 JSON 字段；与提交 `9e98e2e` 对同一输入生成的 Wiki XLSX 在值、类型和数字格式上严格等值
 
 真实输入和接受基线只保存在本地，不提交到 Git。该快照只证明上述固定资源；游戏更新后必须重新建立并记录新快照。

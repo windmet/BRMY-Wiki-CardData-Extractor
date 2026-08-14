@@ -15,6 +15,7 @@ from ..core.exporter import (
     write_workbook,
     xlsx_path,
 )
+from ..core.console import safe_print
 from ..core.scanner import load_json, save_json
 from . import cards
 from .card_export import CARD_MANUAL_HEADERS, build_card_sheet
@@ -282,7 +283,10 @@ def merge_card_workbook(
     }
     save_json(audit, audit_path)
     old.workbook.close()
-    print(f"[+] 卡牌增量更新：新增 {len(added)}，修改 {len(modified_cards)}，移除 {len(removed)}")
+    safe_print(
+        f"[+] 卡牌增量更新：新增 {len(added)}，"
+        f"修改 {len(modified_cards)}，移除 {len(removed)}"
+    )
     return audit
 
 

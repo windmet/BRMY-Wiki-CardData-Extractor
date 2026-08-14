@@ -183,6 +183,9 @@ HomeVoiceNo
 HomeVoiceCategory
 SeasonId
 ServiceYears
+ServiceYear
+ServiceYearSource
+ServiceYearCandidates
 AcbFile
 AcbBucket
 CueName
@@ -255,6 +258,26 @@ Wiki 显示名可以使用“秋季主页语音”，但原始月份范围和 Ho
 ```text
 limited:home_voice_no=100
 ```
+
+### 年次标志不统一
+
+`第 1/2/3 年目` 与 `1st/2nd Anniversary` 是两类概念，不能仅靠“周年”字样归类。固定快照中已确认：
+
+| 对象 | 第一轮 | 第二轮 | 第三轮 |
+| --- | --- | --- | --- |
+| 角色生日全员祝福 | `KeyTargetValue=1`，`HomeVoiceNo=30-50` | `KeyTargetValue=2`，`HomeVoiceNo=74-94` | `KeyTargetValue=3`，当前 masterdata 仅 117/126/129；ACB 还有 118/130 |
+| 6 月话题 | `HomeVoiceNo=63`，商品名 `[1年目]` | `HomeVoiceNo=96`，商品名 `[2年目]` | `HomeVoiceNo=135`，当前无商品行，ACB 标题 `[3年目]` |
+| 游戏周年 | `HomeVoiceNo=65`，`1st Anniv.` | `HomeVoiceNo=106`，`2nd Anniv.` | 当前快照尚无 3rd Anniversary |
+
+年次判定按以下优先级进行，同时保留全部候选证据：
+
+1. 生日类 `mst_home_voice.KeyTargetValue`。
+2. `mst_home_voice_product.DisplayName` 中的 `[N年目]` 或整数周年名。
+3. ACB `TitleRaw` 中的年次。
+4. `voice_<character>_1/2/3.acb` 分包号。
+5. 季节表的正数 `ServiceYears`。
+
+`1.5th Anniv.` 不解析为“第 5 年”，它使用第 2 包作为服务年次。候选年次不一致时添加 `service_year_conflict`，不静默选一个后丢弃其他证据。
 
 ## 7. Masterdata 与 ACB 的覆盖关系
 

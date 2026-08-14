@@ -24,6 +24,11 @@ CHARACTER_PACKAGE_RE = re.compile(
     re.IGNORECASE,
 )
 BIRTHDAY_CUE_RE = re.compile(r"^vo_home_(?P<target>\d+)_(?P<number>\d+)$")
+SERVICE_YEAR_RE = re.compile(r"[\[\uff3b]\s*(?P<year>\d+)\s*\u5e74\u76ee\s*[\]\uff3d]")
+ANNIVERSARY_YEAR_RE = re.compile(
+    r"(?<![\d.])(?P<year>\d+)(?:st|nd|rd|th)\s+Anniv(?:ersary)?\.?",
+    re.IGNORECASE,
+)
 CATEGORY_NAMES = {
     2: "玩家生日",
     3: "角色本人生日",
@@ -121,6 +126,50 @@ def _normalized_title(value):
     return re.sub(r"\s*\[", " [", value)
 
 
+def _title_service_year(value):
+    match = SERVICE_YEAR_RE.search(value or "")
+    if match:
+        return int(match.group("year"))
+    match = ANNIVERSARY_YEAR_RE.search(value or "")
+    return int(match.group("year")) if match else None
+
+
+def _infer_service_year(record):
+    """Resolve service year without assuming every masterdata family uses one marker."""
+    candidates = {}
+
+    def add(source, value):
+        if isinstance(value, bool):
+            return
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            return
+        if value > 0:
+            candidates[source] = value
+
+    category = record.get("HomeVoiceCategory")
+    cue_name = record.get("CueName", "")
+    if category in (2, 3, 4):
+        add("masterdata_key_target", record.get("KeyTargetValue"))
+    add("masterdata_product_title", _title_service_year(record.get("ProductDisplayName")))
+    add("acb_title", _title_service_year(record.get("TitleRaw")))
+    if category in (2, 3, 4, 6) or BIRTHDAY_CUE_RE.fullmatch(cue_name):
+        add("acb_package", record.get("AcbBucket"))
+    if category == 7:
+        add("masterdata_season", record.get("ServiceYears"))
+
+    priority = (
+        "masterdata_key_target",
+        "masterdata_product_title",
+        "acb_title",
+        "acb_package",
+        "masterdata_season",
+    )
+    source = next((name for name in priority if name in candidates), "")
+    return (candidates.get(source), source, candidates)
+
+
 def apply_reference_records(scanned_records, reference_records):
     """Repair duplicated current metadata when an older ACB has distinct cue text."""
     duplicate_groups = defaultdict(list)
@@ -176,7 +225,7 @@ def _subject_identity(record, names, season_lookup):
     home_voice_no = record.get("HomeVoiceNo")
     key_target = record.get("KeyTargetValue")
     bucket = record.get("AcbBucket", 0)
-    year = key_target or bucket or 0
+    year = record.get("ServiceYear") or key_target or bucket or 0
 
     birthday = BIRTHDAY_CUE_RE.fullmatch(cue_name)
     if category in (3, 4) or birthday:
@@ -251,6 +300,11 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
         (row.get("CharacterId"), row.get("HomeVoiceNo")): row
         for row in _active_rows(tables, "mst_character_home_voice_limited")
     }
+    product_lookup = {
+        (row.get("HomeVoiceTargetId"), row.get("HomeVoiceNo")): row
+        for row in _active_rows(tables, "mst_home_voice_product")
+        if row.get("HomeVoiceTypeCode") == 1
+    }
 
     records = []
     for scanned in scanned_records:
@@ -291,11 +345,20 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
 
         season = season_lookup.get((speaker_id, record.get("HomeVoiceNo")), {})
         limited = limited_lookup.get((speaker_id, record.get("HomeVoiceNo")), {})
+        product = product_lookup.get((speaker_id, record.get("HomeVoiceNo")), {})
         record["SeasonId"] = season.get("SeasonId")
         record["SeasonName"] = season.get("SeasonName", "")
         record["ServiceYears"] = season.get("ServiceYears")
         record["StartTime"] = limited.get("StartTime")
         record["EndTime"] = limited.get("EndTime")
+        record["ProductDisplayName"] = product.get("DisplayName", "")
+        record["ProductDescription"] = product.get("Description", "")
+        service_year, service_year_source, service_year_candidates = _infer_service_year(record)
+        record["ServiceYear"] = service_year
+        record["ServiceYearSource"] = service_year_source
+        record["ServiceYearCandidates"] = service_year_candidates
+        if len(set(service_year_candidates.values())) > 1:
+            flags.append("service_year_conflict")
 
         subject_key, subject_type, display_name, target_id = _subject_identity(
             record, character_names, season_lookup
@@ -377,6 +440,11 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
             "HomeVoiceCategory": subject_records[0].get("HomeVoiceCategory"),
             "SeasonId": subject_records[0].get("SeasonId"),
             "ServiceYears": subject_records[0].get("ServiceYears"),
+            "ServiceYear": subject_records[0].get("ServiceYear"),
+            "ServiceYearSources": sorted({
+                row.get("ServiceYearSource", "") for row in subject_records
+                if row.get("ServiceYearSource")
+            }),
             "CueName": subject_records[0]["CueName"],
             "RowCount": len(subject_records),
             "SpeakerCount": len(present),
@@ -458,6 +526,7 @@ def _anomaly_sheet(catalog):
                 "title_conflict": "源元数据",
                 "duplicate_text_other_cue": "需核听",
                 "package_year_mismatch": "冲突",
+                "service_year_conflict": "冲突",
                 "metadata_fallback": "需检查",
                 "unstable_read": "需重扫",
             }.get(flag, "需检查")
@@ -634,6 +703,14 @@ def run(
         "CompleteSubjectCount": sum(subject["Complete"] for subject in catalog["Subjects"]),
         "AcbOnlySubjectCount": sum(subject["MasterdataStatus"] != "matched" for subject in catalog["Subjects"]),
         "ReferenceRepairCount": repair_count,
+        "SubjectCountsByServiceYear": dict(sorted(Counter(
+            subject["ServiceYear"] for subject in catalog["Subjects"]
+            if subject.get("ServiceYear")
+        ).items())),
+        "BirthdaySubjectCountsByYear": dict(sorted(Counter(
+            subject["ServiceYear"] for subject in catalog["Subjects"]
+            if subject["SubjectType"] == "birthday" and subject.get("ServiceYear")
+        ).items())),
     }
 
     base_dir = os.path.dirname(masterdata_path)

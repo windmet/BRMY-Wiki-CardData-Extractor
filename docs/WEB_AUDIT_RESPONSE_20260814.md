@@ -40,4 +40,4 @@
 
 ## 下一批建议
 
-本批后续已完成 schema fingerprint、运行清单与只读 `MasterDataSession`：真实 433 卡全选只加载一次 JSON，连续两次运行分别为基线初始化告警和 PASS，原有 Wiki 输出语义不变。所有 masterdata domain 均已完成具名表迁移；63 项测试通过。生日域已支持三轮实际编号差异及 EXE 交互选择。Excel 导出已改为显式列类型，并将真实回归扩展到数据类型和数字格式；两次独立全域输出严格等值。卡牌 Update/Diff Mode 已完成；GUI 和新版活动机制建模属于后续独立产品批次。
+本批后续已完成 schema fingerprint、运行清单与只读 `MasterDataSession`：真实 433 卡全选只加载一次 JSON，连续两次运行分别为基线初始化告警和 PASS，原有 Wiki 输出语义不变。所有 masterdata domain 均已完成具名表迁移；66 项测试通过。生日域已支持三轮实际编号差异及 EXE 交互选择。Excel 导出已改为显式列类型，并将真实回归扩展到数据类型和数字格式；两次独立全域输出严格等值。卡牌 Update/Diff Mode 已完成；主页语音已显式记录多来源年次及冲突审计。GUI 和新版活动机制建模属于后续独立产品批次。

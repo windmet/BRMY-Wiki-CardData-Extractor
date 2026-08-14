@@ -5,6 +5,7 @@ from pathlib import Path
 from toolkit.core.tables import TableCatalog
 from toolkit.domains.home_voices import (
     _anomaly_sheet,
+    _infer_service_year,
     apply_reference_records,
     build_home_voice_catalog,
     export_home_voice_catalog,
@@ -64,6 +65,101 @@ class HomeVoiceCatalogTests(unittest.TestCase):
         self.assertTrue(subject["Complete"])
         self.assertEqual("matched", subject["MasterdataStatus"])
         self.assertIn("title_conflict", result["Records"][0]["AuditFlags"])
+        self.assertEqual(2, result["Records"][0]["ServiceYear"])
+        self.assertEqual("masterdata_key_target", result["Records"][0]["ServiceYearSource"])
+
+    def test_service_year_accepts_the_three_known_marker_families(self):
+        first = _infer_service_year({
+            "HomeVoiceCategory": 6,
+            "CueName": "vo_home_63",
+            "TitleRaw": "6月の話題 [1年目]",
+            "AcbBucket": 1,
+        })
+        second = _infer_service_year({
+            "HomeVoiceCategory": 6,
+            "CueName": "vo_home_106",
+            "TitleRaw": "2nd Anniv.",
+            "ProductDisplayName": "2nd Anniversary",
+            "AcbBucket": 2,
+        })
+        third = _infer_service_year({
+            "HomeVoiceCategory": 4,
+            "CueName": "vo_home_4_117",
+            "KeyTargetValue": 3,
+            "TitleRaw": "綾戸の誕生日 [3年目]",
+            "AcbBucket": 3,
+        })
+        one_and_half = _infer_service_year({
+            "HomeVoiceCategory": 6,
+            "CueName": "vo_home_99",
+            "TitleRaw": "1.5th Anniv.",
+            "AcbBucket": 2,
+        })
+
+        self.assertEqual((1, "acb_title"), first[:2])
+        self.assertEqual((2, "masterdata_product_title"), second[:2])
+        self.assertEqual((3, "masterdata_key_target"), third[:2])
+        self.assertEqual((2, "acb_package"), one_and_half[:2])
+
+    def test_all_three_birthday_rounds_are_retained(self):
+        tables = catalog_with({
+            "mst_character": [
+                {"CharacterId": 1, "CharacterNameJpn": "キャラクター", "IsActive": True},
+            ],
+            "mst_home_voice": [
+                {
+                    "HomeVoiceTypeCode": 1,
+                    "HomeVoiceTargetId": 1,
+                    "HomeVoiceNo": home_voice_no,
+                    "HomeVoiceCategory": 4,
+                    "KeyTargetValue": year,
+                    "MotionCharacterId": 1,
+                    "VoiceCueName": cue_name,
+                    "IsActive": True,
+                }
+                for year, home_voice_no, cue_name in (
+                    (1, 30, "vo_home_1_30"),
+                    (2, 74, "vo_home_1_74"),
+                    (3, 117, "vo_home_1_117"),
+                )
+            ],
+            "mst_season": [],
+            "mst_character_home_voice_season": [],
+            "mst_character_home_voice_limited": [],
+            "mst_home_voice_product": [],
+        })
+        scanned = [
+            {
+                "SpeakerCharacterId": 1,
+                "AcbFile": f"voice_character_{year}.acb",
+                "AcbBucket": year,
+                "CueName": cue_name,
+                "CueIndex": year,
+                "CueId": year,
+                "TitleRaw": f"キャラクターの誕生日 [{year}年目]",
+                "TextRaw": f"line-{year}",
+                "TextWiki": f"line-{year}",
+                "MetadataMatchStatus": "matched_by_acb_utf",
+                "StableRead": True,
+                "AlternateAcbFiles": [],
+            }
+            for year, cue_name in (
+                (1, "vo_home_1_30"),
+                (2, "vo_home_1_74"),
+                (3, "vo_home_1_117"),
+            )
+        ]
+
+        result = build_home_voice_catalog(tables, scanned, expected_character_ids=(1,))
+
+        self.assertEqual(
+            {
+                "birthday:character=1:year=1",
+                "birthday:character=1:year=2",
+                "birthday:character=1:year=3",
+            },
+            {subject["SubjectKey"] for subject in result["Subjects"]},
+        )
 
     def test_acb_only_subject_is_retained_and_missing_speaker_is_reported(self):
         scanned = [{
