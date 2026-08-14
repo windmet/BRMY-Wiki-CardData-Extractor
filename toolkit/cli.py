@@ -29,6 +29,24 @@ from .domains import DOMAINS
 
 # 确保工作目录正确（通常放在 master_data.json 同级）
 MASTER_DIR = os.getcwd()
+MASTERDATA_DOMAIN_NAMES = {
+    'cards', 'music', 'snap', 'birthday', 'recipes', 'missions', 'items', 'events'
+}
+
+
+def prepare_masterdata():
+    """Verify or build master_data.json when the canonical S2B is available."""
+    from .core.masterdata import ensure_masterdata_json
+
+    s2b_path = os.path.join(MASTER_DIR, "master_data.s2b")
+    json_path = os.path.join(MASTER_DIR, "master_data.json")
+    if os.path.isfile(s2b_path):
+        ensure_masterdata_json(s2b_path, MASTER_DIR)
+        return True
+    if os.path.isfile(json_path):
+        return True
+    print("[!] 未找到 master_data.s2b 或 master_data.json")
+    return False
 
 
 def print_usage():
@@ -57,99 +75,14 @@ def cmd_list():
 
 
 def cmd_decrypt():
-    """调用内嵌的 s2b 解密脚本。"""
-    import msgpack
-    import lz4.block
-    import zlib
-    import lzma
-    from datetime import datetime
+    """严格解码 master_data.s2b，并按源文件哈希管理 JSON 缓存。"""
+    from .core.masterdata import ensure_masterdata_json
 
     s2b_path = os.path.join(MASTER_DIR, "master_data.s2b")
-    json_path = os.path.join(MASTER_DIR, "master_data.json")
-
     if not os.path.exists(s2b_path):
         print(f"[!] 未找到 master_data.s2b，请将文件放在当前目录")
-        return
-
-    print("[*] 解密 master_data.s2b ...")
-
-    def try_decompress(data, tag="unknown"):
-        try:
-            size = msgpack.unpackb(data[:5])
-            decompressed = lz4.block.decompress(data[5:], uncompressed_size=size)
-            print(f"[+] {tag}: lz4(带size) 解压成功, size={size}")
-            return decompressed
-        except Exception:
-            pass
-        try:
-            decompressed = lz4.block.decompress(data)
-            print(f"[+] {tag}: lz4(无size) 解压成功, len={len(decompressed)}")
-            return decompressed
-        except Exception:
-            pass
-        try:
-            decompressed = zlib.decompress(data)
-            print(f"[+] {tag}: zlib 解压成功, len={len(decompressed)}")
-            return decompressed
-        except Exception:
-            pass
-        try:
-            decompressed = zlib.decompress(data, wbits=-15)
-            print(f"[+] {tag}: raw inflate 解压成功, len={len(decompressed)}")
-            return decompressed
-        except Exception:
-            pass
-        try:
-            decompressed = lzma.decompress(data)
-            print(f"[+] {tag}: 标准 LZMA 解压成功, len={len(decompressed)}")
-            return decompressed
-        except Exception:
-            pass
-        try:
-            decompressed = lzma.decompress(data[5:])
-            print(f"[+] {tag}: 偏移5字节 LZMA 解压成功, len={len(decompressed)}")
-            return decompressed
-        except Exception:
-            pass
-        print(f"[!] {tag}: 所有解压方式都失败")
-        return data
-
-    def ext_hook(code, data):
-        if code == 99:
-            decompressed = try_decompress(data, tag="ext99")
-            try:
-                return msgpack.unpackb(decompressed, raw=False)
-            except Exception:
-                try:
-                    return decompressed.decode('utf-8')
-                except Exception:
-                    return f"<Binary Data: {len(decompressed)} bytes>"
-        return msgpack.ExtType(code, data)
-
-    def json_serial(obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        elif isinstance(obj, msgpack.ext.Timestamp):
-            return obj.to_datetime().isoformat()
-        raise TypeError(f"Unsupported type: {type(obj)}")
-
-    with open(s2b_path, "rb") as f:
-        raw = f.read()
-
-    unpacker = msgpack.Unpacker(ext_hook=ext_hook, raw=False)
-    unpacker.feed(raw)
-
-    objs = []
-    for obj in unpacker:
-        objs.append(obj)
-
-    print(f"[*] 解码总对象数: {len(objs)}")
-
-    import json
-    with open(json_path, "w", encoding="utf-8") as out:
-        json.dump(objs, out, default=json_serial, ensure_ascii=False, indent=2)
-
-    print(f"[+] 已保存 → {json_path}")
+        return False
+    return ensure_masterdata_json(s2b_path, MASTER_DIR).json_path
 
 
 def cmd_extract(domain_name):
@@ -180,13 +113,15 @@ def cmd_run(domain_name, input_paths=None):
     mod = DOMAINS.get(domain_name)
     if not mod:
         print(f"[!] 未知域: {domain_name}")
-        return
+        return False
+    if domain_name in MASTERDATA_DOMAIN_NAMES and not prepare_masterdata():
+        return False
     if hasattr(mod, 'run'):
         input_paths = input_paths or []
         if domain_name == 'home_voices':
             if not input_paths:
                 print("[!] home_voices 需要 Musics 目录")
-                return
+                return False
             positional = []
             options = {}
             index = 0
@@ -195,7 +130,7 @@ def cmd_run(domain_name, input_paths=None):
                 if value in {"--subject", "--reference-acb"}:
                     if index + 1 >= len(input_paths):
                         print(f"[!] {value} 缺少参数")
-                        return
+                        return False
                     options[value] = input_paths[index + 1]
                     index += 2
                     continue
@@ -203,7 +138,7 @@ def cmd_run(domain_name, input_paths=None):
                 index += 1
             if not positional:
                 print("[!] home_voices 需要 Musics 目录")
-                return
+                return False
             mod.run(
                 positional[0],
                 positional[1] if len(positional) >= 2 else None,
@@ -216,12 +151,17 @@ def cmd_run(domain_name, input_paths=None):
             mod.run()
     else:
         print(f"[!] {domain_name} 没有 run() 方法")
+        return False
+    return True
 
 
 def cmd_all():
     print("=" * 50)
     print("  BMC Toolkit — 全量解包")
     print("=" * 50)
+    if not prepare_masterdata():
+        return False
+    failures = []
     for name in ['cards', 'music', 'snap', 'birthday', 'recipes', 'missions', 'items', 'events']:
         mod = DOMAINS.get(name)
         if not mod:
@@ -236,6 +176,14 @@ def cmd_all():
                     mod.export()
         except Exception as e:
             print(f"[!] {name} 失败: {e}")
+            failures.append((name, str(e)))
+    if failures:
+        print(f"\n[!] 全量解包失败：{len(failures)} 个域未完成")
+        for name, message in failures:
+            print(f"    - {name}: {message}")
+        return False
+    print("\n[+] 全量解包完成")
+    return True
 
 
 def main():
@@ -250,15 +198,18 @@ def main():
     if cmd == 'list':
         cmd_list()
     elif cmd == 'decrypt':
-        cmd_decrypt()
+        if not cmd_decrypt():
+            raise SystemExit(1)
     elif cmd == 'all':
-        cmd_all()
+        if not cmd_all():
+            raise SystemExit(1)
     elif cmd == 'extract' and len(args) >= 2:
         cmd_extract(args[1])
     elif cmd == 'export' and len(args) >= 2:
         cmd_export(args[1])
     elif cmd == 'run' and len(args) >= 2:
-        cmd_run(args[1], args[2:])
+        if not cmd_run(args[1], args[2:]):
+            raise SystemExit(1)
     else:
         print_usage()
 

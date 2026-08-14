@@ -15,8 +15,59 @@ from ..core.data import (
 )
 from .card_relations import enrich_card_relations
 from .card_export import build_card_sheet
+from .audio import CARD_CUE_ORDER, scan_card_voices
 
 INPUT_JSON = 'master_data.json'
+PIECE_COLOR_RE = re.compile(
+    r'(サンピース（赤色）|サンピース（桃色）|ムーンピース（空色）|ムーンピース（青色）|スターピース（黄色）|スターピース（緑色）)'
+)
+
+
+def skill_values(obj, count=6):
+    """Keep original SkillValue indexes so sparse future rows cannot shift values."""
+    return {index: obj.get(f"SkillValue{index}") for index in range(1, count + 1)}
+
+
+def format_skill_desc(template, values, character_map=None):
+    if not template:
+        return ""
+    if template.startswith("text:{") and template.endswith("}"):
+        template = template[6:-1]
+
+    template = template.replace("<sprite name=piece_1><sprite name=piece_2>", "サンピース")
+    template = template.replace("<sprite name=piece_3><sprite name=piece_4>", "ムーンピース")
+    template = template.replace("<sprite name=piece_5><sprite name=piece_6>", "スターピース")
+    template = template.replace("サン属性ピースサンピース", "サンピース")
+    template = template.replace("ムーン属性ピースムーンピース", "ムーンピース")
+    template = template.replace("スター属性ピーススターピース", "スターピース")
+    template = template.replace("サン属性ピース", "サンピース")
+    template = template.replace("ムーン属性ピース", "ムーンピース")
+    template = template.replace("スター属性ピース", "スターピース")
+    template = template.replace("属性ピース", "ピース")
+    template = template.replace("combopiece_1", "コンボピース")
+    template = template.replace("combopiece_2", "ダブルコンボピース")
+    template = template.replace("combopiece_3", "トリプルコンボピース")
+    template = re.sub(r'hiramekipiece_\d+', 'ひらめきピース', template)
+    template = re.sub(r'combopiece_\d+', 'コンボピース', template)
+
+    indexed_values = values.items() if hasattr(values, "items") else enumerate(values, start=1)
+    character_map = character_map or {}
+    for index, val in indexed_values:
+        if val is None:
+            continue
+        val_str = str(val)
+        key = f"skill_value{index}"
+        if key in template:
+            template = template.replace(key, val_str)
+        elif f"piece_value{index}" in template and isinstance(val, int) and val in PIECE_MAP:
+            template = template.replace(f"piece_value{index}", PIECE_MAP[val])
+        elif f"strength_value{index}" in template:
+            template = template.replace(f"strength_value{index}", MAGNITUDE_MAP.get(val, val_str))
+        elif f"group_value{index}" in template:
+            template = template.replace(f"group_value{index}", DEPT_MAP.get(val, val_str))
+        elif f"character_value{index}" in template:
+            template = template.replace(f"character_value{index}", character_map.get(val, val_str))
+    return template
 
 
 def extract(audio_dir=None):
@@ -29,7 +80,6 @@ def extract(audio_dir=None):
     character_map = {}
     sp_effect_def_map = {}
     notice_list = []
-    card_to_char_map = {}
     card_home_voice_map = {}
 
     main_card_rows = tables.require('mst_character_card')
@@ -44,9 +94,6 @@ def extract(audio_dir=None):
         + tables.require('mst_combination_effect')
         + tables.require('mst_leader_skill_effect')
     )
-    for obj in main_card_rows:
-        card_to_char_map[obj['CharacterCardId']] = obj['CharacterId']
-
     for obj in mapping_rows:
         if obj.get('HomeVoiceTypeCode') == 2 and obj.get('HomeVoiceTargetId') and obj.get('VoiceCueName'):
             card_id = obj['HomeVoiceTargetId']
@@ -94,54 +141,6 @@ def extract(audio_dir=None):
                 "Desc": obj.get('SkillDescription', ''),
             }
 
-    # ============ 技能描述格式化 ============
-    piece_color_re = re.compile(
-        r'(サンピース（赤色）|サンピース（桃色）|ムーンピース（空色）|ムーンピース（青色）|スターピース（黄色）|スターピース（緑色）)'
-    )
-
-    def format_skill_desc(template, values, char_id=None):
-        if not template:
-            return ""
-        if template.startswith("text:{") and template.endswith("}"):
-            template = template[6:-1]
-
-        # Sprite 图标
-        template = template.replace("<sprite name=piece_1><sprite name=piece_2>", "サンピース")
-        template = template.replace("<sprite name=piece_3><sprite name=piece_4>", "ムーンピース")
-        template = template.replace("<sprite name=piece_5><sprite name=piece_6>", "スターピース")
-        template = template.replace("サン属性ピースサンピース", "サンピース")
-        template = template.replace("ムーン属性ピースムーンピース", "ムーンピース")
-        template = template.replace("スター属性ピーススターピース", "スターピース")
-        template = template.replace("サン属性ピース", "サンピース")
-        template = template.replace("ムーン属性ピース", "ムーンピース")
-        template = template.replace("スター属性ピース", "スターピース")
-        template = template.replace("属性ピース", "ピース")
-
-        # 常量
-        template = template.replace("combopiece_1", "コンボピース")
-        template = template.replace("combopiece_2", "ダブルコンボピース")
-        template = template.replace("combopiece_3", "トリプルコンボピース")
-        template = re.sub(r'hiramekipiece_\d+', 'ひらめきピース', template)
-        template = re.sub(r'combopiece_\d+', 'コンボピース', template)
-
-        for i, val in enumerate(values):
-            if val is None:
-                continue
-            val_str = str(val)
-            k = f"skill_value{i + 1}"
-            if k in template:
-                template = template.replace(k, val_str)
-            elif f"piece_value{i + 1}" in template and isinstance(val, int) and val in PIECE_MAP:
-                template = template.replace(f"piece_value{i + 1}", PIECE_MAP[val])
-            elif f"strength_value{i + 1}" in template:
-                template = template.replace(f"strength_value{i + 1}", MAGNITUDE_MAP.get(val, val_str))
-            elif f"group_value{i + 1}" in template:
-                template = template.replace(f"group_value{i + 1}", DEPT_MAP.get(val, val_str))
-            elif f"character_value{i + 1}" in template:
-                template = template.replace(f"character_value{i + 1}", character_map.get(val, val_str))
-
-        return template
-
     def extract_costs(obj):
         costs = []
         for i in range(1, 7):
@@ -184,8 +183,6 @@ def extract(audio_dir=None):
         if not cid:
             continue
         card = get_card(cid)
-        current_char_id = card_to_char_map.get(cid)
-
         if 'CharacterCardName' in obj:
             card["Raw"] = dict(obj)
             card["Meta"].update({
@@ -227,20 +224,20 @@ def extract(audio_dir=None):
             if 'ItemId1' in obj:
                 card["UpgradeCosts"]["Revision"][f"Rank{rank}"] = extract_costs(obj)
 
-        if 'LeaderSkillEffectId' in obj and 'SkillValue1' in obj:
+        if 'LeaderSkillEffectId' in obj:
             effect_id = obj.get('LeaderSkillEffectId')
-            values = [obj.get(f'SkillValue{i}') for i in range(1, 7) if obj.get(f'SkillValue{i}') is not None]
+            values = skill_values(obj)
             effect_info = skill_effect_map.get(f"Leader_{effect_id}", {"Name": f"Leader_{effect_id}", "Desc": ""})
             card["LeaderSkill"] = {
                 "Name": effect_info["Name"],
-                "Desc": format_skill_desc(effect_info["Desc"], values, current_char_id),
+                "Desc": format_skill_desc(effect_info["Desc"], values, character_map),
             }
 
         if 'SpSkillLevel' in obj and 'SkillDescription' in obj:
             lv = obj['SpSkillLevel']
-            values = [obj.get(f'SkillValue{i}') for i in range(1, 7)]
+            values = skill_values(obj)
             card["SpSkill"][f"Lv{lv}"] = {
-                "Desc": format_skill_desc(obj.get('SkillDescription', ''), values, current_char_id),
+                "Desc": format_skill_desc(obj.get('SkillDescription', ''), values, character_map),
                 "Cost": obj.get('SkillCost'),
             }
             sp_effect_id = obj.get('SpSkillEffectId')
@@ -252,18 +249,18 @@ def extract(audio_dir=None):
 
         if 'SpSkillWithCombiType' in obj:
             card["SpSkill"]["CombiBonus"] = {
-                "Desc": format_skill_desc(obj.get('SkillDescription', ''), [obj.get('SkillValue1')], current_char_id),
+                "Desc": format_skill_desc(obj.get('SkillDescription', ''), skill_values(obj, 1), character_map),
                 "Value": obj.get('SkillValue1'),
             }
 
         if 'AutoSkillLevel' in obj:
             lv = obj['AutoSkillLevel']
             if 'AutoSkillEffectId' in obj:
-                values = [obj.get(f'SkillValue{i}') for i in range(1, 4) if obj.get(f'SkillValue{i}') is not None]
+                values = skill_values(obj, 3)
                 effect_info = skill_effect_map.get(f"Auto_{obj.get('AutoSkillEffectId')}", {"Name": "Auto", "Desc": ""})
                 card["AutoSkill"][f"Lv{lv}"] = {
                     "Name": effect_info["Name"],
-                    "Desc": format_skill_desc(effect_info["Desc"], values, current_char_id),
+                    "Desc": format_skill_desc(effect_info["Desc"], values, character_map),
                     "PieceCount": obj.get('PieceCount'),
                 }
             if 'ItemId1' in obj:
@@ -272,10 +269,10 @@ def extract(audio_dir=None):
         if 'CombinationLevel' in obj:
             lv = obj['CombinationLevel']
             if 'CombinationEffectId' in obj:
-                values = [obj.get(f'SkillValue{i}') for i in range(1, 7) if obj.get(f'SkillValue{i}') is not None]
+                values = skill_values(obj)
                 effect_info = skill_effect_map.get(f"Combo_{obj.get('CombinationEffectId')}", {"Desc": ""})
                 card["Combination"][f"Lv{lv}"] = {
-                    "Desc": format_skill_desc(effect_info["Desc"], values, current_char_id),
+                    "Desc": format_skill_desc(effect_info["Desc"], values, character_map),
                 }
             if 'ItemId1' in obj:
                 card["UpgradeCosts"]["Combination"][f"Lv{lv}"] = extract_costs(obj)
@@ -320,7 +317,7 @@ def extract(audio_dir=None):
         card_sp_color = None
         for lv, sp_data in card.get("SpSkill", {}).items():
             if lv.startswith("Lv") and "Desc" in sp_data:
-                match = piece_color_re.search(sp_data["Desc"])
+                match = PIECE_COLOR_RE.search(sp_data["Desc"])
                 if match:
                     card_sp_color = match.group(1)
                     break
@@ -366,8 +363,6 @@ def extract(audio_dir=None):
         )
 
     if audio_dir:
-        from domains.audio import CARD_CUE_ORDER, scan_card_voices
-
         audio_cards, audio_warnings = scan_card_voices(audio_dir)
         linked_count = 0
         for cid_text, audio_card in audio_cards.items():

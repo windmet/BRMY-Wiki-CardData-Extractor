@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.bmc_toolkit/
 .venv/
 venv/
 build/
@@ -39,4 +40,3 @@ xlsx_output/
 .vscode/
 Thumbs.db
 .DS_Store
-

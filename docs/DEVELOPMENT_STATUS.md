@@ -76,9 +76,11 @@ masterdata/
 master_data.s2b
   -> MessagePack 解包
   -> 扩展类型 99
-  -> LZ4（并兼容 zlib/LZMA 探测）
+  -> 严格 LZ4 解码（未知扩展或损坏块立即停止）
   -> master_data.json
 ```
+
+交互入口与 CLI 共用唯一解码器。`master_data.json` 只有在源 S2B SHA-256、解析器版本和输出 JSON SHA-256 都与 `.bmc_toolkit/master_data_cache.json` 匹配时才会复用。
 
 ### 4.2 独立 S2B 文件
 

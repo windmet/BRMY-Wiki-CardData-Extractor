@@ -35,6 +35,10 @@ python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.js
 ./scripts/verify.ps1
 ```
 
+交互模式生成的 `master_data.json` 使用 `.bmc_toolkit/master_data_cache.json` 校验源 S2B 与输出哈希；同目录替换新版 S2B 后会自动重新解码，损坏或未知格式会停止导出。
+
+涉及字段、关系或导出行为的改动还应按 [`docs/REAL_DATA_REGRESSION.md`](docs/REAL_DATA_REGRESSION.md) 使用固定真实输入执行改前/改后语义比较。
+
 主页语音默认生成：
 
 - `xlsx_output/home_voice_catalog.xlsx`：仅含 `Wiki长表` 和 `完整度`，台词使用 Excel 单元格内真实换行。

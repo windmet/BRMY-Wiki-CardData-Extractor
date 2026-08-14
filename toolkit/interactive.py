@@ -162,82 +162,10 @@ def show_menu():
 
 
 def decrypt_s2b(s2b_path, out_dir):
-    """解密 s2b → master_data.json"""
-    import zlib
-    import lzma
-    import json
-    from datetime import datetime
+    """严格解码 s2b，并仅复用哈希匹配的 master_data.json。"""
+    from .core.masterdata import ensure_masterdata_json
 
-    master_json = os.path.join(out_dir, "master_data.json")
-
-    if os.path.exists(master_json):
-        print("[*] master_data.json 已存在，跳过解密")
-        return master_json
-
-    print("[*] 正在解密 s2b ...")
-
-    def try_decompress(data, tag="unknown"):
-        try:
-            size = msgpack.unpackb(data[:5])
-            return lz4.block.decompress(data[5:], uncompressed_size=size)
-        except Exception:
-            pass
-        try:
-            return lz4.block.decompress(data)
-        except Exception:
-            pass
-        try:
-            return zlib.decompress(data)
-        except Exception:
-            pass
-        try:
-            return zlib.decompress(data, wbits=-15)
-        except Exception:
-            pass
-        try:
-            return lzma.decompress(data)
-        except Exception:
-            pass
-        try:
-            return lzma.decompress(data[5:])
-        except Exception:
-            pass
-        print(f"[!] {tag}: 所有解压方式都失败")
-        return data
-
-    def ext_hook(code, data):
-        if code == 99:
-            decompressed = try_decompress(data, tag="ext99")
-            try:
-                return msgpack.unpackb(decompressed, raw=False)
-            except Exception:
-                try:
-                    return decompressed.decode('utf-8')
-                except Exception:
-                    return f"<Binary: {len(decompressed)} bytes>"
-        return msgpack.ExtType(code, data)
-
-    def json_serial(obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        elif isinstance(obj, msgpack.ext.Timestamp):
-            return obj.to_datetime().isoformat()
-        raise TypeError(f"Unsupported type: {type(obj)}")
-
-    with open(s2b_path, "rb") as f:
-        raw = f.read()
-
-    unpacker = msgpack.Unpacker(ext_hook=ext_hook, raw=False)
-    unpacker.feed(raw)
-    objs = [obj for obj in unpacker]
-
-    print(f"[*] 解码对象数: {len(objs)}")
-
-    with open(master_json, "w", encoding="utf-8") as out:
-        json.dump(objs, out, default=json_serial, ensure_ascii=False, indent=2)
-
-    print(f"[+] master_data.json 已生成")
-    return master_json
+    return ensure_masterdata_json(s2b_path, out_dir).json_path
 
 
 def run():
@@ -311,6 +239,7 @@ def run():
         # Step 3: 执行
         from .domains import DOMAINS
 
+        failures = []
         for key in valid:
             name, desc = DOMAIN_MAP[key]
             mod = DOMAINS.get(name)
@@ -337,6 +266,7 @@ def run():
                         output_dirs.add(os.path.abspath(result_dir))
                 except Exception as e:
                     print(f"  [!] {desc} 失败: {e}")
+                    failures.append((desc, str(e)))
                 continue  # 已执行，跳到下一项
 
             if key in AUDIO_DOMAINS:
@@ -350,6 +280,7 @@ def run():
                     print(f"  [+] {desc} — 完成")
                 except Exception as e:
                     print(f"  [!] {desc} 失败: {e}")
+                    failures.append((desc, str(e)))
                 continue
 
             try:
@@ -367,8 +298,14 @@ def run():
                 output_dirs.add(os.path.abspath(os.getcwd()))
             except Exception as e:
                 print(f"  [!] {desc} 失败: {e}")
+                failures.append((desc, str(e)))
 
-        print("\n[√] 全部处理完成")
+        if failures:
+            print(f"\n[!] 处理结束，但有 {len(failures)} 项失败：")
+            for desc, message in failures:
+                print(f"  - {desc}: {message}")
+        else:
+            print("\n[√] 全部处理完成")
         for path in sorted(output_dirs or {os.path.abspath(out_dir)}):
             print(f"  输出目录: {path}")
         break
