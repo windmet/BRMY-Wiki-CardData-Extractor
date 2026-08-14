@@ -14,6 +14,8 @@ python scripts/compare_exports.py <accepted-output-root> <candidate-output-root>
 
 脚本对 JSON 做对象级比较，对 XLSX 比较工作表、尺寸、合并区域、公式和全部单元格值。它不比较 ZIP 时间戳等无关二进制差异。
 
+`audit_output/` 是每次运行的技术审计层，不参与 Wiki 表格等值比较；必须另外检查 `run_manifest.json` 的总状态、各域状态和 `schema_report.md`。
+
 4. 若修改 ACB 关联，再使用固定 Musics 快照运行 cards/home_voices，并比较 JSON/XLSX，同时核对包数、非空文本数、异常数和已知边界卡。
 5. 若预期数据会改变，先人工审查差异并记录原因，再更新接受基线；不能因为测试失败就直接覆盖基线。
 
@@ -26,5 +28,6 @@ python scripts/compare_exports.py <accepted-output-root> <candidate-output-root>
 - 当前四类技能表中不存在非连续 `SkillValue` 行
 - 全域改前/改后：6 个 JSON 对象完全相等，8 个 XLSX 全部单元格相等
 - cards + ACB：455 个包、1907 条非空语音文本；与已接受的 433 卡 JSON/XLSX 完全相等
+- MasterDataSession 全选只加载一次 `master_data.json`；首次 schema 基线为 `PASS_WITH_WARNINGS`，第二次固定输入为 `PASS`
 
 真实输入和接受基线只保存在本地，不提交到 Git。该快照只证明上述固定资源；游戏更新后必须重新建立并记录新快照。

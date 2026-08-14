@@ -82,6 +82,8 @@ master_data.s2b
 
 交互入口与 CLI 共用唯一解码器。`master_data.json` 只有在源 S2B SHA-256、解析器版本和输出 JSON SHA-256 都与 `.bmc_toolkit/master_data_cache.json` 匹配时才会复用。
 
+`MasterDataSession` 在全选流程中只加载一次 JSON，并生成 `audit_output/run_manifest.json` 与 `schema_report.md`。schema 合约会在关键表或字段消失时阻断导出；新表、新字段、类型和行数变化会保留为告警，成功运行后更新本地 schema 基线。
+
 ### 4.2 独立 S2B 文件
 
 `toolkit/core/s2b_parser.py` 负责公共解析：

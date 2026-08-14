@@ -70,9 +70,9 @@ def format_skill_desc(template, values, character_map=None):
     return template
 
 
-def extract(audio_dir=None):
-    data = load_json(INPUT_JSON)
-    tables = TableCatalog(data)
+def extract(audio_dir=None, session=None):
+    data = session.data if session else load_json(INPUT_JSON)
+    tables = session.tables if session else TableCatalog(data)
 
     # ============ 预扫描：全局映射表 ============
     item_map = {}
@@ -407,6 +407,6 @@ def export(json_file=None):
     write_xlsx(rows, out, headers, sheet_title="cards_data")
 
 
-def run(audio_dir=None):
-    extract(audio_dir=audio_dir)
+def run(audio_dir=None, session=None):
+    extract(audio_dir=audio_dir, session=session)
     export()

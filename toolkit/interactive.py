@@ -9,6 +9,9 @@
 """
 import sys
 import os
+import time
+
+from .core.session import MasterDataSession, utc_now
 
 # ---- 预检查依赖（避免闪退） ----
 try:
@@ -194,6 +197,8 @@ def run():
         output_dirs = set()
         out_dir = os.getcwd()
         audio_input = None
+        master_session = None
+        run_started_at = utc_now()
 
         # Step 2: 如果需要 masterdata，先选 .s2b 文件并解密
         if needs_masterdata:
@@ -216,7 +221,16 @@ def run():
                 output_dirs.add(os.path.abspath(out_dir))
                 os.chdir(out_dir)
                 try:
-                    decrypt_s2b(s2b_path, out_dir)
+                    master_json = decrypt_s2b(s2b_path, out_dir)
+                    master_session = MasterDataSession.open(master_json)
+                    if master_session.assessment.errors:
+                        for error in master_session.assessment.errors:
+                            print(f"[!] Schema: {error}")
+                        master_session.write_audit(
+                            [], started_at=run_started_at, success=False
+                        )
+                        input("按回车键退出...")
+                        return
                 except Exception as e:
                     print(f"[!] 解密失败: {e}")
                     input("按回车键退出...")
@@ -240,6 +254,7 @@ def run():
         from .domains import DOMAINS
 
         failures = []
+        domain_results = []
         for key in valid:
             name, desc = DOMAIN_MAP[key]
             mod = DOMAINS.get(name)
@@ -250,6 +265,7 @@ def run():
             print(f"\n{'=' * 40}")
             print(f"  [{key}] {desc}")
             print(f"{'=' * 40}")
+            domain_started = time.perf_counter()
 
             # s2b 文件解析类：弹出文件或目录选择器
             if key in S2B_FILE_DOMAINS:
@@ -264,29 +280,56 @@ def run():
                     result_dir = mod.run(input_path)
                     if result_dir:
                         output_dirs.add(os.path.abspath(result_dir))
+                    domain_results.append({
+                        "name": name,
+                        "status": "PASS",
+                        "duration_seconds": round(time.perf_counter() - domain_started, 3),
+                    })
                 except Exception as e:
                     print(f"  [!] {desc} 失败: {e}")
                     failures.append((desc, str(e)))
+                    domain_results.append({
+                        "name": name,
+                        "status": "FAIL",
+                        "duration_seconds": round(time.perf_counter() - domain_started, 3),
+                        "error": str(e),
+                    })
                 continue  # 已执行，跳到下一项
 
             if key in AUDIO_DOMAINS:
                 try:
-                    result_dir = mod.run(audio_input)
+                    if key == '13' and master_session:
+                        result_dir = mod.run(audio_input, session=master_session)
+                    else:
+                        result_dir = mod.run(audio_input)
                     if isinstance(result_dir, dict):
                         for path in result_dir.values():
                             output_dirs.add(os.path.dirname(os.path.abspath(path)))
                     elif result_dir:
                         output_dirs.add(os.path.abspath(result_dir))
                     print(f"  [+] {desc} — 完成")
+                    domain_results.append({
+                        "name": name,
+                        "status": "PASS",
+                        "duration_seconds": round(time.perf_counter() - domain_started, 3),
+                    })
                 except Exception as e:
                     print(f"  [!] {desc} 失败: {e}")
                     failures.append((desc, str(e)))
+                    domain_results.append({
+                        "name": name,
+                        "status": "FAIL",
+                        "duration_seconds": round(time.perf_counter() - domain_started, 3),
+                        "error": str(e),
+                    })
                 continue
 
             try:
                 if hasattr(mod, 'run'):
                     if key in {'1', '2'}:
-                        mod.run(audio_input)
+                        mod.run(audio_input, session=master_session)
+                    elif key in MASTERDATA_DOMAINS:
+                        mod.run(session=master_session)
                     else:
                         mod.run()
                 else:
@@ -296,9 +339,27 @@ def run():
                         mod.export()
                 print(f"  [+] {desc} — 完成")
                 output_dirs.add(os.path.abspath(os.getcwd()))
+                domain_results.append({
+                    "name": name,
+                    "status": "PASS",
+                    "duration_seconds": round(time.perf_counter() - domain_started, 3),
+                })
             except Exception as e:
                 print(f"  [!] {desc} 失败: {e}")
                 failures.append((desc, str(e)))
+                domain_results.append({
+                    "name": name,
+                    "status": "FAIL",
+                    "duration_seconds": round(time.perf_counter() - domain_started, 3),
+                    "error": str(e),
+                })
+
+        if master_session:
+            master_session.write_audit(
+                domain_results,
+                started_at=run_started_at,
+                success=not failures,
+            )
 
         if failures:
             print(f"\n[!] 处理结束，但有 {len(failures)} 项失败：")

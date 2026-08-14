@@ -27,7 +27,7 @@ class MasterDataResult:
     table_count: int
 
 
-def _tool_version():
+def tool_version():
     try:
         return version("brmy-masterdata-toolkit")
     except PackageNotFoundError:
@@ -119,7 +119,7 @@ def ensure_masterdata_json(s2b_path, out_dir=None):
     manifest = {
         "manifest_version": 1,
         "parser_version": PARSER_VERSION,
-        "tool_version": _tool_version(),
+        "tool_version": tool_version(),
         "source": {
             "name": source.name,
             "size": source.stat().st_size,

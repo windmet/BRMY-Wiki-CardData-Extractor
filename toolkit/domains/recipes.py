@@ -6,8 +6,8 @@ from ..core.data import clean_text
 INPUT_JSON = 'master_data.json'
 
 
-def extract():
-    data = load_json(INPUT_JSON)
+def extract(session=None):
+    data = session.data if session else load_json(INPUT_JSON)
     character_map = {}
     event_map = {}
     ingredients = {}
@@ -162,6 +162,6 @@ def export():
     print(f"  [xlsx] {out}")
 
 
-def run():
-    extract()
+def run(session=None):
+    extract(session=session)
     export()

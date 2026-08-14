@@ -5,8 +5,8 @@ from ..core.exporter import write_xlsx, xlsx_path
 INPUT_JSON = 'master_data.json'
 
 
-def run():
-    data = load_json(INPUT_JSON)
+def run(session=None):
+    data = session.data if session else load_json(INPUT_JSON)
 
     mission_master = []
     sequence_rewards = []

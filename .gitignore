@@ -35,6 +35,7 @@ inputs/
 outputs/
 json_output/
 xlsx_output/
+audit_output/
 
 .idea/
 .vscode/

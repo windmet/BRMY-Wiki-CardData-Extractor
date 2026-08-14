@@ -7,8 +7,8 @@ INPUT_JSON = 'master_data.json'
 TARGET_CYCLE = 3
 
 
-def extract():
-    data = load_json(INPUT_JSON)
+def extract(session=None):
+    data = session.data if session else load_json(INPUT_JSON)
     characters = {}
     raw_texts = {}
 
@@ -78,6 +78,6 @@ def export():
                col_widths={'A': 20}, wrap_cols={i for i in range(1, len(sorted_chars) + 1)})
 
 
-def run():
-    extract()
+def run(session=None):
+    extract(session=session)
     export()

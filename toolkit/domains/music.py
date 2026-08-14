@@ -13,8 +13,8 @@ except ImportError:
     HAS_MUTAGEN = False
 
 INPUT_JSON = 'master_data.json'
-def extract(audio_dir=None):
-    data = load_json(INPUT_JSON)
+def extract(audio_dir=None, session=None):
+    data = session.data if session else load_json(INPUT_JSON)
     music_db = {}
 
     for obj in walk(data):
@@ -72,6 +72,6 @@ def export():
                col_widths={'A': 12, 'B': 35, 'C': 35, 'D': 30, 'E': 35, 'F': 12})
 
 
-def run(audio_dir=None):
-    extract(audio_dir=audio_dir)
+def run(audio_dir=None, session=None):
+    extract(audio_dir=audio_dir, session=session)
     export()

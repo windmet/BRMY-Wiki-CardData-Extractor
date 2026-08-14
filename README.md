@@ -37,6 +37,14 @@ python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.js
 
 交互模式生成的 `master_data.json` 使用 `.bmc_toolkit/master_data_cache.json` 校验源 S2B 与输出哈希；同目录替换新版 S2B 后会自动重新解码，损坏或未知格式会停止导出。
 
+Masterdata 域在一次运行中共享同一个 `MasterDataSession`，不会为每个域重复解析大型 JSON。每次运行还会生成：
+
+- `audit_output/run_manifest.json`：输入哈希、schema 状态、各域结果和耗时。
+- `audit_output/schema_report.md`：新增/删除表、字段、类型和行数变化。
+- `.bmc_toolkit/masterdata_schema.json`：上一次成功运行的本地 schema 基线。
+
+首次运行因建立基线显示 `PASS_WITH_WARNINGS` 属正常情况；同一输入再次运行应为 `PASS`。必需表或字段消失时会在导出前阻断。
+
 涉及字段、关系或导出行为的改动还应按 [`docs/REAL_DATA_REGRESSION.md`](docs/REAL_DATA_REGRESSION.md) 使用固定真实输入执行改前/改后语义比较。
 
 主页语音默认生成：

@@ -31,8 +31,8 @@ def _clean(text):
     return str(text).replace("\\n", "<br>").replace("\n", "<br>")
 
 
-def run():
-    data = load_json(INPUT_JSON)
+def run(session=None):
+    data = session.data if session else load_json(INPUT_JSON)
 
     items = []
     for sub in data:

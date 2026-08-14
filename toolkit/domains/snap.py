@@ -8,9 +8,9 @@ from ..core.data import CHAR_MAP, NAME_MAP, translate_scene
 INPUT_JSON = 'master_data.json'
 
 
-def extract():
+def extract(session=None):
     """从 master_data.json 提取 Snap 数据 → json_output/intermediate_snaps.json"""
-    data = load_json(INPUT_JSON)
+    data = session.data if session else load_json(INPUT_JSON)
 
     sticky_notes = {}
     raw_snapshots = []
@@ -132,6 +132,6 @@ def export(json_file=None):
     print(f"[+] 去重后 {len(rows)} 条 → {out}")
 
 
-def run():
-    extract()
+def run(session=None):
+    extract(session=session)
     export()

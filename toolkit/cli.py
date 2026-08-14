@@ -24,8 +24,10 @@
 
 import sys
 import os
+import time
 
 from .domains import DOMAINS
+from .core.session import MasterDataSession, utc_now
 
 # 确保工作目录正确（通常放在 master_data.json 同级）
 MASTER_DIR = os.getcwd()
@@ -41,10 +43,9 @@ def prepare_masterdata():
     s2b_path = os.path.join(MASTER_DIR, "master_data.s2b")
     json_path = os.path.join(MASTER_DIR, "master_data.json")
     if os.path.isfile(s2b_path):
-        ensure_masterdata_json(s2b_path, MASTER_DIR)
-        return True
+        return ensure_masterdata_json(s2b_path, MASTER_DIR).json_path
     if os.path.isfile(json_path):
-        return True
+        return json_path
     print("[!] 未找到 master_data.s2b 或 master_data.json")
     return False
 
@@ -114,8 +115,19 @@ def cmd_run(domain_name, input_paths=None):
     if not mod:
         print(f"[!] 未知域: {domain_name}")
         return False
-    if domain_name in MASTERDATA_DOMAIN_NAMES and not prepare_masterdata():
-        return False
+    session = None
+    started_at = utc_now()
+    if domain_name in MASTERDATA_DOMAIN_NAMES:
+        masterdata_path = prepare_masterdata()
+        if not masterdata_path:
+            return False
+        session = MasterDataSession.open(masterdata_path)
+        if session.assessment.errors:
+            for error in session.assessment.errors:
+                print(f"[!] Schema: {error}")
+            session.write_audit([], started_at=started_at, success=False)
+            return False
+    started = time.perf_counter()
     if hasattr(mod, 'run'):
         input_paths = input_paths or []
         if domain_name == 'home_voices':
@@ -146,12 +158,28 @@ def cmd_run(domain_name, input_paths=None):
                 options.get("--reference-acb"),
             )
         elif input_paths:
-            mod.run(input_paths[0])
+            if session:
+                mod.run(input_paths[0], session=session)
+            else:
+                mod.run(input_paths[0])
         else:
-            mod.run()
+            if session:
+                mod.run(session=session)
+            else:
+                mod.run()
     else:
         print(f"[!] {domain_name} 没有 run() 方法")
         return False
+    if session:
+        session.write_audit(
+            [{
+                "name": domain_name,
+                "status": "PASS",
+                "duration_seconds": round(time.perf_counter() - started, 3),
+            }],
+            started_at=started_at,
+            success=True,
+        )
     return True
 
 
@@ -159,24 +187,48 @@ def cmd_all():
     print("=" * 50)
     print("  BMC Toolkit — 全量解包")
     print("=" * 50)
-    if not prepare_masterdata():
+    masterdata_path = prepare_masterdata()
+    if not masterdata_path:
+        return False
+    started_at = utc_now()
+    session = MasterDataSession.open(masterdata_path)
+    if session.assessment.errors:
+        for error in session.assessment.errors:
+            print(f"[!] Schema: {error}")
+        session.write_audit([], started_at=started_at, success=False)
         return False
     failures = []
+    domain_results = []
     for name in ['cards', 'music', 'snap', 'birthday', 'recipes', 'missions', 'items', 'events']:
         mod = DOMAINS.get(name)
         if not mod:
             continue
         print(f"\n--- [{name}] ---")
+        started = time.perf_counter()
         try:
             if hasattr(mod, 'run'):
-                mod.run()
+                mod.run(session=session)
             elif hasattr(mod, 'extract'):
-                mod.extract()
+                mod.extract(session=session)
                 if hasattr(mod, 'export'):
                     mod.export()
+            domain_results.append({
+                "name": name,
+                "status": "PASS",
+                "duration_seconds": round(time.perf_counter() - started, 3),
+            })
         except Exception as e:
             print(f"[!] {name} 失败: {e}")
             failures.append((name, str(e)))
+            domain_results.append({
+                "name": name,
+                "status": "FAIL",
+                "duration_seconds": round(time.perf_counter() - started, 3),
+                "error": str(e),
+            })
+    session.write_audit(
+        domain_results, started_at=started_at, success=not failures
+    )
     if failures:
         print(f"\n[!] 全量解包失败：{len(failures)} 个域未完成")
         for name, message in failures:

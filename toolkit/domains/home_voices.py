@@ -595,16 +595,24 @@ def export_home_voice_catalog(catalog, output_dir, selected_subject=None):
     return paths
 
 
-def run(acb_root, masterdata_path=None, selected_subject=None, reference_acb_root=None):
+def run(
+    acb_root,
+    masterdata_path=None,
+    selected_subject=None,
+    reference_acb_root=None,
+    session=None,
+):
     """Scan ACBs, join masterdata, and write Wiki/audit outputs beside masterdata."""
     acb_root = os.path.abspath(acb_root)
-    masterdata_path = os.path.abspath(masterdata_path or "master_data.json")
+    masterdata_path = session.json_path if session else os.path.abspath(
+        masterdata_path or "master_data.json"
+    )
     if not os.path.isdir(acb_root):
         raise ValueError(f"ACB 输入必须是目录: {acb_root}")
     if not os.path.isfile(masterdata_path):
         raise ValueError(f"未找到 master_data.json: {masterdata_path}")
 
-    tables = TableCatalog(load_json(masterdata_path))
+    tables = session.tables if session else TableCatalog(load_json(masterdata_path))
     scanned, warnings = scan_character_home_voice_packages(acb_root)
     repair_count = 0
     if reference_acb_root:

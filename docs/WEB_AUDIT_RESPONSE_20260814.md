@@ -25,13 +25,13 @@
 
 可复用方法见 [`REAL_DATA_REGRESSION.md`](REAL_DATA_REGRESSION.md) 和 `scripts/compare_exports.py`。
 
-## 已确认但未在本批修改
+## 其余审计项状态
 
 | 审计项 | 当前结论 | 后续边界 |
 | --- | --- | --- |
 | 多数域仍靠字段特征识别 | 成立 | music/snap/birthday/recipes/items/missions 迁入 `TableCatalog`；events 删除自有 `_tables/_group/_by_id`。每迁一域都做固定输入语义差分。 |
-| `all` 重复加载 JSON | 成立 | 引入 `MasterDataSession` 一次加载 data 与 `TableCatalog`。不得同时重写所有域。 |
-| 缺少 schema 漂移检测 | 成立 | 增加表/字段/类型/行数 fingerprint、必需字段阻断和新增字段警告。 |
+| `all` 重复加载 JSON | 已处理 | CLI/交互全选共享一个只读 `MasterDataSession`；真实全域运行以守卫确认 masterdata 只加载一次。 |
+| 缺少 schema 漂移检测 | 已处理 | 已增加表/字段/类型/行数快照、稳定 schema fingerprint、关键字段阻断和本地前次成功基线比较。 |
 | birthday 写死 cycle/年份 | 成立 | 从数据推导最新周期，并提供显式覆盖参数；先保留旧快照契约测试。 |
 | Excel 数字字符串自动转 int | 成立 | 改为列 schema 决定类型，避免前导零标识符损坏。 |
 | 缺少增量更新和人工列保留 | 成立 | 独立设计 Update/Diff Mode，不与解析核心重构混做。 |
@@ -40,4 +40,4 @@
 
 ## 下一批建议
 
-下一批先做 schema fingerprint 与运行清单，再引入只读 `MasterDataSession`。原因是 schema 报告能先锁定每次官方更新的输入变化，Session 随后解决重复加载；两者都可以在不改变 Wiki 表格内容的前提下验收。Update/Diff Mode 和 GUI 属于后续独立产品批次。
+本批后续已完成 schema fingerprint、运行清单与只读 `MasterDataSession`：真实 433 卡全选只加载一次 JSON，连续两次运行分别为基线初始化告警和 PASS，原有 Wiki 输出语义不变。下一批应按单域迁移到 `TableCatalog`，优先处理字段撞名风险较高且规则较简单的 music/items/missions；Update/Diff Mode 和 GUI 属于后续独立产品批次。

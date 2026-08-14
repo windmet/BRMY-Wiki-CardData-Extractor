@@ -122,8 +122,8 @@ def _present_rewards(present_id, present_by_id, maps):
     return [_resolve_reward(row, maps) for row in rows]
 
 
-def extract():
-    data = load_json(INPUT_JSON)
+def extract(session=None):
+    data = session.data if session else load_json(INPUT_JSON)
     tables = _tables(data)
 
     events = _active(tables.get("mst_event", []))
@@ -432,6 +432,6 @@ def export():
     print(f"  [xlsx] {out}")
 
 
-def run():
-    extract()
+def run(session=None):
+    extract(session=session)
     export()
