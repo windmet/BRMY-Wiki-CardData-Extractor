@@ -16,7 +16,7 @@
 
 - `audio.py` 已在通用索引中保留 CueName、CueIndex、CueId 和匹配状态。
 - `home_voices.py` 已完成 21 人包识别、masterdata 连接、主体建模、完整度与异常检测。
-- 默认 XLSX 只生成 `Wiki长表` 和 `完整度`，技术审计迁移到 JSON 与 Markdown。
+- 默认 XLSX 只生成 `Wiki长表`，技术审计迁移到 JSON 与 Markdown。
 - 可按 SubjectKey、CueName 或完整主体显示名单独导出一个主体。
 - 真实本地资源回归为 2099 行、100 个主体、99 个完整主体、7 个 ACB-only 主体。
 - 唯一缺失仍是 `vo_home_10_83` 的 CharacterId 19，未用空行掩盖。
@@ -325,14 +325,14 @@ vo_home_17_130
 `home_voice_catalog.xlsx`：
 
 1. `Wiki长表`: 按主体、角色序号排序的可用文本
-2. `完整度`: 每个主体应有/已有角色数、缺失角色和 Masterdata 状态
+完整度、缺失角色和 Masterdata 状态保存在审计 JSON/Markdown，不再生成默认工作簿的技术页。
 
 XLSX 不再放主体键、CueIndex、原始标题、修复前文本等维护字段。日文台词中的 `<br>` 在写入 Excel 时转换成单元格内真实换行。
 
 ### 内部审计
 
-- `json_output/Home_Voice_Catalog.json`: 保留全部 2099 行技术字段与原始证据。
-- `json_output/home_voice_audit.md`: 汇总完整度、参考旧包修复、待行动异常和非阻断信息。
+- `audit_output/Home_Voice_Catalog.json`: 保留全部 2099 行技术字段与原始证据。
+- `audit_output/home_voice_audit.md`: 汇总完整度、参考旧包修复、待行动异常和非阻断信息。
 
 跨年度包复用和逐角色 `masterdata_missing` 放在内部审计，不再膨胀 Wiki 工作簿。当前异常级别为：
 

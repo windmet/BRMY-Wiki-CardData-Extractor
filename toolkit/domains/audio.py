@@ -40,7 +40,7 @@ CARD_CUE_ORDER = {
     "card_vo_gacha": 30,
 }
 
-OUTPUT_DIRECTORY_NAMES = {"json_output", "xlsx_output"}
+OUTPUT_DIRECTORY_NAMES = {"json_output", "xlsx_output", "audit_output", "wiki_output"}
 
 
 def text_to_html(text):
@@ -284,7 +284,7 @@ def run(input_path=None):
     if not os.path.isdir(input_path):
         raise ValueError(f"音频输入必须是目录: {input_path}")
 
-    json_dir = os.path.join(input_path, "json_output")
+    json_dir = os.path.join(input_path, "audit_output")
     xlsx_dir = os.path.join(input_path, "xlsx_output")
     os.makedirs(json_dir, exist_ok=True)
     os.makedirs(xlsx_dir, exist_ok=True)
@@ -322,43 +322,28 @@ def run(input_path=None):
     save_json(card_index, os.path.join(json_dir, "Card_Voice_Index.json"))
     save_json(text_index, os.path.join(json_dir, "Voice_Text_Index.json"))
 
-    card_rows = []
-    for card_id, card in cards.items():
-        for entry in card["Entries"]:
-            card_rows.append([
-                card_id, card["AcbFile"], entry["CueName"], entry["Title"],
-                entry["TextHtml"], entry["HasText"], card["StableRead"],
-            ])
-    write_xlsx(
-        card_rows,
-        os.path.join(xlsx_dir, "card_voice_texts.xlsx"),
-        ["卡牌ID", "ACB文件", "Cue名", "标题", "日文台词", "是否有文本", "读取时文件稳定"],
-        sheet_title="card_voice_texts",
-        col_widths={"A": 12, "B": 28, "C": 24, "D": 22, "E": 60, "F": 14, "G": 18},
-        wrap_cols=[4],
-    )
-
-    text_rows = [
-        [
-            item["AcbFile"], item["Category"], item["MetadataNo"],
-            item["CueName"], item["CueIndex"], item["CueId"], item["MatchStatus"],
-            item["Title"], item["TextHtml"], item["HasText"], item["StableRead"],
-        ]
-        for item in all_text
+    card_rows = [
+        [card_id, entry["Title"], entry["TextHtml"], ""]
+        for card_id, card in cards.items()
+        for entry in card["Entries"] if entry["HasText"]
     ]
     write_xlsx(
-        text_rows,
-        os.path.join(xlsx_dir, "voice_texts.xlsx"),
-        [
-            "ACB文件", "分类", "元数据序号", "Cue名", "Cue索引", "Cue ID",
-            "匹配方式", "标题", "日文台词", "是否有文本", "读取时文件稳定",
-        ],
-        sheet_title="voice_texts",
-        col_widths={
-            "A": 34, "B": 20, "C": 14, "D": 28, "E": 12, "F": 12,
-            "G": 24, "H": 30, "I": 70, "J": 14, "K": 18,
-        },
-        wrap_cols=[8],
+        card_rows, os.path.join(xlsx_dir, "card_voice_texts.xlsx"),
+        ["卡牌ID", "标题", "日文台词", "中文翻译"],
+        sheet_title="卡牌语音", col_widths={"A": 12, "B": 28, "C": 60, "D": 60},
+        wrap_cols=[2, 3],
+    )
+    # Generic ACB metadata cannot reliably identify a speaker without masterdata.
+    # Keep the source filename as an editorial reference instead of guessing one.
+    text_rows = [
+        [item["AcbFile"], item["Title"], item["TextHtml"], ""]
+        for item in all_text if item["HasText"]
+    ]
+    write_xlsx(
+        text_rows, os.path.join(xlsx_dir, "voice_texts.xlsx"),
+        ["资源文件", "标题", "日文台词", "中文翻译"],
+        sheet_title="语音文本", col_widths={"A": 34, "B": 30, "C": 70, "D": 70},
+        wrap_cols=[2, 3],
     )
 
     print(

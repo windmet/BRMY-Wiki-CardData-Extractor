@@ -342,12 +342,11 @@ class HomeVoiceCatalogTests(unittest.TestCase):
             workbook = load_workbook(paths["catalog"], read_only=True)
             subject_workbook = load_workbook(paths["subject"], read_only=True)
 
-            self.assertEqual(["Wiki长表", "完整度"], workbook.sheetnames)
+            self.assertEqual(["Wiki长表"], workbook.sheetnames)
             self.assertEqual(3, workbook["Wiki长表"].max_row)
             self.assertEqual("中文翻译", workbook["Wiki长表"]["E1"].value)
             self.assertEqual("一行1\n二行", workbook["Wiki长表"]["D2"].value)
             self.assertNotIn("<br>", workbook["Wiki长表"]["D2"].value)
-            self.assertEqual(2, workbook["完整度"].max_row)
             self.assertEqual(["Wiki主体表"], subject_workbook.sheetnames)
             self.assertEqual(3, subject_workbook["Wiki主体表"].max_row)
             self.assertEqual("一行1\n二行", subject_workbook["Wiki主体表"]["D2"].value)

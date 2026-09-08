@@ -63,9 +63,9 @@ Masterdata 域在一次运行中共享同一个 `MasterDataSession`，不会为�
 
 主页语音默认生成：
 
-- `xlsx_output/home_voice_catalog.xlsx`：仅含 `Wiki长表` 和 `完整度`，台词使用 Excel 单元格内真实换行。
-- `json_output/Home_Voice_Catalog.json`：完整机器可读审计记录。
-- `json_output/home_voice_audit.md`：完整度、参考修复、待行动异常和非阻断信息。
+- `xlsx_output/home_voice_catalog.xlsx`：仅含 `Wiki长表`，台词使用 Excel 单元格内真实换行。
+- `audit_output/Home_Voice_Catalog.json`：完整机器可读审计记录。
+- `audit_output/home_voice_audit.md`：完整度、参考修复、待行动异常和非阻断信息。
 - `home_voices --recent-year YYYY-MM-DD`：生成近 365 天主页/季节与生日祝福双分表，筛选规则见 [`docs/RECENT_HOME_VOICE_EXPORT.md`](docs/RECENT_HOME_VOICE_EXPORT.md)。
 
 若目标 XLSX 正被 Excel 占用，工具会改存为 `home_voice_catalog_new.xlsx`，避免覆盖失败。

@@ -463,28 +463,6 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
     return {"Records": records, "Subjects": subjects}
 
 
-def _completeness_sheet(subjects):
-    headers = [
-        "主体", "主体类型", "CueName", "应有角色数", "已有角色数",
-        "缺失角色序号", "数据完整性", "Masterdata状态", "备注",
-    ]
-    rows = [
-        [
-            item["SubjectDisplayName"], item["SubjectType"], item["CueName"],
-            item["SpeakerCount"] + len(item["MissingCharacterIds"]), item["SpeakerCount"],
-            ",".join(map(str, item["MissingCharacterIds"])),
-            "完整" if item["Complete"] else "不完整", item["MasterdataStatus"],
-            "当前 ACB 有文本、masterdata 无映射" if item["MasterdataStatus"] != "matched" else "",
-        ]
-        for item in subjects
-    ]
-    return {
-        "title": "完整度", "headers": headers, "rows": rows,
-        "col_widths": {"A": 38, "B": 18, "C": 28, "D": 14, "E": 14, "F": 18, "G": 14, "H": 20, "I": 42},
-        "wrap_cols": [1, 9],
-    }
-
-
 def _wiki_sheet(records, title="Wiki长表"):
     return {
         "title": title,
@@ -855,7 +833,6 @@ def export_home_voice_catalog(catalog, output_dir, selected_subject=None):
     workbook_path = os.path.join(output_dir, "home_voice_catalog.xlsx")
     workbook_path = write_workbook(workbook_path, [
         _wiki_sheet(catalog["Records"]),
-        _completeness_sheet(catalog["Subjects"]),
     ]) or workbook_path
     paths = {"catalog": workbook_path}
 
@@ -922,7 +899,7 @@ def run(
     }
 
     base_dir = os.path.dirname(masterdata_path)
-    json_dir = os.path.join(base_dir, "json_output")
+    json_dir = os.path.join(base_dir, "audit_output")
     xlsx_dir = os.path.join(base_dir, "xlsx_output")
     os.makedirs(json_dir, exist_ok=True)
     save_json(catalog, os.path.join(json_dir, "Home_Voice_Catalog.json"))

@@ -1,6 +1,6 @@
 """Event archive extraction and export."""
 from ..core.scanner import load_json, save_json
-from ..core.exporter import json_path, xlsx_path, save_workbook_safely
+from ..core.exporter import json_path, xlsx_path, save_workbook_safely, audit_path
 from ..core.data import clean_text
 from ..core.tables import TableCatalog
 
@@ -332,20 +332,24 @@ def export():
 
     data = load_json(json_path("Event_Archive.json"))
     events = data.get("Events", [])
+    save_json({"Archive": data, "Mappings": {
+        "EventFormat": EVENT_FORMAT_MAP,
+        "SourceSubtype": SOURCE_SUBTYPE_MAP,
+        "RewardType": REWARD_TYPE_MAP,
+    }}, audit_path("event_archive_audit.json"))
     out = xlsx_path("event_archive.xlsx")
 
     wb = Workbook()
     overview = wb.active
     overview.title = "Overview"
     overview.append([
-        "活动ID", "活动名", "活动类型", "活动类型码", "数据来源分支", "数据来源说明",
+        "活动ID", "活动名", "活动类型",
         "开始", "开放", "后半开放", "排名结束", "结束", "关联角色", "关联卡牌",
         "PickUp卡牌", "兑换所ID", "剧情章节数", "规则页数", "活动材料关卡数", "Logo", "弹窗图",
     ])
     for e in events:
         overview.append([
-            e.get("EventId"), e.get("Title"), e.get("ActivityType"), e.get("EventFormat"),
-            e.get("SourceSubtype"), e.get("SourceSubtypeLabel"), e.get("StartTime"),
+            e.get("EventId"), e.get("Title"), e.get("ActivityType"), e.get("StartTime"),
             e.get("OpenStartTime"), e.get("SecondHalfStartTime"),
             e.get("RankingEndTime"), e.get("EndTime"), _join_named(e.get("Characters", [])),
             _join_named(e.get("Cards", [])), _join_named(e.get("PickUpCards", [])),
@@ -355,21 +359,21 @@ def export():
         ])
 
     story = wb.create_sheet("Story")
-    story.append(["活动ID", "活动名", "章节序号", "章节组", "章节类型码", "章节标题", "开放时间", "解锁需求值", "钥匙消耗", "是否有语音", "弹窗文本", "阅读奖励"])
+    story.append(["活动ID", "活动名", "章节序号", "章节组", "章节标题", "开放时间", "解锁需求值", "钥匙消耗", "是否有语音", "弹窗文本", "阅读奖励"])
     for e in events:
         for s in e.get("StorySections", []):
             story.append([
-                e.get("EventId"), e.get("Title"), s.get("No"), s.get("Group"), s.get("Type"),
+                e.get("EventId"), e.get("Title"), s.get("No"), s.get("Group"),
                 s.get("Title"), s.get("ReleaseDateTime"), s.get("RequiredValue"), s.get("KeyCost"),
                 s.get("HasVoice"), s.get("PopupText"), _reward_text(s.get("ReadRewards")),
             ])
 
     rules = wb.create_sheet("Rules")
-    rules.append(["活动ID", "活动名", "规则页序号", "规则类型码", "开放时间", "说明图文件", "说明文本"])
+    rules.append(["活动ID", "活动名", "规则页序号", "开放时间", "说明图文件", "说明文本"])
     for e in events:
         for r in e.get("Rules", []):
             rules.append([
-                e.get("EventId"), e.get("Title"), r.get("SlideNo"), r.get("Type"),
+                e.get("EventId"), e.get("Title"), r.get("SlideNo"),
                 r.get("ReleaseDateTime"), r.get("DescriptionFileName"), r.get("Description"),
             ])
 
@@ -391,15 +395,6 @@ def export():
             rewards.append([e.get("EventId"), e.get("Title"), "Sales", f"shift {r.get('ShiftId')} sales {r.get('KeySales')}", r.get("IsPickUp"), _reward_text(r.get("Rewards"))])
         for r in e.get("Rewards", {}).get("Accumulate", []):
             rewards.append([e.get("EventId"), e.get("Title"), "Accumulate", r.get("KeyCount"), r.get("IsPickUp"), _reward_text(r.get("Rewards"))])
-
-    mappings = wb.create_sheet("Mappings")
-    mappings.append(["类别", "码值/Key", "说明"])
-    for code, info in sorted(EVENT_FORMAT_MAP.items()):
-        mappings.append(["活动类型 EventFormat", code, f"{info['Label']} ({info['Key']})"])
-    for key, label in SOURCE_SUBTYPE_MAP.items():
-        mappings.append(["数据来源分支 SourceSubtype", key, label])
-    for code, info in sorted(REWARD_TYPE_MAP.items()):
-        mappings.append(["奖励类型 RewardTypeCode", code, f"{info['Label']} ({info['Key']})"])
 
     for ws in wb.worksheets:
         ws.freeze_panes = "A2"

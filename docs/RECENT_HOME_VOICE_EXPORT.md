@@ -11,7 +11,7 @@ python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.js
 输出：
 
 - `xlsx_output/home_voice_recent_year_20250815_20260815.xlsx`
-- `json_output/home_voice_recent_year_20250815_20260815_audit.json`
+- `audit_output/home_voice_recent_year_20250815_20260815_audit.json`
 
 XLSX 只保留 Wiki 编辑需要的五列：主体、角色序号、角色名、日文台词、中文翻译。中文翻译列留空，台词换行使用 Excel 真换行。筛选依据仅保留在 JSON 审计文件。
 
