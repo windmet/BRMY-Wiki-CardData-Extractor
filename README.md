@@ -6,6 +6,8 @@
 
 维护者可使用 [`resources` 入口](docs/PRODUCTION_RESOURCES.md)读取正式服清单、按需下载原始资源并准备 masterdata；当前已支持缓存校验和显式离线模式。
 
+需要自动取得任务资源并生成表格时，使用 [`sync` 入口](docs/SYNC_TASKS.md)，例如 `python -m toolkit sync cards events --cache E:\BRMYCache --output E:\WikiResults`。
+
 这个仓库的首要目标是把 masterdata 中可复用的数据整理成能够直接用于 Wiki 建设的表格，而不是复刻游戏画面或运行时表现。
 
 ## 主要用途

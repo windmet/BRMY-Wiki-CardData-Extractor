@@ -23,6 +23,8 @@
                                               主页/季节/生日语音 Wiki 表
 
 [通用]
+    sync <域...> --cache <目录> --output <目录> [--offline] [--plan-only]
+                                              按任务同步正式资源并生成
     resources catalog|masterdata|download --cache <目录> [--offline]
                                               正式服资源清单与按需下载
     generate <域...> --output <目录> --masterdata <文件>
@@ -372,7 +374,11 @@ def main():
 
     cmd = args[0].lower()
 
-    if cmd == 'resources':
+    if cmd == 'sync':
+        from .resolve import main as sync_main
+        if not sync_main(args[1:]):
+            raise SystemExit(1)
+    elif cmd == 'resources':
         from .resources import main as resources_main
         if not resources_main(args[1:]):
             raise SystemExit(1)

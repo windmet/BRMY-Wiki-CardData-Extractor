@@ -6,6 +6,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
+from threading import Event
 
 import msgpack
 from openpyxl import Workbook
@@ -101,6 +102,17 @@ class GenerateTests(unittest.TestCase):
             report = generate(['audio'], root / 'output', audio=source)
             self.assertEqual('PASS_WITH_WARNINGS', report['status'])
             self.assertTrue(report['warnings'])
+
+    def test_cancellation_during_last_domain_is_not_reported_as_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'story.s2bscript'
+            source.write_bytes(msgpack.packb([]))
+            cancelled = Event()
+            with patch('toolkit.domains.scripts.run', side_effect=lambda path: cancelled.set()):
+                report = generate(['scripts'], Path(directory) / 'out', source=source,
+                                  cancelled=cancelled.is_set)
+            self.assertEqual('FAIL', report['status'])
+            self.assertIn('取消', report['errors'][0]['error'])
 
 
 if __name__ == '__main__':

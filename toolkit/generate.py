@@ -4,6 +4,8 @@ from pathlib import Path
 from .core.output import OutputContext, output_directory, record_error
 from .core.session import MasterDataSession, utc_now
 from .core.masterdata import ensure_masterdata_json
+from .core.scanner import save_json
+from .core.exporter import audit_path
 from .domains import DOMAINS
 
 MASTERDATA = {'cards', 'music', 'snap', 'birthday', 'recipes', 'missions', 'items', 'events'}
@@ -11,7 +13,8 @@ MASTERDATA = {'cards', 'music', 'snap', 'birthday', 'recipes', 'missions', 'item
 
 def generate(domains, output, *, masterdata=None, audio=None, source=None,
              old_workbook=None, cycle=None, year=None, subject=None,
-             reference_acb=None, recent_year=None):
+             reference_acb=None, recent_year=None, resource_manifest=None,
+             cancelled=None, progress=None):
     """Run selected domains without chdir; return a receipt even on failure."""
     context = OutputContext(Path(output))
     domains = list(dict.fromkeys(domains))
@@ -19,6 +22,12 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
     started_at = utc_now()
     with context.activate():
         try:
+            if resource_manifest is not None:
+                context.domain = 'resources'
+                save_json(resource_manifest, audit_path('resource_manifest.json'))
+                context.warnings.extend(resource_manifest.get('warnings', []))
+            if cancelled and cancelled():
+                raise InterruptedError('任务已取消')
             if not domains:
                 raise ValueError('至少选择一个输出任务')
             unknown = set(domains) - set(DOMAINS)
@@ -37,7 +46,13 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                 if session.assessment.errors:
                     raise ValueError('; '.join(session.assessment.errors))
             for domain in domains:
+                if cancelled and cancelled():
+                    raise InterruptedError('任务已取消')
                 context.domain = domain
+                if progress:
+                    progress({'stage': 'generate', 'domain': domain})
+                if cancelled and cancelled():
+                    raise InterruptedError('任务已取消')
                 error_count = len(context.errors)
                 try:
                     module = DOMAINS[domain]
@@ -59,15 +74,21 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                     elif domain in MASTERDATA:
                         module.run(session=session)
                     else:
-                        input_path = audio if domain == 'audio' else source
-                        if not input_path:
+                        inputs = audio if domain == 'audio' else (
+                            source.get(domain) if isinstance(source, dict) else source)
+                        if not inputs:
                             raise ValueError('此任务需要显式资源文件或目录')
-                        if domain in {'scripts', 'charts', 'lyrics'} and Path(input_path).is_file():
-                            expected = {'scripts': '.s2bscript', 'charts': '.s2bchart',
-                                        'lyrics': '.s2blyrics'}[domain]
-                            if Path(input_path).suffix.lower() != expected:
-                                raise ValueError(f'{domain} 需要 {expected} 文件')
-                        module.run(str(Path(input_path).resolve()))
+                        for input_path in inputs if isinstance(inputs, list) else [inputs]:
+                            if cancelled and cancelled():
+                                raise InterruptedError('任务已取消')
+                            if domain in {'scripts', 'charts', 'lyrics'} and Path(input_path).is_file():
+                                expected = {'scripts': '.s2bscript', 'charts': '.s2bchart',
+                                            'lyrics': '.s2blyrics'}[domain]
+                                if Path(input_path).suffix.lower() != expected:
+                                    raise ValueError(f'{domain} 需要 {expected} 文件')
+                            module.run(str(Path(input_path).resolve()))
+                    if cancelled and cancelled():
+                        raise InterruptedError('任务已取消')
                 except Exception as error:
                     record_error(error)
                 context.results.append({'name': domain,

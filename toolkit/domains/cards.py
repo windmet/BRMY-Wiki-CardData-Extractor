@@ -16,6 +16,7 @@ from ..core.data import (
 from .card_relations import enrich_card_relations
 from .card_export import build_card_sheet
 from .audio import CARD_CUE_ORDER, scan_card_voices
+from ..core.output import record_warning
 
 INPUT_JSON = 'master_data.json'
 PIECE_COLOR_RE = re.compile(
@@ -352,6 +353,7 @@ def extract(audio_dir=None, session=None):
         card["Meta"]["AdditionalCharacters"] = card["Relations"].get("AdditionalCharacters", [])
     if acquisition_warnings:
         print(f"[!] {len(acquisition_warnings)} 条卡牌获取关系尚未完整解析")
+        record_warning(f"{len(acquisition_warnings)} 条卡牌获取关系尚未完整解析；详见卡牌审计")
 
     # ============ 语音关联 ============
     # masterdata 负责 cue、编号和解锁条件；ACB 负责标题与正文。
@@ -391,6 +393,7 @@ def extract(audio_dir=None, session=None):
         print(f"[+] 关联卡面 ACB {len(audio_cards)} 包，填入 {linked_count} 条非空语音文本")
         if audio_warnings:
             print(f"[!] ACB 扫描警告 {len(audio_warnings)} 条")
+            record_warning(f"卡牌 ACB 扫描警告 {len(audio_warnings)} 条")
 
     out = json_path('All_Cards_Database.json')
     save_json(cards_db, out)
