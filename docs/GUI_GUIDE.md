@@ -1,6 +1,6 @@
 # Wiki GUI 使用说明
 
-当前 GUI 为待完成可见窗口与冻结工作流验收的实现，不代表已正式发布。
+当前 GUI 已通过正式源五项任务、离线恢复、取消重试及主要可见布局验收；本地文件选择完整流程和“打开本次文件”按钮仍待补验，不代表已正式发布。
 
 源码安装后运行 `python -m toolkit gui`；新构建的 `bmc_toolkit.exe` 双击默认打开 GUI。旧控制台菜单保留为 `bmc_toolkit.exe --interactive`，请从已有终端运行。原有 CLI 命令继续可用。
 
@@ -31,4 +31,4 @@
 
 ## 验收边界
 
-`python -m toolkit gui --self-test` 只构造隐藏窗口，验证 Tk 与组件可以加载；不能证明可见布局、点击流程、缩放或真实任务正确。发布前仍需完成 [审计规划](AUDIT_RECONCILIATION_20260908.md) 中的五项真实 GUI 任务与 [冻结程序验收](RELEASE_BUILD.md)。
+`python -m toolkit gui --self-test` 只构造隐藏窗口，验证 Tk 与组件可以加载；不能证明可见布局、点击流程、缩放或真实任务正确。五项正式源 GUI 任务和冻结共享服务已验收；发布前仍需完成 [审计记录](AUDIT_RECONCILIATION_20260908.md) 中列出的剩余交互项。文件占用已用真实 Windows 文件共享锁验证，尚未操作 Excel 做应用级复验。
