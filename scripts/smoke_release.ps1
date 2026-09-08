@@ -22,6 +22,15 @@ try {
             throw "EXE doctor did not report a healthy frozen runtime.`n$doctorText"
         }
 
+        $guiText = (& $executablePath gui --self-test 2>&1) -join "`n"
+        if ($LASTEXITCODE -ne 0) {
+            throw "EXE GUI construction failed with exit code $LASTEXITCODE`n$guiText"
+        }
+        $gui = $guiText | ConvertFrom-Json
+        if ($gui.status -ne "PASS" -or $gui.scope -ne "hidden-widget-construction") {
+            throw "EXE GUI construction did not pass.`n$guiText"
+        }
+
         $listText = (& $executablePath list 2>&1) -join "`n"
         if ($LASTEXITCODE -ne 0) {
             throw "EXE list failed with exit code $LASTEXITCODE`n$listText"
@@ -62,6 +71,7 @@ try {
             status = "PASS"
             executable = $executablePath
             doctor = $doctor
+            gui_construction = $gui
             list_markers = @("cards", "home_voices", "update cards")
             masterdata_decrypt = [ordered]@{
                 status = "PASS"

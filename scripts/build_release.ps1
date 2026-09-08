@@ -75,7 +75,7 @@ try {
         --onefile `
         --enable-plugin=tk-inter `
         --msvc=latest `
-        --windows-console-mode=force `
+        --windows-console-mode=hide `
         --assume-yes-for-downloads `
         --remove-output `
         --output-dir=$distDirectory `

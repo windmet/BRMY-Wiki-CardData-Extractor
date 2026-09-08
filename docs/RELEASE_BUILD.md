@@ -64,10 +64,11 @@ dist/
 [`scripts/smoke_release.ps1`](../scripts/smoke_release.ps1) 不依赖游戏数据，检查：
 
 - `doctor --json`：必须为 `PASS` 且 `frozen=true`。
+- `gui --self-test`：构造隐藏 Tk 窗口，必须为 `PASS` 且范围为 `hidden-widget-construction`。
 - `list`：必须包含 cards、home_voices 和 update cards。
 - 严格 masterdata 解密：用脱敏的单表 ext99/LZ4 输入生成 JSON 与哈希缓存 manifest。
 
-这些证明冻结程序可启动、核心包已包含、Tkinter 可导入且 S2B 解密链可运行。它不代替固定真实 masterdata/ACB 的业务回归。
+这些证明冻结程序可启动、核心包已包含、Tcl/Tk 和 GUI 组件可加载且 S2B 解密链可运行。它不代替可见 GUI 布局、真实交互或固定真实 masterdata/ACB 的业务回归。双击默认打开 GUI，CLI 命令继续从终端使用；构建采用 `--windows-console-mode=hide` 隐藏新建控制台。
 
 ## GitHub Actions
 

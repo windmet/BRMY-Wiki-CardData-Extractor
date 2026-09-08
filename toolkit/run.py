@@ -2,8 +2,9 @@
 """BMC Toolkit
 
 用法:
-    - 双击 exe / python run.py              → 交互模式（菜单选择）
-    - 拖拽 .s2b 文件到 exe 图标             → 交互模式（自动选中文件）
+    - 双击 exe / python run.py              → GUI
+    - 拖拽 .s2b 文件到 exe 图标             → GUI（自动选中文件）
+    - python run.py --interactive           → 旧控制台菜单
     - python run.py run cards               → CLI 模式
     - python run.py all                     → CLI 全量
     - python run.py decrypt                 → CLI 解密
@@ -24,8 +25,14 @@ if PACKAGE_PARENT not in sys.path:
     sys.path.insert(0, PACKAGE_PARENT)
 
 if len(sys.argv) <= 1:
+    from toolkit.gui import main
+    main()
+elif sys.argv[1] == '--interactive':
     from toolkit.interactive import run
     run()
+elif len(sys.argv) == 2 and os.path.isfile(sys.argv[1]) and sys.argv[1].lower().endswith(('.s2b', '.json')):
+    from toolkit.gui import main
+    main(sys.argv[1])
 else:
     from toolkit.cli import main
     main()

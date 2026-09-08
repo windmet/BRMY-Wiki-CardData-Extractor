@@ -23,6 +23,7 @@
                                               主页/季节/生日语音 Wiki 表
 
 [通用]
+    gui                                       打开桌面工具箱
     sync <域...> --cache <目录> --output <目录> [--offline] [--plan-only]
                                               按任务同步正式资源并生成
     resources catalog|masterdata|download --cache <目录> [--offline]
@@ -374,7 +375,16 @@ def main():
 
     cmd = args[0].lower()
 
-    if cmd == 'sync':
+    if cmd == 'gui':
+        if args[1:] == ['--self-test']:
+            from .gui import self_test
+            print(json.dumps(self_test(), ensure_ascii=False))
+        elif len(args) == 1:
+            from .gui import main as gui_main
+            gui_main()
+        else:
+            raise SystemExit('gui 仅支持 --self-test 或无参数启动')
+    elif cmd == 'sync':
         from .resolve import main as sync_main
         if not sync_main(args[1:]):
             raise SystemExit(1)
