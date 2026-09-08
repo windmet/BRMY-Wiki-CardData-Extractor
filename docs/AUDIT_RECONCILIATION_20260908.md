@@ -4,6 +4,12 @@
 
 ## 当前核对结论（优先于下方历史批次记录）
 
+**GUI 补验已完成（用户协助选择文件后）：** 本地 masterdata 文件成功预填，来源自动切换为本地；可见 GUI 生成生日表，与正式源输出的 198 个单元格在值、类型、数字格式上等值，4 个登记产物 SHA-256 与大小校验通过。`打开选中文件` 实际启动 Microsoft Excel 并显示 `birthday_lines.xlsx`。保持 Excel 打开再次生成，GUI 显示 `birthday_lines_new.xlsx`，原文件哈希不变，替代工作簿内容等值且 4 个新登记产物校验通过。首次仅有 schema 基线告警，第二次为 PASS。
+
+证据：`%TEMP%/brmy-visible-gui-acceptance/local-verification.json` 与 `excel-lock-verification.json`，receipt 分别为 `fb914eb9a5d547d897d9fde7ad4bfd0b`、`dc182f06e1784670a71ef3dc6628b6e9`。原生文件对话框由用户完成输入并确认，不能称为全自动文件选择验收；此前控制工具阻塞已由用户协助解除。下方“本地选择/打开结果/实际 Excel 尚未验收”为历史状态。
+
+R4 当前候选的上述交互门槛已通过，EXE 仍对应干净代码提交 `bffff8a`，随后仅改文档，无需因文档更新重建。正式发布、许可证/版本决定、仓库迁移、staging 与 Spine 源优化仍属各自后续批次，不在本轮自动执行。
+
 当前开发分支为 `codex/migrate-masterdata-toolkit-v2`，正式源提交截至 `56abc7a`；GUI 工程实现提交为 `bc863fc`。下方第 1/2 节保留首次审计快照，表中“未实现”不代表最新状态。
 
 最新修复代码为 `bffff8a`，109 项测试通过。干净提交重建的 EXE 已完成 smoke 和默认布局复看；五项正式源可见任务、取消与离线恢复已有验收。本地文件选择完整流程、打开结果按钮仍未完成，不将这些项目计为通过。
