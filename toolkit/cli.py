@@ -23,6 +23,8 @@
                                               主页/季节/生日语音 Wiki 表
 
 [通用]
+    resources catalog|masterdata|download --cache <目录> [--offline]
+                                              正式服资源清单与按需下载
     generate <域...> --output <目录> --masterdata <文件>
                                               显式输入输出，生成本次产物清单
     list                                      列出所有可用域
@@ -370,7 +372,11 @@ def main():
 
     cmd = args[0].lower()
 
-    if cmd == 'generate':
+    if cmd == 'resources':
+        from .resources import main as resources_main
+        if not resources_main(args[1:]):
+            raise SystemExit(1)
+    elif cmd == 'generate':
         from .generate import main as generate_main
         if not generate_main(args[1:]):
             raise SystemExit(1)

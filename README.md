@@ -4,6 +4,8 @@
 
 需要指定输入与输出目录时，使用新的 [`generate` 入口](docs/GENERATE_OUTPUTS.md)：统一生成 `wiki_output`、`audit_output` 和本次产物清单，保留旧命令兼容。
 
+维护者可使用 [`resources` 入口](docs/PRODUCTION_RESOURCES.md)读取正式服清单、按需下载原始资源并准备 masterdata；当前已支持缓存校验和显式离线模式。
+
 这个仓库的首要目标是把 masterdata 中可复用的数据整理成能够直接用于 Wiki 建设的表格，而不是复刻游戏画面或运行时表现。
 
 ## 主要用途
