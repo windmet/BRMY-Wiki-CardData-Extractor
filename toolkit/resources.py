@@ -147,7 +147,13 @@ class ProdManifestProvider:
     def refresh(self, *, offline=False, cancelled=None):
         path = self.root / 'manifest.bin'
         if offline:
-            raw = path.read_bytes()
+            try:
+                raw = path.read_bytes()
+            except FileNotFoundError as error:
+                raise FileNotFoundError(
+                    '此缓存目录还没有正式资源清单。请切换到“正式服在线”检查并同步所需资源，'
+                    '或在高级设置中选择已有缓存的目录，再使用离线模式。'
+                ) from error
         else:
             raw, _ = self._get(MANIFEST_KEY, 16 * 1024 * 1024, cancelled)
         resources, unknown = parse_manifest(raw)
@@ -188,7 +194,7 @@ class ProdManifestProvider:
                 raise ValueError('cached resource exceeds size limit')
             return {**metadata, 'path': str(path), 'cache_hit': True, 'offline': offline}
         if offline:
-            raise ValueError(f'offline cache missing or invalid: {key}')
+            raise ValueError(f'离线缓存缺失或未通过校验：{key}。请切换到“正式服在线”重新同步此任务后再离线使用。')
         raw, headers = self._get(key, limit, cancelled)
         metadata = {'key': key, 'provider': 'production', 'base_url': self.base_url,
                     'fingerprint': resource.fingerprint, 'manifest_sha256': self.manifest_sha256,

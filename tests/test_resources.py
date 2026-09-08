@@ -33,6 +33,14 @@ class Response(io.BytesIO):
 
 
 class ResourcesTests(unittest.TestCase):
+    def test_empty_offline_cache_explains_recovery_without_network(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def no_network(*args, **kwargs):
+                self.fail('offline cache recovery must not start a network request')
+            provider = ProdManifestProvider(directory, opener=no_network)
+            with self.assertRaisesRegex(FileNotFoundError, '没有正式资源清单.*正式服在线'):
+                provider.refresh(offline=True)
+
     def test_manifest_keeps_unknown_categories_and_raw_metadata(self):
         row = ['master_data.s2b', 4597, 2, 0, 2.0, None, False]
         resources, unknown = parse_manifest(manifest([row, ['new.s2bscore', 1, 8, 0, 0.2]]))
