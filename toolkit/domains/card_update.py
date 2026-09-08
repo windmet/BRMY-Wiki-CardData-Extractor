@@ -109,12 +109,17 @@ def _copy_cell(source, target):
 
 def _copy_cell_format(source, target):
     if source.has_style:
-        target._style = copy(source._style)
+        # StyleArray contains indexes into the owning workbook's tables.
+        # Assign components so openpyxl registers them in the new workbook.
+        for component in ("font", "fill", "border", "alignment", "protection"):
+            setattr(target, component, copy(getattr(source, component)))
+        target.quotePrefix = source.quotePrefix
+        target.pivotButton = source.pivotButton
     target.number_format = source.number_format
     if source.comment:
         target.comment = copy(source.comment)
     if source.hyperlink:
-        target._hyperlink = copy(source.hyperlink)
+        target.hyperlink = copy(source.hyperlink)
 
 
 def _style_header(cell):
