@@ -1,6 +1,6 @@
 # BRMY Wiki CardData Extractor
 
-面向《Break My Case》Wiki 编辑组的 Masterdata 解密、字段还原和表格导出工具。
+面向《Break My Case》Wiki 编辑组的正式资源同步、Masterdata 解密、字段还原和表格导出工具。桌面产品名为 BRMY Wiki Toolkit，当前仓库目录与名称仍保留迁移前命名。
 
 桌面入口：`python -m toolkit gui`；新构建的 EXE 双击默认打开 GUI。使用步骤及当前验收边界见 [GUI 说明](docs/GUI_GUIDE.md)。
 
@@ -32,10 +32,24 @@ Wiki 的 Spin 相片终稿以游戏内实际截图为准。本工具不会把本
 
 ## 使用与测试
 
+普通使用推荐 GUI；正式服在线会按所选任务取得资源，正式服离线缓存只复用已校验缓存，本地模式使用指定文件且不联网。输出目录中的 `wiki_output` 保存普通表格，`audit_output` 保存诊断和本次产物清单。卡表更新需指定旧工作簿，以保留人工翻译与自定义列。
+
+源码安装及新入口示例：
+
 ```powershell
 python -m pip install -e .
+python -m toolkit gui
 python -m toolkit list
 python -m toolkit doctor --json
+python -m toolkit sync cards events --cache "E:\BRMYCache" --output "E:\WikiResults"
+python -m toolkit sync birthday --offline --cache "E:\BRMYCache" --output "E:\WikiResults"
+python -m toolkit generate birthday --masterdata "E:\path\to\master_data.json" --output "E:\WikiResults"
+./scripts/verify.ps1
+```
+
+以下为保留兼容的旧命令；其工作目录和输出路径与 GUI / `sync` / `generate` 不同，旧 XLSX 默认位于 `xlsx_output`：
+
+```powershell
 python -m toolkit run birthday                 # 自动选择最新生日轮次
 python -m toolkit run birthday --cycle 1       # 第一轮；也支持 2/3
 python -m toolkit run birthday --year 2026     # 按轮次起始年覆盖
@@ -59,7 +73,7 @@ Masterdata 域在一次运行中共享同一个 `MasterDataSession`，不会为�
 - `audit_output/schema_report.md`：新增/删除表、字段、类型和行数变化。
 - `.bmc_toolkit/masterdata_schema.json`：上一次成功运行的本地 schema 基线。
 
-首次运行因建立基线显示 `PASS_WITH_WARNINGS` 属正常情况；同一输入再次运行应为 `PASS`。必需表或字段消失时会在导出前阻断。
+首次运行因建立基线显示 `PASS_WITH_WARNINGS` 属正常情况；同一输入再次运行时该基线提示消失，但资源或业务缺项告警可能继续存在，不能据重复运行预期一定为 `PASS`。必需表或字段消失时会在导出前阻断。
 
 涉及字段、关系或导出行为的改动还应按 [`docs/REAL_DATA_REGRESSION.md`](docs/REAL_DATA_REGRESSION.md) 使用固定真实输入执行改前/改后语义比较。
 
@@ -69,9 +83,9 @@ Masterdata 域在一次运行中共享同一个 `MasterDataSession`，不会为�
 
 生日庆典 masterdata 的三轮编号方式不同；轮次推导、原始编号保留和真实数据分布见 [`docs/BIRTHDAY_CYCLES.md`](docs/BIRTHDAY_CYCLES.md)。
 
-主页语音默认生成：
+主页语音通过 GUI / `sync` / `generate` 生成：
 
-- `xlsx_output/home_voice_catalog.xlsx`：仅含 `Wiki长表`，台词使用 Excel 单元格内真实换行。
+- `wiki_output/home_voice_catalog.xlsx`：仅含 `Wiki长表`，台词使用 Excel 单元格内真实换行。旧 `run home_voices` 仍使用 `xlsx_output`。
 - `audit_output/Home_Voice_Catalog.json`：完整机器可读审计记录。
 - `audit_output/home_voice_audit.md`：完整度、参考修复、待行动异常和非阻断信息。
 - `home_voices --recent-year YYYY-MM-DD`：生成近 365 天主页/季节与生日祝福双分表，筛选规则见 [`docs/RECENT_HOME_VOICE_EXPORT.md`](docs/RECENT_HOME_VOICE_EXPORT.md)。

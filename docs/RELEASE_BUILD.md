@@ -2,7 +2,7 @@
 
 ## 边界
 
-`bmc_toolkit.exe` 是 GitHub Release 资产，不进入 Git 源码历史。`dist/` 和根目录 EXE 都受 `.gitignore` 排除。
+`bmc_toolkit.exe` 是本地构建产物，通过正式发布门槛后才作为 GitHub Release 资产；构建成功不代表已发布。它不进入 Git 源码历史，`dist/` 和根目录 EXE 都受 `.gitignore` 排除。
 
 受控构建固定了 Python、Nuitka 和 Python 包版本，并记录源提交与产物 SHA-256。它不声称不同 Windows/MSVC 机器生成的 EXE 二进制字节必然完全相同；每个产物必须以自身 manifest 和 SHA 为准。
 
@@ -85,7 +85,8 @@ Actions artifact 名为 `brmy-wiki-toolkit-windows-x64`。Artifact 只是审查/
 1. 源码测试与 build-release Actions 全绿。
 2. 下载 CI artifact，检查 `git_commit`、`git_dirty=false`、SHA 和 smoke report。
 3. 用固定真实 masterdata 及 ACB 执行 [`REAL_DATA_REGRESSION.md`](REAL_DATA_REGRESSION.md)。
-4. 决定 LICENSE 和版本号，更新 Nuitka 文件/产品版本。
-5. 为对应 tag 创建 GitHub Release，上传 EXE、SHA 和 manifest。
+4. 完成可见 GUI 的五项正式任务、本地文件选择与生成、打开本次文件、离线缺资源、取消重试和占用替代路径验收；逐项核对 [`AUDIT_RECONCILIATION_20260908.md`](AUDIT_RECONCILIATION_20260908.md) 的当前证据与未完成项。
+5. 决定 LICENSE 和版本号，更新 Nuitka 文件/产品版本。
+6. 为对应 tag 创建 GitHub Release，上传 EXE、SHA 和 manifest。
 
 添加图标时，在选定唯一 `.ico` 源后给 Nuitka 增加 `--windows-icon-from-ico=<path>`，并重跑完整冻结烟雾。
