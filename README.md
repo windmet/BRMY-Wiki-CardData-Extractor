@@ -2,6 +2,8 @@
 
 面向《Break My Case》Wiki 编辑组的 Masterdata 解密、字段还原和表格导出工具。
 
+需要指定输入与输出目录时，使用新的 [`generate` 入口](docs/GENERATE_OUTPUTS.md)：统一生成 `wiki_output`、`audit_output` 和本次产物清单，保留旧命令兼容。
+
 这个仓库的首要目标是把 masterdata 中可复用的数据整理成能够直接用于 Wiki 建设的表格，而不是复刻游戏画面或运行时表现。
 
 ## 主要用途

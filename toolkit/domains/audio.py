@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from ..core.output import output_directory, record_warning
 import re
 from collections import Counter
 from datetime import datetime
@@ -284,8 +285,8 @@ def run(input_path=None):
     if not os.path.isdir(input_path):
         raise ValueError(f"音频输入必须是目录: {input_path}")
 
-    json_dir = os.path.join(input_path, "audit_output")
-    xlsx_dir = os.path.join(input_path, "xlsx_output")
+    json_dir = output_directory("audit", os.path.join(input_path, "audit_output"))
+    xlsx_dir = output_directory("wiki", os.path.join(input_path, "xlsx_output"))
     os.makedirs(json_dir, exist_ok=True)
     os.makedirs(xlsx_dir, exist_ok=True)
 
@@ -352,4 +353,5 @@ def run(input_path=None):
     )
     if warnings or unstable:
         print(f"[!] 扫描警告 {len(warnings)} 条，读取期间变化文件 {len(unstable)} 个")
+        record_warning(f"扫描警告 {len(warnings)} 条，读取期间变化文件 {len(unstable)} 个")
     return input_path

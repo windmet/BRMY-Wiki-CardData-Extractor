@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from ..core.output import output_directory, record_output, record_warning
 import re
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
@@ -899,13 +900,14 @@ def run(
     }
 
     base_dir = os.path.dirname(masterdata_path)
-    json_dir = os.path.join(base_dir, "audit_output")
-    xlsx_dir = os.path.join(base_dir, "xlsx_output")
+    json_dir = output_directory("audit", os.path.join(base_dir, "audit_output"))
+    xlsx_dir = output_directory("wiki", os.path.join(base_dir, "xlsx_output"))
     os.makedirs(json_dir, exist_ok=True)
     save_json(catalog, os.path.join(json_dir, "Home_Voice_Catalog.json"))
     audit_path = os.path.join(json_dir, "home_voice_audit.md")
     with open(audit_path, "w", encoding="utf-8", newline="\n") as stream:
         stream.write(render_audit_markdown(catalog))
+    record_output(audit_path)
     paths = export_home_voice_catalog(catalog, xlsx_dir, selected_subject=selected_subject)
     if recent_year_end:
         recent = build_recent_year_collection(catalog, tables, recent_year_end)
@@ -919,6 +921,9 @@ def run(
         save_json(recent_audit, recent_audit_path)
         paths["recent_year_audit"] = recent_audit_path
     paths["audit"] = audit_path
+    incomplete = catalog['Summary']['SubjectCount'] - catalog['Summary']['CompleteSubjectCount']
+    if incomplete or warnings:
+        record_warning(f"主页语音有 {incomplete} 个主体不完整，扫描警告 {len(warnings)} 条；详见语音审计")
     print(
         f"[+] 主页语音 {catalog['Summary']['RecordCount']} 行，"
         f"{catalog['Summary']['SubjectCount']} 个主体，"

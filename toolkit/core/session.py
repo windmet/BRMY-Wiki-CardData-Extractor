@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import scanner
+from .output import output_directory, record_output
 from .masterdata import (
     CACHE_DIRECTORY,
     CACHE_MANIFEST,
@@ -203,7 +204,7 @@ class MasterDataSession:
         self.json_sha256 = sha256_file(self.json_path)
         self.schema = build_schema_snapshot(self.tables)
         self.required_schema = REQUIRED_SCHEMA if required_schema is None else required_schema
-        self.schema_baseline_path = self.root / CACHE_DIRECTORY / SCHEMA_BASELINE
+        self.schema_baseline_path = Path(output_directory("cache", self.root / CACHE_DIRECTORY)) / SCHEMA_BASELINE
         self.previous_schema = self._read_previous_schema()
         self.assessment = SchemaAssessment(
             validate_required_schema(self.schema, self.required_schema),
@@ -236,7 +237,7 @@ class MasterDataSession:
         }
 
     def write_audit(self, domain_results, *, started_at, success):
-        audit_dir = self.root / AUDIT_DIRECTORY
+        audit_dir = Path(output_directory("audit", self.root / AUDIT_DIRECTORY))
         audit_dir.mkdir(parents=True, exist_ok=True)
         status = "FAIL" if not success or self.assessment.errors else (
             "PASS_WITH_WARNINGS" if self.assessment.warnings else "PASS"
@@ -267,6 +268,8 @@ class MasterDataSession:
         (audit_dir / "schema_report.md").write_text(
             self.render_schema_report(), encoding="utf-8", newline="\n"
         )
+        record_output(audit_dir / "run_manifest.json")
+        record_output(audit_dir / "schema_report.md")
         if success and not self.assessment.errors:
             _atomic_json(self.schema, self.schema_baseline_path)
         return manifest

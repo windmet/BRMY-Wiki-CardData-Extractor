@@ -1,6 +1,7 @@
 """通用导出：XLSX + 输出目录管理。"""
 import os
 import re
+from .output import output_directory, record_output
 from datetime import datetime
 
 try:
@@ -16,8 +17,7 @@ XLSX_DIR = 'xlsx_output'
 
 def audit_path(filename):
     """Keep diagnostic artifacts separate from Wiki workbooks."""
-    os.makedirs('audit_output', exist_ok=True)
-    return os.path.join('audit_output', filename)
+    return os.path.join(output_directory('audit', 'audit_output'), filename)
 
 
 def ensure_dirs():
@@ -26,13 +26,11 @@ def ensure_dirs():
 
 
 def json_path(filename):
-    ensure_dirs()
-    return os.path.join(JSON_DIR, filename)
+    return os.path.join(output_directory('audit', JSON_DIR), filename)
 
 
 def xlsx_path(filename):
-    ensure_dirs()
-    return os.path.join(XLSX_DIR, filename)
+    return os.path.join(output_directory('wiki', XLSX_DIR), filename)
 
 
 def save_workbook_safely(workbook, path):
@@ -49,6 +47,7 @@ def save_workbook_safely(workbook, path):
             actual_path = f"{stem}_new_{timestamp}{extension}"
         workbook.save(actual_path)
         print(f"  [!] 原 XLSX 正被占用，已改存: {actual_path}")
+    record_output(actual_path)
     return actual_path
 
 
@@ -81,8 +80,7 @@ def write_xlsx(
 ):
     """Write one sheet while preserving values unless a zero-based column type is declared."""
     if not OPENPYXL:
-        print("  [!] openpyxl 未安装，跳过 xlsx 生成")
-        return
+        raise RuntimeError("openpyxl 未安装，无法生成 XLSX")
 
     wb = Workbook()
     ws = wb.active
@@ -129,8 +127,7 @@ def write_xlsx(
 def write_workbook(path, sheets):
     """Write a workbook from sheet dictionaries with consistent table ergonomics."""
     if not OPENPYXL:
-        print("  [!] openpyxl 未安装，跳过 xlsx 生成")
-        return False
+        raise RuntimeError("openpyxl 未安装，无法生成 XLSX")
 
     wb = Workbook()
     wb.remove(wb.active)

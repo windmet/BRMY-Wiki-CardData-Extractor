@@ -1,5 +1,6 @@
 """通用 JSON 加载 & 深度递归扫描。"""
 import json
+from .output import record_output
 
 
 def load_json(path):
@@ -12,6 +13,7 @@ def save_json(data, path):
     """保存 JSON 文件。"""
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+    record_output(path)
 
 
 def walk(obj):

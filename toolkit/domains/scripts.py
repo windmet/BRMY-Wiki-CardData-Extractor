@@ -1,5 +1,6 @@
 """.s2bscript 脚本文件解析 → JSON。"""
 import os
+from ..core.output import output_directory, record_output, record_error
 
 from ..core.s2b_parser import parse_s2b_file, save_json
 
@@ -14,9 +15,10 @@ def run(input_path=None):
 
     if not files:
         print("[!] 未找到 .s2bscript 文件")
+        record_error("未找到可解析的输入文件")
         return
 
-    json_dir = os.path.join(input_dir, 'json_output')
+    json_dir = output_directory("audit", os.path.join(input_dir, "json_output"))
     os.makedirs(json_dir, exist_ok=True)
     print(f"[*] 处理 {len(files)} 个 .s2bscript 文件")
     for fn in files:
@@ -27,4 +29,5 @@ def run(input_path=None):
             print(f"  [+] {fn} → JSON")
         except Exception as e:
             print(f"  [!] {fn}: {e}")
+            record_error(f"{fn}: {e}")
     return input_dir

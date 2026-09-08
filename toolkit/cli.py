@@ -23,6 +23,8 @@
                                               主页/季节/生日语音 Wiki 表
 
 [通用]
+    generate <域...> --output <目录> --masterdata <文件>
+                                              显式输入输出，生成本次产物清单
     list                                      列出所有可用域
     doctor [--json]                           检查依赖、Tkinter 和域注册
 """
@@ -368,7 +370,11 @@ def main():
 
     cmd = args[0].lower()
 
-    if cmd == 'list':
+    if cmd == 'generate':
+        from .generate import main as generate_main
+        if not generate_main(args[1:]):
+            raise SystemExit(1)
+    elif cmd == 'list':
         cmd_list()
     elif cmd == 'doctor' and len(args) <= 2:
         if len(args) == 2 and args[1] != '--json':

@@ -1,5 +1,6 @@
 """s2b 文件解析公共逻辑 —— 处理 MsgPack + LZ4 压缩（ext type 99）。"""
 import json
+from .output import record_output
 import lz4.block
 import msgpack
 from datetime import datetime
@@ -80,3 +81,4 @@ def parse_s2b_file(file_path, *, strict_extensions=False):
 def save_json(data, path):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+    record_output(path)
