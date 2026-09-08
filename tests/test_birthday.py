@@ -143,6 +143,12 @@ class BirthdayCycleTests(unittest.TestCase):
 
         self.assertEqual("庆典台词⑤J", sheet["A12"].value)
         self.assertEqual("text-5", sheet["B12"].value)
+        self.assertEqual(13, sheet.max_row)
+        self.assertEqual("轮次", sheet["A3"].value)
+        self.assertEqual(1, sheet["B3"].value)
+        self.assertEqual("2024/06/01", sheet["B2"].value)
+        self.assertEqual("庆典台词⑤C", sheet["A13"].value)
+        self.assertIsNone(sheet["B13"].value)
 
 
 if __name__ == "__main__":

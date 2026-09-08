@@ -44,4 +44,4 @@ EXE 交互菜单单独选择 `[4] 生日台词` 时，也可输入轮次号或�
 - 原始有效文本不会因重复判断被丢弃。
 - 尚未发布的角色保留为空，并标记 `not_released`。
 
-默认自动模式仍选择当前第三轮。与旧第三轮基线相比，`TargetCycle`、`Characters`、`BirthdayTexts` 和 `birthday_lines.xlsx` 均保持不变；技术 JSON 只新增轮次和编号审计字段。
+默认自动模式按输入选择最新轮次。2026-09-08 输出清理后，XLSX 保留角色、日期、轮次及实际庆典台词 J/C 行；不再生成空白的 21 人祝福 J/C 行，原空白“语音文件名”行改为轮次。ACB 生日祝福继续使用 `home_voices`。本次未改变 `TargetCycle`、`Characters`、`BirthdayTexts` 或技术 JSON。

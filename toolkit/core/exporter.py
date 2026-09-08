@@ -14,6 +14,12 @@ JSON_DIR = 'json_output'
 XLSX_DIR = 'xlsx_output'
 
 
+def audit_path(filename):
+    """Keep diagnostic artifacts separate from Wiki workbooks."""
+    os.makedirs('audit_output', exist_ok=True)
+    return os.path.join('audit_output', filename)
+
+
 def ensure_dirs():
     os.makedirs(JSON_DIR, exist_ok=True)
     os.makedirs(XLSX_DIR, exist_ok=True)

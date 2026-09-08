@@ -1,6 +1,6 @@
 """隐藏任务提取 + 导出 XLSX。"""
-from ..core.scanner import load_json
-from ..core.exporter import write_xlsx, xlsx_path
+from ..core.scanner import load_json, save_json
+from ..core.exporter import write_xlsx, xlsx_path, audit_path
 from ..core.tables import TableCatalog
 
 INPUT_JSON = 'master_data.json'
@@ -34,13 +34,15 @@ def run(session=None):
 
     results.sort(key=lambda x: (x["MissionId"], x["SequenceNo"]))
 
-    headers = ["任务ID", "阶段", "行为类型", "目标值", "原始描述", "实际明文"]
+    save_json(results, audit_path('hidden_missions.json'))
+    headers = ["任务ID", "阶段", "目标值", "任务内容"]
     rows = []
     for item in results:
-        rows.append([item["MissionId"], item["SequenceNo"], item["MissionType"],
-                     item["Border"], item["RawDescription"], item["FormattedDescription"]])
+        rows.append([item["MissionId"], item["SequenceNo"],
+                     item["Border"], item["FormattedDescription"]])
 
     out = xlsx_path('hidden_missions.xlsx')
-    write_xlsx(rows, out, headers, sheet_title="隐藏任务",
-               col_widths={'A': 10, 'B': 8, 'C': 14, 'D': 10, 'E': 50, 'F': 50})
+    out = write_xlsx(rows, out, headers, sheet_title="隐藏任务",
+                     col_widths={'A': 10, 'B': 8, 'C': 10, 'D': 50})
     print(f"[+] 提取 {len(results)} 条隐藏任务 → {out}")
+    return out

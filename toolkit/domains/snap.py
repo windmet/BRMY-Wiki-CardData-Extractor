@@ -2,7 +2,7 @@
 from collections import defaultdict
 
 from ..core.scanner import load_json, save_json
-from ..core.exporter import write_xlsx, json_path, xlsx_path
+from ..core.exporter import write_xlsx, json_path, xlsx_path, audit_path
 from ..core.data import CHAR_MAP, NAME_MAP, translate_scene
 from ..core.tables import TableCatalog
 
@@ -108,14 +108,19 @@ def export(json_file=None):
                comments[2][0], comments[2][1], comments[3][0], comments[3][1])
 
         if key not in unique_snaps:
-            unique_snaps[key] = {'first_id': snap['snap_id'], 'merged_count': 1}
+            unique_snaps[key] = {'first_id': snap['snap_id'], 'merged_count': 1,
+                                 'source_ids': [snap['snap_id']]}
         else:
             unique_snaps[key]['merged_count'] += 1
+            unique_snaps[key]['source_ids'].append(snap['snap_id'])
+
+    save_json(sorted(unique_snaps.values(), key=lambda value: value['first_id']),
+              audit_path('snap_deduplication.json'))
 
     headers = [
         "首次出现ID", "互动场景", "所属分类", "稀有度", "相片主角", "主文案",
         "评论1_角色", "评论1_文案", "评论2_角色", "评论2_文案",
-        "评论3_角色", "评论3_文案", "评论4_角色", "评论4_文案", "折叠重复数",
+        "评论3_角色", "评论3_文案", "评论4_角色", "评论4_文案",
     ]
     rows = []
     for key, val in sorted(unique_snaps.items(), key=lambda x: x[1]['first_id']):
@@ -123,11 +128,11 @@ def export(json_file=None):
             c1_n, c1_t, c2_n, c2_t, c3_n, c3_t, c4_n, c4_t = key
         rows.append([
             val['first_id'], scene_name, category, rarity, main_chars, main_text,
-            c1_n, c1_t, c2_n, c2_t, c3_n, c3_t, c4_n, c4_t, val['merged_count'],
+            c1_n, c1_t, c2_n, c2_t, c3_n, c3_t, c4_n, c4_t,
         ])
 
     out = xlsx_path('Snap_Wiki_Data_Clean.xlsx')
-    write_xlsx(rows, out, headers, sheet_title="Snap图鉴数据")
+    out = write_xlsx(rows, out, headers, sheet_title="Snap图鉴数据")
     print(f"[+] 去重后 {len(rows)} 条 → {out}")
 
 

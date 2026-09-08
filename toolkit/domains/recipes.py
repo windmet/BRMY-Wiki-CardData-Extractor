@@ -1,6 +1,6 @@
 """酒保配方数据提取 + 导出。"""
 from ..core.scanner import load_json, save_json
-from ..core.exporter import write_xlsx, json_path, xlsx_path
+from ..core.exporter import write_xlsx, json_path, xlsx_path, save_workbook_safely
 from ..core.data import clean_text
 from ..core.tables import TableCatalog
 
@@ -156,8 +156,9 @@ def export():
     ws2 = wb.create_sheet(title="Recipes")
     ws2.append(headers_rec)
     for row in rows_rec: ws2.append(row)
-    wb.save(out)
+    out = save_workbook_safely(wb, out)
     print(f"  [xlsx] {out}")
+    return out
 
 
 def run(session=None):

@@ -208,7 +208,7 @@ def export():
         year = cycle_start_year + sort_key(c)[0]
         date_row.append(f"{year}/{c['month']:02d}/{c['day']:02d}")
     rows.append(date_row)
-    rows.append(["语音文件名"] + [""] * len(sorted_chars))
+    rows.append(["轮次"] + [data.get("TargetCycle", "")] * len(sorted_chars))
     line_count = max(
         (
             int(number)
@@ -222,10 +222,6 @@ def export():
         label_c = f"庆典台词{chr(0x2460 + i - 1)}C"
         rows.append([label_j] + [clean_text(texts.get(str(c["id"]), {}).get(str(i), "")) for c in sorted_chars])
         rows.append([label_c] + [""] * len(sorted_chars))
-    for bless_char in sorted(char_list, key=lambda x: x["id"]):
-        rows.append([f"{bless_char['name']}语音J"] + [""] * len(sorted_chars))
-        rows.append([f"{bless_char['name']}语音C"] + [""] * len(sorted_chars))
-
     out = xlsx_path('birthday_lines.xlsx')
     write_xlsx(rows, out, sheet_title="Birthday Lines",
                col_widths={'A': 20}, wrap_cols={i for i in range(1, len(sorted_chars) + 1)})

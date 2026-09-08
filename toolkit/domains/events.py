@@ -1,6 +1,6 @@
 """Event archive extraction and export."""
 from ..core.scanner import load_json, save_json
-from ..core.exporter import json_path, xlsx_path
+from ..core.exporter import json_path, xlsx_path, save_workbook_safely
 from ..core.data import clean_text
 from ..core.tables import TableCatalog
 
@@ -411,8 +411,9 @@ def export():
                 if isinstance(cell.value, str) and ("<br>" in cell.value or "\n" in cell.value):
                     cell.alignment = Alignment(wrap_text=True, vertical="top")
 
-    wb.save(out)
+    out = save_workbook_safely(wb, out)
     print(f"  [xlsx] {out}")
+    return out
 
 
 def run(session=None):

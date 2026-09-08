@@ -80,7 +80,12 @@ class NamedDomainTests(unittest.TestCase):
             mission_sheet = mission_book.active
             self.assertEqual(2, mission_sheet.max_row)
             self.assertEqual(1, mission_sheet["A2"].value)
-            self.assertEqual("Do 5 things", mission_sheet["F2"].value)
+            self.assertEqual("Do 5 things", mission_sheet["D2"].value)
+            self.assertEqual(["任务ID", "阶段", "目标值", "任务内容"],
+                             [cell.value for cell in mission_sheet[1]])
+            audit = json.loads((root / 'audit_output' / 'hidden_missions.json').read_text(encoding='utf-8'))
+            self.assertEqual("Do # things", audit[0]['RawDescription'])
+            self.assertEqual("sample", audit[0]['MissionType'])
 
     def test_complex_domains_ignore_field_collision_decoys(self):
         names_and_rows = [
