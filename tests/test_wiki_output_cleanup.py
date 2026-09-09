@@ -117,7 +117,7 @@ class WikiOutputCleanupTests(unittest.TestCase):
 
                 with patch.object(Workbook, 'save', save_unless_locked):
                     actual = module.export()
-                self.assertEqual(output.with_stem(output.stem + '_new'), Path(actual).resolve())
+                    self.assertEqual(output.with_stem(output.stem + '_new').resolve(), Path(actual).resolve())
                 self.assertEqual(b'existing editor workbook', output.read_bytes())
                 book = load_workbook(actual)
                 try:

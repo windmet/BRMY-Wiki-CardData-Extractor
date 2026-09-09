@@ -39,7 +39,8 @@ class GenerateTests(unittest.TestCase):
                 self.assertEqual([sources[index]], list(sources[index].parent.iterdir()))
                 self.assertIn(f'Line {index}', (root / f'out{index}/wiki_output/song.lrc').read_text(encoding='utf-8-sig'))
                 for artifact in report['artifacts']:
-                    self.assertTrue(Path(artifact['path']).is_relative_to(root / f'out{index}'))
+                    self.assertTrue(Path(artifact['path']).resolve().is_relative_to(
+                        (root / f'out{index}').resolve()))
                     self.assertEqual(artifact['sha256'], hashlib.sha256(Path(artifact['path']).read_bytes()).hexdigest())
 
     def test_failed_retry_receipt_excludes_old_files_and_marks_partial_results(self):
