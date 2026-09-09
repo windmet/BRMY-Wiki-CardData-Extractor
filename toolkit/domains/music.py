@@ -2,7 +2,8 @@
 import os
 
 from ..core.scanner import load_json, save_json
-from ..core.exporter import write_xlsx, json_path, xlsx_path
+from ..core.exporter import write_xlsx, json_path, xlsx_path, audit_path
+from ..core.output import record_warning
 from ..core.data import format_duration
 from ..core.tables import TableCatalog
 
@@ -14,16 +15,28 @@ except ImportError:
     HAS_MUTAGEN = False
 
 INPUT_JSON = 'master_data.json'
+
+def _resource_filename(value, extension):
+    """Retain existing suffixes; bare asset names use the local export convention."""
+    return value + extension if value and not os.path.splitext(value)[1] else value or ''
+
 def extract(audio_dir=None, session=None):
     tables = session.tables if session else TableCatalog(load_json(INPUT_JSON))
     music_db = {}
+    out_game = tables.group_by('mst_music_out_game', 'MusicId', required=False)
+    audit = {'Music': [], 'Issues': []}
 
     for obj in tables.require('mst_music'):
         mid = obj['MusicId']
-        audio_raw = obj.get('AudioFileName', '')
-        audio_file = f"{audio_raw}.mp3" if audio_raw else ''
-        jacket_raw = obj.get('JacketFileName', '')
-        jacket_file = f"{jacket_raw}.png" if jacket_raw else ''
+        matches = out_game.get(mid, [])
+        resource = matches[0] if len(matches) == 1 else obj
+        status = 'matched' if len(matches) == 1 else 'ambiguous' if matches else 'unmatched'
+        audit['Music'].append({'MusicId': mid, 'Status': status,
+                               'MusicRecord': obj, 'OutGameRecords': matches})
+        if len(matches) > 1:
+            audit['Issues'].append({'MusicId': mid, 'Status': status})
+        audio_file = _resource_filename(resource.get('AudioFileName', ''), '.mp3')
+        jacket_file = _resource_filename(resource.get('JacketFileName', ''), '.png')
         artist = obj.get('ArtistNameInformal', '') or obj.get('ArtistName', '')
 
         music_db[mid] = {
@@ -52,6 +65,13 @@ def extract(audio_dir=None, session=None):
         m.pop("_raw_duration_sec", None)
 
     sorted_db = {k: music_db[k] for k in sorted(music_db.keys(), key=int)}
+    for mid, records in out_game.items():
+        if mid not in music_db:
+            audit['Issues'].append({'MusicId': mid, 'Status': 'missing_music',
+                                    'OutGameRecords': records})
+    save_json(audit, audit_path('music_relations.json'))
+    if audit['Issues']:
+        record_warning(f"音乐资源关系有 {len(audit['Issues'])} 条异常，详见 music_relations.json")
     out = json_path('Music_Database.json')
     save_json(sorted_db, out)
     print(f"[+] 提取 {len(sorted_db)} 首曲目 → {out}")
