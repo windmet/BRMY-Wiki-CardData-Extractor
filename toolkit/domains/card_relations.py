@@ -4,6 +4,8 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from datetime import datetime
+from ..core.rewards import RewardResolver
+from ..core.data import clean_text
 
 
 CARD_ROUTE_MAP = {1: "Gacha", 2: "EventReward"}
@@ -187,6 +189,39 @@ def _select_event(relations, release, *, reward_only=False):
     return max(candidates, key=lambda item: item.get("EventId") or 0, default=None)
 
 
+def _serial_present_relations(tables):
+    """Join serial markers to typed Present rewards, never to same-number groups."""
+    resolver = RewardResolver(tables)
+    by_card = defaultdict(list)
+    audit = {'SerialPresents': [], 'Issues': []}
+    for marker in _active(tables.rows('mst_present_serial_code')):
+        present_id = marker.get('PresentId')
+        if not present_id:
+            audit['Issues'].append({'Resolution': 'missing_present_id', 'SerialRecord': dict(marker)})
+            continue
+        rewards = resolver.present(present_id)
+        audit['SerialPresents'].append({'SerialRecord': dict(marker), 'Rewards': rewards})
+        for reward in rewards:
+            if reward['RewardTypeCode'] != 1:
+                continue
+            if reward['Resolution'] not in ('resolved', 'name_unavailable'):
+                audit['Issues'].append({'Resolution': reward['Resolution'], 'Reward': reward})
+                continue
+            raw = reward['RawReward']
+            by_card[reward['RewardTargetId']].append({
+                'PresentId': present_id,
+                'PresentSequenceNo': raw.get('PresentSequenceNo'),
+                'PresentDescription': clean_text(raw.get('PresentDescription', '')),
+                'SourceTable': 'mst_present_serial_code',
+                'RewardTable': 'mst_present',
+                'SerialRecord': dict(marker),
+                'Reward': reward,
+            })
+    audit['Issues'].extend(issue for issue in resolver.issues
+                           if issue['Resolution'] == 'missing_reward_group')
+    return by_card, audit
+
+
 def _select_exchange(relations, release):
     released = _timestamp(release)
     in_period = []
@@ -198,7 +233,7 @@ def _select_exchange(relations, release):
     return (in_period or relations)[-1] if relations else None
 
 
-def _derive_acquisition(card_id, raw, events, gachas, exchanges, reward_groups):
+def _derive_acquisition(card_id, raw, events, gachas, exchanges, reward_groups, serial_presents=()):
     route_code = raw.get("CardRouteCode")
     release = raw.get("ReleaseDateTime", "")
     route = CARD_ROUTE_MAP.get(route_code, f"Unknown({route_code})")
@@ -223,6 +258,7 @@ def _derive_acquisition(card_id, raw, events, gachas, exchanges, reward_groups):
             {"Kind": "direct_reward", "DirectRewardGroupId": group_id, "RewardTypeCode": 1}
             for group_id in reward_groups
         )
+    evidence.extend({'Kind': 'serial_present', **item} for item in serial_presents)
 
     if route_code == 2:
         method = "活动报酬"
@@ -252,6 +288,15 @@ def _derive_acquisition(card_id, raw, events, gachas, exchanges, reward_groups):
             method = "周年卡池" if "Anniversary" in source_name else "活动卡池"
             confidence = "high"
 
+    # Preserve established primary sources; serial is an explicit alternative
+    # source, and supplies the missing primary only when none is known.
+    if serial_presents and not source_name and method != '常驻':
+        method = '序列码兑换'
+        descriptions = list(dict.fromkeys(item.get('PresentDescription')
+                                         for item in serial_presents if item.get('PresentDescription')))
+        source_name = ' / '.join(descriptions)
+        confidence = 'high' if source_name else 'medium'
+
     warnings = []
     if not method:
         warnings.append(f"unresolved acquisition route for card {card_id}")
@@ -269,11 +314,14 @@ def _derive_acquisition(card_id, raw, events, gachas, exchanges, reward_groups):
     }
 
 
-def enrich_card_relations(cards, tables, character_names):
+def enrich_card_relations(cards, tables, character_names, *, relation_audit=None):
     """Attach relationship evidence and derived acquisition to every card."""
     events_by_card = _event_relations(tables)
     gachas_by_card = _gacha_relations(tables)
     card_groups, reward_rows, exchanges_by_card = _reward_and_exchange_relations(tables)
+    serial_by_card, serial_audit = _serial_present_relations(tables)
+    if relation_audit is not None:
+        relation_audit.update(serial_audit)
     multi_by_card = defaultdict(list)
     for row in _active(tables.rows("mst_character_card_multi_character")):
         character_id = row.get("CharacterId")
@@ -298,6 +346,7 @@ def enrich_card_relations(cards, tables, character_names):
             "DirectRewards": [row for group_id in group_ids for row in reward_rows.get(group_id, [])],
             "ExchangeAssociations": exchanges_by_card.get(card_id, []),
             "HomeVoiceDuo": duo_by_card.get(card_id, []),
+            "SerialPresentAssociations": serial_by_card.get(card_id, []),
         }
         card["Acquisition"] = _derive_acquisition(
             card_id,
@@ -306,6 +355,7 @@ def enrich_card_relations(cards, tables, character_names):
             card["Relations"]["GachaAssociations"],
             card["Relations"]["ExchangeAssociations"],
             group_ids,
+            card["Relations"]["SerialPresentAssociations"],
         )
         unresolved.extend(card["Acquisition"]["Warnings"])
     return unresolved

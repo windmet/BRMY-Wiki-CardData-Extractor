@@ -8,7 +8,7 @@
 import re
 
 from ..core.scanner import load_json, save_json
-from ..core.exporter import write_xlsx, json_path, xlsx_path
+from ..core.exporter import write_xlsx, json_path, xlsx_path, audit_path
 from ..core.tables import TableCatalog
 from ..core.data import (
     RARITY_MAP, ATTRIBUTE_MAP, DEPT_MAP, PIECE_MAP, MAGNITUDE_MAP,
@@ -348,7 +348,11 @@ def extract(audio_dir=None, session=None):
             card["LeaderSkill"]["Desc"] = apply_percentage_fix(card["LeaderSkill"]["Desc"], rarity)
 
     # ============ 关系证据与获取方式 ============
-    acquisition_warnings = enrich_card_relations(cards_db, tables, character_map)
+    relation_audit = {}
+    acquisition_warnings = enrich_card_relations(cards_db, tables, character_map, relation_audit=relation_audit)
+    save_json(relation_audit, audit_path('card_serial_present.json'))
+    if relation_audit.get('Issues'):
+        record_warning(f"序列码礼物有 {len(relation_audit['Issues'])} 条关系缺项；详见 card_serial_present.json")
     for cid, card in cards_db.items():
         card["Meta"]["AdditionalCharacters"] = card["Relations"].get("AdditionalCharacters", [])
     if acquisition_warnings:
