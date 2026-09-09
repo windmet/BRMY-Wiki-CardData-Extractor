@@ -33,7 +33,7 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
             unknown = set(domains) - set(DOMAINS)
             if unknown:
                 raise ValueError(f'未知任务: {sorted(unknown)}')
-            if set(domains) & (MASTERDATA | {'home_voices', 'card_update'}):
+            if set(domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_update'}):
                 if not masterdata:
                     raise ValueError('此任务需要 masterdata 文件')
                 path = Path(masterdata).resolve()
@@ -60,6 +60,10 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                         if not old_workbook:
                             raise ValueError('更新卡牌需要旧工作簿')
                         module.run(old_workbook, audio_dir=audio, session=session)
+                    elif domain == 'home_voice_duo':
+                        if not audio or not Path(audio).is_dir():
+                            raise ValueError('双人主页语音需要 ACB 目录')
+                        module.run(audio, session=session)
                     elif domain == 'home_voices':
                         if not audio:
                             raise ValueError('主页语音需要 ACB 目录')

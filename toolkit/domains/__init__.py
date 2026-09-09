@@ -1,5 +1,5 @@
 from . import cards, card_update, music, snap, birthday, recipes, missions, items, events, audio, home_voices
-from . import lyrics, scripts, charts, ojt, birthday_archive
+from . import lyrics, scripts, charts, ojt, birthday_archive, home_voice_duo
 
 DOMAINS = {
     'cards': cards,
@@ -18,4 +18,5 @@ DOMAINS = {
     'charts': charts,
     'audio': audio,
     'home_voices': home_voices,
+    'home_voice_duo': home_voice_duo,
 }

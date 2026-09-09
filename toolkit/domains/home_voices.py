@@ -46,7 +46,7 @@ CATEGORY_NAMES = {
 EXPECTED_CHARACTER_IDS = tuple(range(1, 22))
 
 
-def scan_character_home_voice_packages(acb_root):
+def scan_character_home_voice_packages(acb_root, *, duo_only=False):
     """Read the 21 character package families and retain cue-level audit fields."""
     acb_root = os.path.abspath(acb_root)
     records = []
@@ -74,7 +74,7 @@ def scan_character_home_voice_packages(acb_root):
             bucket = 0 if bucket_name == "general" else int(bucket_name)
             for item in metadata:
                 cue_name = item.get("CueName", "")
-                if not cue_name.startswith("vo_home_") or cue_name.startswith("vo_home_duo_"):
+                if not cue_name.startswith("vo_home_") or cue_name.startswith("vo_home_duo_") != duo_only:
                     continue
                 records.append({
                     "SpeakerCharacterId": speaker_id,
@@ -94,6 +94,8 @@ def scan_character_home_voice_packages(acb_root):
             row["SpeakerCharacterId"], row["CueName"], row["AcbBucket"], row["AcbFile"]
         )
     )
+    if duo_only:
+        return records, warnings
     deduplicated = []
     for record in records:
         if (
