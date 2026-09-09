@@ -7,9 +7,10 @@ from ..core.exporter import audit_path, xlsx_path, save_workbook_safely
 from ..core.scanner import save_json
 from ..core.rewards import RewardResolver
 from ..core.output import record_warning
+from .ojt_coordinates import load_coordinates
 
 
-def extract(session, *, as_of=None):
+def extract(session, *, as_of=None, source=None):
     tables = session.tables
     now = assessment_time(as_of)
     rewards = RewardResolver(tables)
@@ -80,9 +81,11 @@ def extract(session, *, as_of=None):
                 issues.append({'Status': 'unlinked_shift', 'Section': name, 'OjtShiftId': sid, 'Rows': rows})
     constants = [{'Raw': row, 'ChartStampConversionRewards': rewards.direct(row.get('ChartStampConvertedDirectRewardGroupId'))}
                  for row in tables.rows('mst_event_ojt_constant', active_only=True)]
+    coordinates = load_coordinates(archive, tables, source)
     return {'Events': archive, 'AsOf': now.isoformat(), 'Timezone': 'UTC',
             'BreakBonus': tables.rows('mst_event_ojt_break_bonus', active_only=True), 'Constants': constants,
-            'ChartCoordinates': 'not_loaded', 'Issues': issues, 'RewardIssues': rewards.issues,
+            'ChartCoordinates': coordinates['Status'], 'CoordinateLayouts': coordinates,
+            'Issues': issues, 'RewardIssues': rewards.issues,
             'RawTables': {name: tables.rows(name) for name in tables.names if name.startswith('mst_event_ojt_')}}
 
 
@@ -135,10 +138,20 @@ def export(data):
                 constants.append([raw.get('ConstantKey'), key, json.dumps(value, ensure_ascii=False) if isinstance(value, (list, dict)) else value])
         constants.append([raw.get('ConstantKey'), 'ChartStamp 转换奖励',
                           ' / '.join(f"{r['RewardName']} x{r['RewardCount']}" for r in entry['ChartStampConversionRewards'])])
+    coordinates = wb.create_sheet('Coordinates')
+    coordinates.append(['活动ID', '题面', '角色ID', '角色名', 'X原值', 'Y原值', '显示顺序原值'])
+    chart_titles = {(e['EventId'], c.get('ChartFileName')): c.get('ChartTitle', '')
+                    for e in data['Events'] for c in e['Charts']}
+    for chart in data['CoordinateLayouts']['Charts']:
+        for row in chart['Coordinates']:
+            coordinates.append([chart['EventId'], chart_titles.get((chart['EventId'], chart['ChartFileName']), ''),
+                                *[row[k] for k in ('CharacterId', 'CharacterName', 'X', 'Y', 'SiblingIndex')]])
     notes = wb.create_sheet('Notes')
     notes.append(['核对时刻 UTC', data['AsOf']])
     notes.append(['日期状态', '日期区间内不代表账号已解锁'])
-    notes.append(['坐标', '未加载 .s2bchart；当前仅题面与四轴文案'])
+    notes.append(['坐标', {'not_loaded': '未加载有效坐标', 'partial': '部分坐标已加载，缺项见审计',
+                          'loaded': '坐标已加载'}[data['ChartCoordinates']]])
+    notes.append(['坐标单位', '未确认；保留文件原值，不推断像素或归一化单位'])
     notes.append(['权重', '保留原值，未推算最终概率'])
     for sheet in wb:
         sheet.freeze_panes = 'A2'
@@ -147,9 +160,11 @@ def export(data):
     return save_workbook_safely(wb, xlsx_path('ojt_archive.xlsx'))
 
 
-def run(session=None, *, as_of=None):
-    data = extract(session, as_of=as_of)
+def run(session=None, *, as_of=None, source=None):
+    data = extract(session, as_of=as_of, source=source)
     save_json(data, audit_path('ojt_archive.json'))
+    if data['CoordinateLayouts']['Issues']:
+        record_warning(f"OJT 坐标存在 {len(data['CoordinateLayouts']['Issues'])} 条缺项或异常，详见 ojt_archive.json")
     if data['Issues'] or data['RewardIssues']:
         record_warning(f"OJT 存在 {len(data['Issues'])} 条关系异常、{len(data['RewardIssues'])} 条奖励缺项，详见 ojt_archive.json")
     return export(data)

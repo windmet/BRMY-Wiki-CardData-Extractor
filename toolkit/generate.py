@@ -76,7 +76,10 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                         if audio and not Path(audio).is_dir():
                             raise ValueError(f'音频目录不存在: {audio}')
                         module.run(audio, session=session)
-                    elif domain in {'events', 'ojt', 'birthday_archive', 'story_catalog', 'collections'}:
+                    elif domain == 'ojt':
+                        module.run(session=session, as_of=as_of or started_at,
+                                   source=source.get('ojt') if isinstance(source, dict) else source)
+                    elif domain in {'events', 'birthday_archive', 'story_catalog', 'collections'}:
                         module.run(session=session, as_of=as_of or started_at)
                     elif domain in MASTERDATA:
                         module.run(session=session)

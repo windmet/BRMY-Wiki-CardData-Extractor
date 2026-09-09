@@ -18,10 +18,10 @@ TASKS = {
 }
 TASK_GROUPS = [
     ('卡牌与收藏', ('cards', 'card_update', 'collections', 'items'), '更新已有卡表会保留人工列。收藏档案区分卡牌关联、奖励引用与已确认获取入口。'),
-    ('活动', ('events', 'ojt', 'missions', 'recipes'), 'OJT 活动档案来自 masterdata，包含轮次、题面和奖励；坐标文件仍需本地 OJT Chart。'),
+    ('活动', ('events', 'ojt', 'missions', 'recipes', 'charts'), 'OJT 档案包含轮次、题面和奖励。本地模式可在高级设置补充 OJT Chart 坐标；单独的 OJT Chart 任务仅解析文件。'),
     ('语音', ('home_voices', 'home_voice_duo', 'audio'), '主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对。缺少资源时会保留缺项说明。'),
     ('生日', ('birthday', 'birthday_archive'), '生日庆典台词按生日轮次整理；年度生日档案按角色和年份汇总登录奖励、点击奖励、服装与台词。生日祝福请到“语音”。'),
-    ('剧情与其他', ('story_catalog', 'scripts', 'charts', 'lyrics', 'music', 'snap'), '剧情目录是 masterdata 索引；剧情脚本解析独立正文。OJT Chart 是站位数据，不是音乐谱面。'),
+    ('剧情与其他', ('story_catalog', 'scripts', 'lyrics', 'music', 'snap'), '剧情目录是 masterdata 索引；剧情脚本解析独立正文。'),
 ]
 MODES = {'正式服在线': 'online', '正式服离线缓存': 'offline', '使用本地资源': 'local'}
 
@@ -78,6 +78,10 @@ class JobRequest:
                     raise ValueError('该任务需要选择本地 ACB 音频目录')
             if self.audio and not Path(self.audio).is_dir():
                 raise ValueError('本地音频目录不存在')
+            if 'ojt' in self.domains and self.source:
+                path = Path(self.source)
+                if not (path.is_dir() or (path.is_file() and path.suffix.lower() == '.s2bchart')):
+                    raise ValueError('OJT 坐标输入需要 .s2bchart 文件或目录')
             if set(self.domains) & {'scripts', 'lyrics', 'charts'}:
                 if not self.source or not Path(self.source).exists():
                     raise ValueError('请选择独立歌词、脚本或OJT Chart文件 / 文件夹')
