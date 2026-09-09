@@ -4,6 +4,27 @@ from toolkit.core.tables import TableCatalog
 
 
 class AcquisitionTests(unittest.TestCase):
+    def test_story_composite_keys_and_login_present_namespace(self):
+        data = {'mst_main_story_chapter': [{'MainStoryThreadNo': 1, 'MainStoryChapterNo': 1}],
+                'mst_main_story_section': [
+                    {'MainStoryThreadNo': 1, 'MainStoryChapterNo': 1, 'MainStorySectionNo': 1, 'ReadDirectRewardGroupId': 7},
+                    {'MainStoryThreadNo': 2, 'MainStoryChapterNo': 1, 'MainStorySectionNo': 1, 'ReadDirectRewardGroupId': 7}],
+                'mst_login_bonus_special': [{'LoginBonusSpecialId': 1}],
+                'mst_login_bonus_special_sequence': [{'LoginBonusSpecialId': 1, 'Sequence': 1, 'PresentId': 7}]}
+        refs, issues = acquisition_index(TableCatalog([dict.fromkeys(data, []), *data.values()]))
+        self.assertEqual([1, 1, 1], refs[('mst_direct_reward', 7)][0]['OwnerId'])
+        self.assertEqual(1, len(refs[('mst_direct_reward', 7)]))
+        self.assertEqual('login_special', refs[('mst_present', 7)][0]['Kind'])
+        self.assertEqual('missing_or_ambiguous_source_parent', issues[0]['Status'])
+
+    def test_duplicate_login_sequences_cannot_claim_a_unique_source(self):
+        row = {'LoginBonusDailyId': 1, 'Sequence': 1, 'PresentId': 7}
+        data = {'mst_login_bonus_daily': [{'LoginBonusDailyId': 1}],
+                'mst_login_bonus_daily_sequence': [row, dict(row)]}
+        refs, issues = acquisition_index(TableCatalog([dict.fromkeys(data, []), *data.values()]))
+        self.assertEqual({}, refs)
+        self.assertEqual('missing_or_ambiguous_source_key', issues[0]['Status'])
+
     def test_missing_owners_and_unknown_mission_type_are_not_silent(self):
         data = {'mst_exchange_product': [{'ExchangeId': 8, 'DirectRewardGroupId': 1}],
                 'mst_mission_sequence': [{'MissionId': 8, 'DirectRewardGroupId': 1},

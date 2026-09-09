@@ -1,6 +1,21 @@
 """Verified reward-group consumers; unsupported consumers remain unresolved."""
 from collections import defaultdict
 
+SECTION_SOURCES = (
+    ('mst_main_story_section', ('MainStoryThreadNo', 'MainStoryChapterNo', 'MainStorySectionNo'),
+     'mst_main_story_chapter', ('MainStoryThreadNo', 'MainStoryChapterNo'), 'story_main', 'ReadDirectRewardGroupId', 'mst_direct_reward'),
+    ('mst_character_story_section', ('CharacterId', 'CharacterStoryChapterNo', 'CharacterStorySectionNo'),
+     'mst_character_story', ('CharacterId', 'CharacterStoryChapterNo'), 'story_character', 'ReadDirectRewardGroupId', 'mst_direct_reward'),
+    ('mst_character_card_story_section', ('CharacterCardId', 'CharacterCardStorySectionNo'),
+     'mst_character_card_story', ('CharacterCardId',), 'story_card', 'ReadDirectRewardGroupId', 'mst_direct_reward'),
+    ('mst_login_bonus_daily_sequence', ('LoginBonusDailyId', 'Sequence'),
+     'mst_login_bonus_daily', ('LoginBonusDailyId',), 'login_daily', 'PresentId', 'mst_present'),
+    ('mst_login_bonus_special_sequence', ('LoginBonusSpecialId', 'Sequence'),
+     'mst_login_bonus_special', ('LoginBonusSpecialId',), 'login_special', 'PresentId', 'mst_present'),
+    ('mst_login_bonus_total', ('LoginBonusTotalId',), None, (), 'login_total', 'PresentId', 'mst_present'),
+    ('mst_login_bonus_user_birthday', ('Year',), None, (), 'login_user_birthday', 'PresentId', 'mst_present'),
+)
+
 SUPPORTED_FIELDS = {
     'mst_event_ranking_reward': ('PresentId',),
     'mst_event_sales_reward': ('DirectRewardGroupId',),
@@ -15,11 +30,16 @@ SUPPORTED_FIELDS = {
     'mst_event_ojt_prize_box': ('PrizeBoxRewardId', 'PrizeBoxRewardRandomId'),
     'mst_event_ojt_training_reward': ('DirectRewardGroupId',),
 }
+SUPPORTED_FIELDS.update({table: (field,) for table, _, _, _, _, field, _ in SECTION_SOURCES})
 
 SOURCE_LABELS = {'event': '活动奖励', 'exchange': '兑换所', 'event_mission': '活动任务',
                  'campaign_mission': 'Campaign任务', 'mission': '一般任务', 'serial_code': '序列码',
                  'character_birthday': '角色年度生日', 'ojt_training': 'OJT训练',
                  'ojt_fixed_box': 'OJT固定奖励池', 'ojt_random_box': 'OJT随机奖励池'}
+SOURCE_LABELS.update({'story_main': '主线阅读奖励', 'story_character': '角色剧情阅读奖励',
+                      'story_card': '卡牌剧情阅读奖励', 'login_daily': '每日登录奖励',
+                      'login_special': '特别登录奖励', 'login_total': '累计登录奖励',
+                      'login_user_birthday': '玩家生日登录奖励'})
 
 
 def acquisition_coverage(tables):
@@ -119,4 +139,24 @@ def acquisition_index(tables):
             for reward_table, field, kind in targets:
                 add(reward_table, row.get(field), table, row, kind, event[0]['EventId'],
                     event[0].get('EventTitle', ''), [*matched, *event])
+    for table, keys, parent_table, parent_keys, kind, field, reward_table in SECTION_SOURCES:
+        parents = defaultdict(list)
+        for parent in tables.rows(parent_table, active_only=True) if parent_table else []:
+            parents[tuple(parent.get(key) for key in parent_keys)].append(parent)
+        rows_by_key = defaultdict(list)
+        for row in tables.rows(table, active_only=True):
+            rows_by_key[tuple(row.get(key) for key in keys)].append(row)
+        for key, rows in rows_by_key.items():
+            if None in key or len(rows) != 1:
+                issues.append({'Status': 'missing_or_ambiguous_source_key', 'Table': table, 'Key': list(key), 'Rows': rows})
+                continue
+            row = rows[0]
+            parent_key = tuple(row.get(key) for key in parent_keys)
+            matched = parents.get(parent_key, []) if parent_table else []
+            if parent_table and (None in parent_key or len(matched) != 1):
+                issues.append({'Status': 'missing_or_ambiguous_source_parent', 'Table': table,
+                               'ParentTable': parent_table, 'Key': list(key), 'Raw': row})
+                continue
+            add(reward_table, row.get(field), table, row, kind, list(key),
+                row.get('TitleName') or SOURCE_LABELS[kind], matched)
     return dict(result), issues
