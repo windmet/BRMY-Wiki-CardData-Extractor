@@ -1,5 +1,21 @@
 # 冻结候选验收
 
+## 最新候选：33bbf2d
+
+独立干净工作树构建，Python3.12.9 / Nuitka4.1.2，固定环境159项测试通过，构建与冒烟通过。
+
+文件：`C:/Users/windm/AppData/Local/Temp/brmy-final-candidate-eb6eaa9947e34206934d2ef7e5ac01a8/dist/bmc_toolkit.exe`
+
+SHA-256：`f2bf9bfb44425bd5832335d2e1047acea9508baf002ae90fb45418cacfebbbdc`。验证脚本先重算EXE哈希与manifest比较，再调用该EXE。
+
+冻结后台验收通过：五新域、85项缓存预览、Event43的21坐标、完整主页语音与11条Type3补充、27颜色metadata、原有八主数据域。五新域13产物以及主页/旧域receipt中的产物均逐项重算哈希。原staff统计2387记录/116主体/13不完整保持；坏输入缺CostumeModelId时退出失败，无收藏工作簿。
+
+旧域业务抽查：Serial奖励卡目标恰为451–456，287音乐保留且187个out_game匹配，54活动保留，Item489类别含语音券。原卡表471行及音乐287行输出通过。
+
+证据：`%TEMP%/brmy-frozen-final-6t11y2eq/verification.json`，各子目录保存产物、receipt和日志；脚本 `%TEMP%/brmy-frozen-final-verify.py`。可见GUI仍为not_verified，不能将后台结果升级为界面通过。未覆盖旧EXE、未发布。
+
+## 先前候选记录
+
 业务提交：`04b43970990218e6d8ac8f693948ebe63b59e16d`。独立 detached 工作树构建，manifest 的 git_dirty=false。Python 3.12.9 / Nuitka 4.1.2；固定环境155项测试通过，构建和发布冒烟均通过。
 
 候选文件：`C:/Users/windm/AppData/Local/Temp/brmy-closeout-build-fc3a471b93b14a82a25a84a4ab2073c6/dist/bmc_toolkit.exe`
