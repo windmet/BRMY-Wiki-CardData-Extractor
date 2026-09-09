@@ -1,6 +1,45 @@
 """Verified reward-group consumers; unsupported consumers remain unresolved."""
 from collections import defaultdict
 
+SUPPORTED_FIELDS = {
+    'mst_event_ranking_reward': ('PresentId',),
+    'mst_event_sales_reward': ('DirectRewardGroupId',),
+    'mst_event_accumulate_item_reward': ('DirectRewardGroupId',),
+    'mst_event_recipe': ('DirectRewardGroupId',),
+    'mst_event_story_section': ('ReadDirectRewardGroupId',),
+    'mst_exchange_product': ('DirectRewardGroupId',),
+    'mst_mission_sequence': ('DirectRewardGroupId',),
+    'mst_present_serial_code': ('PresentId',),
+    'mst_character_birthday_login_bonus_sequence': ('PresentId',),
+    'mst_character_birthday': ('TapRewardNo1', 'TapRewardNo2', 'TapRewardNo3', 'TapRewardSecretPin'),
+    'mst_event_ojt_prize_box': ('PrizeBoxRewardId', 'PrizeBoxRewardRandomId'),
+    'mst_event_ojt_training_reward': ('DirectRewardGroupId',),
+}
+
+SOURCE_LABELS = {'event': '活动奖励', 'exchange': '兑换所', 'event_mission': '活动任务',
+                 'campaign_mission': 'Campaign任务', 'mission': '一般任务', 'serial_code': '序列码',
+                 'character_birthday': '角色年度生日', 'ojt_training': 'OJT训练',
+                 'ojt_fixed_box': 'OJT固定奖励池', 'ojt_random_box': 'OJT随机奖励池'}
+
+
+def acquisition_coverage(tables):
+    """Inventory recognizable reference fields, not a claim to all game sources."""
+    fields = []
+    reward_tables = {'mst_direct_reward', 'mst_present', 'mst_event_ojt_prize_box_reward',
+                     'mst_event_ojt_prize_box_reward_random'}
+    for table in tables.names:
+        if table in reward_tables:
+            continue
+        rows = tables.rows(table, active_only=True)
+        keys = {key for row in rows for key in row
+                if key.endswith(('DirectRewardGroupId', 'PresentId')) or key in SUPPORTED_FIELDS.get(table, ())}
+        for key in sorted(keys):
+            fields.append({'SourceTable': table, 'Field': key,
+                           'NonzeroRows': sum(row.get(key) not in (None, 0, '') for row in rows),
+                           'AdapterStatus': 'supported' if key in SUPPORTED_FIELDS.get(table, ()) else 'not_adapted'})
+    return {'Scope': 'active_rows_recognized_reference_fields_only', 'CompleteAcquisitionGuide': False,
+            'Fields': fields}
+
 
 def acquisition_index(tables):
     result = defaultdict(list)
@@ -35,11 +74,18 @@ def acquisition_index(tables):
         if len(matched) == 1:
             add('mst_direct_reward', row.get('DirectRewardGroupId'), 'mst_exchange_product', row,
                 'exchange', row['ExchangeId'], matched[0].get('ExchangeName', ''), matched)
+        else:
+            issues.append({'Status': 'missing_or_ambiguous_exchange', 'Table': 'mst_exchange_product', 'Raw': row})
     for row in tables.rows('mst_mission_sequence', active_only=True):
         matched = missions.get(row.get('MissionId'), [])
         if len(matched) != 1:
+            issues.append({'Status': 'missing_or_ambiguous_mission', 'Table': 'mst_mission_sequence', 'Raw': row})
             continue
         mission = matched[0]; code = mission.get('SpecialTabTypeCode'); target = mission.get('SpecialTabTargetId')
+        if code not in (0, 1, 2):
+            issues.append({'Status': 'unsupported_mission_owner_type', 'Table': 'mst_mission_sequence',
+                           'Raw': row, 'Mission': mission})
+            continue
         parent = events.get(target, []) if code == 1 else campaigns.get(target, []) if code == 2 else []
         if code in (1, 2) and len(parent) != 1:
             issues.append({'Status': 'missing_mission_owner', 'Raw': mission})

@@ -4,6 +4,27 @@ from toolkit.core.tables import TableCatalog
 
 
 class AcquisitionTests(unittest.TestCase):
+    def test_missing_owners_and_unknown_mission_type_are_not_silent(self):
+        data = {'mst_exchange_product': [{'ExchangeId': 8, 'DirectRewardGroupId': 1}],
+                'mst_mission_sequence': [{'MissionId': 8, 'DirectRewardGroupId': 1},
+                                         {'MissionId': 9, 'DirectRewardGroupId': 1}],
+                'mst_mission': [{'MissionId': 9, 'SpecialTabTypeCode': 99}]}
+        refs, issues = acquisition_index(TableCatalog([dict.fromkeys(data, []), *data.values()]))
+        self.assertEqual({}, refs)
+        self.assertEqual({'missing_or_ambiguous_exchange', 'missing_or_ambiguous_mission',
+                          'unsupported_mission_owner_type'}, {i['Status'] for i in issues})
+
+    def test_coverage_distinguishes_candidate_fields_from_supported_adapters(self):
+        from toolkit.core.acquisition import acquisition_coverage
+        data = {'mst_exchange_product': [{'DirectRewardGroupId': 1}],
+                'mst_new_source': [{'NewDirectRewardGroupId': 1}, {'NewDirectRewardGroupId': 0}]}
+        report = acquisition_coverage(TableCatalog([dict.fromkeys(data, []), *data.values()]))
+        self.assertFalse(report['CompleteAcquisitionGuide'])
+        by_table = {r['SourceTable']: r for r in report['Fields']}
+        self.assertEqual('supported', by_table['mst_exchange_product']['AdapterStatus'])
+        self.assertEqual('not_adapted', by_table['mst_new_source']['AdapterStatus'])
+        self.assertEqual(1, by_table['mst_new_source']['NonzeroRows'])
+
     def test_ojt_boxes_follow_shift_owner_and_keep_pool_namespaces(self):
         data = {'mst_event': [{'EventId': 50, 'EventFormat': 5}],
                 'mst_event_ojt_shift': [{'OjtShiftId': 7, 'EventId': 50}],

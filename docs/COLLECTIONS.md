@@ -13,3 +13,13 @@ N6未完成：最终获取入口尚未从奖励组反向连接到事件、任务
 真实每个消费记录均存在原表且其明确奖励组键相等，来源异常0。证据：`%TEMP%/brmy-collection-sources-kp6b9e0z/verification.json`。138项测试和仓库验证通过。OJT、其他登录/剧情/成长等入口尚待补充，不能称完整获取攻略。
 
 OJT入口后续：奖励箱固定池948条、随机池2520条、训练36条收藏引用已沿OjtShiftId→EventId连接。池类型与组编号联合匹配，重复编号不串池；轮次与EventFormat5验证失败会进入来源告警。新3404条入口逐条复查owner链通过，旧入口等值，139项测试和仓库验证通过。证据：`%TEMP%/brmy-ojt-acquisition-txk26cva/verification.json`。其他未适配入口仍保留未知，不宣称已完整覆盖。
+
+## 来源覆盖核对
+
+兑换商品缺失/歧义 owner、任务档位缺失/歧义任务现在进入 SourceIssues；SpecialTabTypeCode 仅接受已验证的0/1/2，未知类型不再自动归为一般任务。
+
+新增 SourceCoverage，仅盘点 active 行中可识别的奖励引用字段，明确 CompleteAcquisitionGuide=false。当前39字段中16已适配、23未适配；这是候选字段盘点，不是完整来源枚举，例如 Honor 的奖励字段可能描述获得称号后的奖励，不能反向当成取得该称号的入口。未来适配前仍需验证字段语义、owner及奖励目标。
+
+每个收藏保留 UnresolvedRewardReferences，普通表增加已确认入口数与未连接入口的奖励引用数；入口类别提供可读名称，原 Kind/Owner/Raw 继续留 Audit。一物存在已知来源不意味着其他引用已全部解释。
+
+真实快照2536对象及既有来源逐字段等值（本次固定 as_of 不同，日期评估另计），来源异常0；2823条奖励引用尚无已适配入口。证据：`%TEMP%/brmy-source-coverage-128oil22/verification.json`。153项测试与仓库验证通过。后续优先核对既有 Story 的阅读奖励和登录奖励链；Purchase/Puzzle 等独立产品范围保持不扩张。

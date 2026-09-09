@@ -20,6 +20,7 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual([11], [r['GroupId'] for r in honor['RewardReferences']])
         self.assertNotIn('not-a-name', honor['Name'])
         self.assertEqual('no_known_entries', style['AcquisitionEntryStatus'])
+        self.assertEqual(style['RewardReferences'], style['UnresolvedRewardReferences'])
 
 
 if __name__ == '__main__':

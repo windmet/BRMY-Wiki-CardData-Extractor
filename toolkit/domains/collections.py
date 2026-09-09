@@ -6,7 +6,7 @@ from ..core.availability import assessment_time, date_window
 from ..core.exporter import audit_path, xlsx_path, save_workbook_safely
 from ..core.scanner import save_json
 from ..core.output import record_warning
-from ..core.acquisition import acquisition_index
+from ..core.acquisition import acquisition_index, acquisition_coverage, SOURCE_LABELS
 
 
 COLLECTION_TYPES = (4, 5, 6, 7, 3, 2)
@@ -35,7 +35,10 @@ def extract(session, *, as_of=None):
             entry['AcquisitionEntries'] = [dict(source, RewardReference=ref)
                 for ref in entry['RewardReferences'] for source in sources.get((ref['SourceTable'], ref['GroupId']), [])]
             entry['AcquisitionEntryStatus'] = 'known_entries' if entry['AcquisitionEntries'] else 'no_known_entries'
-    return {'Collections': records, 'Issues': issues, 'SourceIssues': source_issues, 'AsOf': now.isoformat(), 'Timezone': 'UTC'}
+            entry['UnresolvedRewardReferences'] = [ref for ref in entry['RewardReferences']
+                if not sources.get((ref['SourceTable'], ref['GroupId']))]
+    return {'Collections': records, 'Issues': issues, 'SourceIssues': source_issues,
+            'SourceCoverage': acquisition_coverage(tables), 'AsOf': now.isoformat(), 'Timezone': 'UTC'}
 
 
 def export(data):
@@ -43,21 +46,23 @@ def export(data):
     for code in COLLECTION_TYPES:
         kind, label, *_ = REWARD_TARGETS[code]
         sheet = wb.create_sheet(kind)
-        sheet.append(['编号', '名称', '名称状态', '角色ID', '关联卡牌', '奖励引用数', '日期状态'])
+        sheet.append(['编号', '名称', '名称状态', '角色ID', '关联卡牌', '奖励引用数', '日期状态', '已确认入口数', '未连接入口的奖励引用数'])
         for entry in data['Collections']:
             if entry['Kind'] != kind:
                 continue
             sheet.append([entry['Id'], entry['Name'], entry['NameStatus'], entry['Raw'].get('CharacterId'),
                           ' / '.join(f"{c['CharacterCardId']}: {c.get('CharacterCardName', '')}" for c in entry['Cards']),
-                          len(entry['RewardReferences']), entry['Availability']['Status']])
+                          len(entry['RewardReferences']), entry['Availability']['Status'],
+                          len(entry['AcquisitionEntries']), len(entry['UnresolvedRewardReferences'])])
     acquisition = wb.create_sheet('AcquisitionEntries')
     acquisition.append(['收藏类别', '编号', '名称', '入口类别', '入口编号', '入口说明', '奖励数量'])
     for entry in data['Collections']:
         for source in entry.get('AcquisitionEntries', []):
-            acquisition.append([entry['Label'], entry['Id'], entry['Name'], source['Kind'], str(source['OwnerId']),
+            acquisition.append([entry['Label'], entry['Id'], entry['Name'], SOURCE_LABELS.get(source['Kind'], source['Kind']), str(source['OwnerId']),
                                 source['Name'], source['RewardReference']['RawReward'].get('RewardCount')])
     notes = wb.create_sheet('Notes'); notes.append(['核对时刻 UTC', data['AsOf']])
     notes.append(['获取关系', '仅列已确认入口；不承诺覆盖所有获取方式，原始奖励引用另存审计'])
+    notes.append(['入口缺项', '未连接入口的奖励引用不等于不可获取；已适配字段与未适配候选字段见审计 SourceCoverage'])
     notes.append(['名称', '空称号/徽章名保留编号，不以图标文件名代替'])
     notes.append(['日期', '日期区间不代表账号已拥有或解锁；无日期时保留未知'])
     for sheet in wb:
