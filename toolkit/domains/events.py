@@ -6,6 +6,7 @@ from ..core.tables import TableCatalog
 from ..core.rewards import RewardResolver, REWARD_TYPE_MAP
 from ..core.output import record_warning
 from .event_classification import classify_event
+from .event_missions import extract_event_missions
 
 INPUT_JSON = 'master_data.json'
 
@@ -81,6 +82,7 @@ def extract(session=None):
     item_map = {k: v.get("ItemName", "") for k, v in items.items()}
     ingredient_map = {k: v.get("IngredientName", "") for k, v in ingredients.items()}
     rewards = RewardResolver(tables, card_names=card_map)
+    event_missions, mission_audit = extract_event_missions(tables)
 
     archive = []
     for event in sorted(events, key=lambda e: e.get("EventId", 0)):
@@ -237,11 +239,15 @@ def extract(session=None):
             ],
             "PuzzleIngredientStageCount": len(ingredient_stages.get(event_id, [])),
             "Rewards": reward_summary,
+            "Missions": event_missions.get(event_id, []),
         })
 
     out = json_path("Event_Archive.json")
     save_json({"Events": archive}, out)
     save_json({"Issues": rewards.issues}, audit_path("event_reward_resolution.json"))
+    save_json(mission_audit, audit_path("event_mission_relations.json"))
+    if mission_audit['Issues']:
+        record_warning(f"活动任务有 {len(mission_audit['Issues'])} 条关系或奖励缺项，详见 event_mission_relations.json")
     if rewards.issues:
         record_warning(f"活动奖励有 {len(rewards.issues)} 条解析或名称缺项，详见 event_reward_resolution.json")
     print(f"[+] extracted {len(archive)} events -> {out}")
@@ -331,6 +337,18 @@ def export():
             rewards.append([e.get("EventId"), e.get("Title"), "Sales", f"shift {r.get('ShiftId')} sales {r.get('KeySales')}", r.get("IsPickUp"), _reward_text(r.get("Rewards"))])
         for r in e.get("Rewards", {}).get("Accumulate", []):
             rewards.append([e.get("EventId"), e.get("Title"), "Accumulate", r.get("KeyCount"), r.get("IsPickUp"), _reward_text(r.get("Rewards"))])
+
+    missions = wb.create_sheet('EventMissions')
+    missions.append(['活动ID', '活动名', '任务ID', '阶段', '目标值', '任务内容',
+                     '开始', '结束', '隐藏', '仅计数', '奖励内容'])
+    for event in events:
+        for mission in event.get('Missions', []):
+            raw = mission['RawMission']
+            for seq in mission['Sequences']:
+                missions.append([event['EventId'], event['Title'], mission['MissionId'],
+                                 seq['SequenceNo'], seq['Border'], seq['Description'],
+                                 raw.get('StartTime', ''), raw.get('EndTime', ''),
+                                 seq['IsHidden'], seq['OnlyAccounting'], _reward_text(seq['Rewards'])])
 
     for ws in wb.worksheets:
         ws.freeze_panes = "A2"

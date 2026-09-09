@@ -2,7 +2,7 @@
 
 实施进度：N1 首批 [统一奖励解析](REWARD_RESOLVER.md) 已实现并接入 events，114 tests 与54活动真实回归通过。N1 其余来源、Music、Item22、OJT 命名及 N2–N7 未完成；下方准备阶段描述保留为实施依据。
 
-后续进度：[Serial/Present 卡牌来源](SERIAL_PRESENT_ACQUISITION.md) 已接入，118 tests 通过，471卡对照仅六张特典卡的来源/方式有意变化。Music 关联后续亦已完成，见 [Music 关系验收](MUSIC_RELATIONS.md)。Item22 与 OJT 文案现已完成，见 [N1 收尾记录](N1_CLOSEOUT.md)。N1 源码和数据回归完成；新 EXE / 可见 GUI 验收待 N7，N2 已完成 [活动分类](EVENT_CLASSIFICATION.md)，任务关系和开放状态仍待实施；N3–N7 尚未实施。
+后续进度：[Serial/Present 卡牌来源](SERIAL_PRESENT_ACQUISITION.md) 已接入，118 tests 通过，471卡对照仅六张特典卡的来源/方式有意变化。Music 关联后续亦已完成，见 [Music 关系验收](MUSIC_RELATIONS.md)。Item22 与 OJT 文案现已完成，见 [N1 收尾记录](N1_CLOSEOUT.md)。N1 源码和数据回归完成；新 EXE / 可见 GUI 验收待 N7，N2 已完成 [活动分类](EVENT_CLASSIFICATION.md)，[任务关系](EVENT_MISSIONS.md) 已完成，开放状态仍待实施；N3–N7 尚未实施。
 
 ## 本次范围与材料优先级
 
