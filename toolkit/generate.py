@@ -14,7 +14,7 @@ MASTERDATA = {'cards', 'music', 'snap', 'birthday', 'recipes', 'missions', 'item
 def generate(domains, output, *, masterdata=None, audio=None, source=None,
              old_workbook=None, cycle=None, year=None, subject=None,
              reference_acb=None, recent_year=None, resource_manifest=None,
-             cancelled=None, progress=None):
+             cancelled=None, progress=None, as_of=None):
     """Run selected domains without chdir; return a receipt even on failure."""
     context = OutputContext(Path(output))
     domains = list(dict.fromkeys(domains))
@@ -71,6 +71,8 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                         if audio and not Path(audio).is_dir():
                             raise ValueError(f'音频目录不存在: {audio}')
                         module.run(audio, session=session)
+                    elif domain == 'events':
+                        module.run(session=session, as_of=as_of or started_at)
                     elif domain in MASTERDATA:
                         module.run(session=session)
                     else:
@@ -119,6 +121,7 @@ def main(args):
     parser.add_argument('--subject')
     parser.add_argument('--reference-acb')
     parser.add_argument('--recent-year')
+    parser.add_argument('--as-of', help='日期核对时刻，须为带时区的 ISO 8601 时间（目前用于 events）')
     report = generate(**vars(parser.parse_args(args)))
     print(f"[{report['status']}] 本次生成 {len(report['artifacts'])} 个文件")
     for error in report['errors']:

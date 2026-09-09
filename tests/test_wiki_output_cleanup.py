@@ -38,7 +38,9 @@ class WikiOutputCleanupTests(unittest.TestCase):
             book = load_workbook(events.export())
             try:
                 self.assertNotIn('Mappings', book.sheetnames)
-                self.assertEqual(17, book['Overview'].max_column)
+                self.assertEqual(18, book['Overview'].max_column)
+                self.assertEqual('日期状态', book['Overview'].cell(1, 18).value)
+                self.assertIn('TimeAssessment', book.sheetnames)
                 self.assertEqual('Story', book['Story']['E2'].value)
                 self.assertEqual('Readable rule', book['Rules']['F2'].value)
                 for sheet in book:

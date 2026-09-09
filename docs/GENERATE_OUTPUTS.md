@@ -25,3 +25,5 @@ python -m toolkit generate lyrics --source "E:\data\song.s2blyrics" --output "E:
 Python 调用使用 `toolkit.generate.generate()`，返回相同字典。输出上下文按调用线程隔离；并发调用使用不同输出根目录。当前不支持多个任务同时写同一输出目录。
 
 旧 `run/all/update` 及控制台交互入口暂保留原路径，便于已有脚本继续工作。新 GUI 将消费 `generate`；本批不宣称 GUI 已实现。旧目录不会自动搬迁或删除。
+
+活动日期状态支持 `--as-of 2026-09-09T00:00:00+00:00`；省略则使用运行开始时刻。详见 [日期状态契约](DATE_WINDOW_STATUS.md)。

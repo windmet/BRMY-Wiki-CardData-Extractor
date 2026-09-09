@@ -7,6 +7,7 @@ from ..core.rewards import RewardResolver, REWARD_TYPE_MAP
 from ..core.output import record_warning
 from .event_classification import classify_event
 from .event_missions import extract_event_missions
+from ..core.availability import assessment_time, date_window, STATUS_LABELS
 
 INPUT_JSON = 'master_data.json'
 
@@ -46,7 +47,8 @@ def _card_summary(card, character_map):
     return f"{card.get('CharacterCardName', '')} / {char_name} / {rarity} / {attr}"
 
 
-def extract(session=None):
+def extract(session=None, *, as_of=None):
+    as_of = assessment_time(as_of)
     tables = session.tables if session else TableCatalog(load_json(INPUT_JSON))
 
     events = tables.require("mst_event", active_only=True)
@@ -83,6 +85,11 @@ def extract(session=None):
     ingredient_map = {k: v.get("IngredientName", "") for k, v in ingredients.items()}
     rewards = RewardResolver(tables, card_names=card_map)
     event_missions, mission_audit = extract_event_missions(tables)
+    for missions in event_missions.values():
+        for mission in missions:
+            raw = mission['RawMission']
+            mission['Availability'] = date_window(raw.get('StartTime'), raw.get('EndTime'),
+                                                  as_of=as_of, active=raw.get('IsActive', True))
 
     archive = []
     for event in sorted(events, key=lambda e: e.get("EventId", 0)):
@@ -191,6 +198,11 @@ def extract(session=None):
             "EventFormatLabel": event_format["Label"],
             "ActivityType": classification["DisplayLabel"],
             "Classification": classification,
+            "Availability": dict(date_window(
+                event.get('OpenStartTime') or event.get('StartTime'), event.get('EndTime'),
+                as_of=as_of, active=event.get('IsActive', True)),
+                StartField='OpenStartTime' if event.get('OpenStartTime') else 'StartTime',
+                EndField='EndTime'),
             "SourceSubtype": subtype,
             "SourceSubtypeLabel": subtype_label,
             "Subtype": subtype,
@@ -243,7 +255,10 @@ def extract(session=None):
         })
 
     out = json_path("Event_Archive.json")
-    save_json({"Events": archive}, out)
+    save_json({"Events": archive, "TimeAssessment": {
+        'AsOf': as_of.isoformat(), 'Timezone': 'UTC', 'Boundary': '[start,end)',
+        'AccountUnlock': 'not_assessed', 'DateFiltering': 'none',
+    }}, out)
     save_json({"Issues": rewards.issues}, audit_path("event_reward_resolution.json"))
     save_json(mission_audit, audit_path("event_mission_relations.json"))
     if mission_audit['Issues']:
@@ -287,7 +302,7 @@ def export():
     overview.append([
         "活动ID", "活动名", "活动类型",
         "开始", "开放", "后半开放", "排名结束", "结束", "关联角色", "关联卡牌",
-        "PickUp卡牌", "兑换所ID", "剧情章节数", "规则页数", "活动材料关卡数", "Logo", "弹窗图",
+        "PickUp卡牌", "兑换所ID", "剧情章节数", "规则页数", "活动材料关卡数", "Logo", "弹窗图", "日期状态",
     ])
     for e in events:
         overview.append([
@@ -298,6 +313,7 @@ def export():
             e.get("ExchangeId"), len(e.get("StorySections", [])), len(e.get("Rules", [])),
             e.get("PuzzleIngredientStageCount"), e.get("Assets", {}).get("Logo"),
             e.get("Assets", {}).get("PromotionalPopup"),
+            STATUS_LABELS.get(e.get('Availability', {}).get('Status'), '时间状态未知'),
         ])
 
     story = wb.create_sheet("Story")
@@ -340,7 +356,7 @@ def export():
 
     missions = wb.create_sheet('EventMissions')
     missions.append(['活动ID', '活动名', '任务ID', '阶段', '目标值', '任务内容',
-                     '开始', '结束', '隐藏', '仅计数', '奖励内容'])
+                     '开始', '结束', '隐藏', '仅计数', '奖励内容', '日期状态'])
     for event in events:
         for mission in event.get('Missions', []):
             raw = mission['RawMission']
@@ -348,7 +364,16 @@ def export():
                 missions.append([event['EventId'], event['Title'], mission['MissionId'],
                                  seq['SequenceNo'], seq['Border'], seq['Description'],
                                  raw.get('StartTime', ''), raw.get('EndTime', ''),
-                                 seq['IsHidden'], seq['OnlyAccounting'], _reward_text(seq['Rewards'])])
+                                 seq['IsHidden'], seq['OnlyAccounting'], _reward_text(seq['Rewards']),
+                                 STATUS_LABELS.get(mission.get('Availability', {}).get('Status'), '时间状态未知')])
+
+    timing = wb.create_sheet('TimeAssessment')
+    timing.append(['项目', '说明'])
+    timing.append(['核对时刻', data.get('TimeAssessment', {}).get('AsOf', '')])
+    timing.append(['时区', 'UTC；原始起止时间保留各自偏移'])
+    timing.append(['区间边界', '包含开始，不包含结束'])
+    timing.append(['含义', '日期区间内不代表账号已解锁；事件使用开放时间至结束时间，并非排名期'])
+    timing.append(['收录', '不按日期筛除历史、未来或占位记录'])
 
     for ws in wb.worksheets:
         ws.freeze_panes = "A2"
@@ -365,6 +390,6 @@ def export():
     return out
 
 
-def run(session=None):
-    extract(session=session)
+def run(session=None, *, as_of=None):
+    extract(session=session, as_of=as_of)
     export()
