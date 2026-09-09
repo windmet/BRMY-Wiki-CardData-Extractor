@@ -7,6 +7,7 @@ from .core.masterdata import ensure_masterdata_json
 from .core.scanner import save_json
 from .core.exporter import audit_path
 from .domains import DOMAINS
+from .core.domain_contracts import validate_domain_input
 
 MASTERDATA = {'cards', 'music', 'snap', 'birthday', 'birthday_archive', 'recipes', 'missions', 'items', 'events', 'ojt'}
 MASTERDATA.update({'story_catalog', 'collections'})
@@ -57,6 +58,8 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                 error_count = len(context.errors)
                 try:
                     module = DOMAINS[domain]
+                    if session:
+                        validate_domain_input(domain, session.tables)
                     if domain == 'card_update':
                         if not old_workbook:
                             raise ValueError('更新卡牌需要旧工作簿')
