@@ -306,6 +306,8 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
         (row.get("CharacterId"), row.get("HomeVoiceNo")): row
         for row in _active_rows(tables, "mst_character_home_voice_limited")
     }
+    global_limited = tables.group_by('mst_home_voice_limited', 'HomeVoiceNo', required=False)
+    time_divisions = tables.group_by('mst_time_division', 'TimeDivisionId', required=False)
     product_lookup = {
         (row.get("HomeVoiceTargetId"), row.get("HomeVoiceNo")): row
         for row in _active_rows(tables, "mst_home_voice_product")
@@ -357,6 +359,17 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
         record["ServiceYears"] = season.get("ServiceYears")
         record["StartTime"] = limited.get("StartTime")
         record["EndTime"] = limited.get("EndTime")
+        record['GlobalLimitedRecords'] = global_limited.get(record.get('HomeVoiceNo'), [])
+        record['GlobalLimitedName'] = (
+            record['GlobalLimitedRecords'][0].get('HomeVoiceNoName', '')
+            if len(record['GlobalLimitedRecords']) == 1 else '')
+        time_id = matches[0].get('TimeDivisionId') if len(matches) == 1 else None
+        record['TimeDivisionId'] = time_id
+        record['TimeDivisionRecords'] = time_divisions.get(time_id, []) if time_id else []
+        if len(record['GlobalLimitedRecords']) > 1:
+            flags.append('global_limited_ambiguous')
+        if time_id and len(record['TimeDivisionRecords']) != 1:
+            flags.append('time_division_missing_or_ambiguous')
         record["ProductDisplayName"] = product.get("DisplayName", "")
         record["ProductDescription"] = product.get("Description", "")
         service_year, service_year_source, service_year_candidates = _infer_service_year(record)
@@ -836,6 +849,7 @@ def export_home_voice_catalog(catalog, output_dir, selected_subject=None):
     workbook_path = os.path.join(output_dir, "home_voice_catalog.xlsx")
     workbook_path = write_workbook(workbook_path, [
         _wiki_sheet(catalog["Records"]),
+        _conditions_sheet(catalog['Records']),
     ]) or workbook_path
     paths = {"catalog": workbook_path}
 
@@ -849,6 +863,26 @@ def export_home_voice_catalog(catalog, output_dir, selected_subject=None):
         ) or subject_path
         paths["subject"] = subject_path
     return paths
+
+
+def _conditions_sheet(records):
+    def clock(row, prefix):
+        hour, minute = row.get(prefix + 'Hour'), row.get(prefix + 'Minutes')
+        return f'{hour:02d}:{minute:02d}' if isinstance(hour, int) and isinstance(minute, int) else ''
+    rows = []
+    for record in records:
+        global_rows = record.get('GlobalLimitedRecords', [])
+        times = record.get('TimeDivisionRecords', [])
+        global_row = global_rows[0] if len(global_rows) == 1 else {}
+        time = times[0] if len(times) == 1 else {}
+        if not (global_rows or times or record.get('StartTime') or record.get('TimeDivisionId')):
+            continue
+        rows.append([record['SubjectDisplayName'], record['SpeakerCharacterName'],
+                     record.get('GlobalLimitedName', ''), record.get('StartTime'), record.get('EndTime'),
+                     global_row.get('StartTime'), global_row.get('EndTime'),
+                     time.get('TimeDivisionName', ''), clock(time, 'Start'), clock(time, 'End')])
+    return {'title': '开放条件', 'headers': ['主体', '角色', '全局限定名称原值', '角色限定开始', '角色限定结束',
+             '全局限定开始', '全局限定结束', '时段名称', '时段开始原值', '时段结束原值'], 'rows': rows}
 
 
 def run(
