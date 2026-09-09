@@ -955,6 +955,10 @@ def run(
         stream.write(render_audit_markdown(catalog))
     record_output(audit_path)
     paths = export_home_voice_catalog(catalog, xlsx_dir, selected_subject=selected_subject)
+    from .system_voices import run as export_system_voices
+    system_path = export_system_voices(tables, acb_root, json_dir, xlsx_dir)
+    if system_path:
+        paths['system_voices'] = system_path
     if recent_year_end:
         recent = build_recent_year_collection(catalog, tables, recent_year_end)
         paths["recent_year"] = export_recent_year_collection(recent, xlsx_dir)

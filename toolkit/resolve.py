@@ -56,6 +56,12 @@ def build_plan(domains, resources, tables=None, *, include_card_audio=True, reso
                     add(key, domain, True, 'audio')
             for stem in sorted(set(STEM_TO_CHARACTER_ID) - speakers):
                 errors.append(f'{domain}: 正式清单缺少角色包 {stem}')
+            if domain == 'home_voices' and tables is not None:
+                from .domains.system_voices import PACKAGE_BY_TARGET
+                targets = {row.get('HomeVoiceTargetId') for row in tables.rows('mst_home_voice', active_only=True)
+                           if row.get('HomeVoiceTypeCode') == 3}
+                for target in sorted(targets & PACKAGE_BY_TARGET.keys()):
+                    add('Musics/' + PACKAGE_BY_TARGET[target], domain, True, 'audio')
         if domain == 'audio':
             keys = [key for key in resources if key.startswith('Musics/') and key.endswith('.acb')]
             if not keys:
@@ -163,7 +169,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
             prepared = prepare_production_masterdata(downloaded, stage / 'master_data.s2b')
             audit['downloads'].append({**downloaded, **prepared})
             masterdata = prepared['decoded_path']
-            if set(domains) & {'cards', 'card_update'} and include_card_audio:
+            if ('home_voices' in domains or (set(domains) & {'cards', 'card_update'} and include_card_audio)):
                 tables = TableCatalog(decode_masterdata(masterdata))
         plan = build_plan(domains, provider.resources, tables, include_card_audio=include_card_audio,
                           resource_keys=resource_keys)
