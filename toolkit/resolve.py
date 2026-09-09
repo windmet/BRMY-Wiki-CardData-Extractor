@@ -38,14 +38,14 @@ def build_plan(domains, resources, tables=None, *, include_card_audio=True, reso
         item['required'] |= required
 
     for domain in domains:
-        if domain in MASTERDATA | {'home_voices', 'card_update'}:
+        if domain in MASTERDATA | {'home_voices', 'home_voice_duo', 'card_update'}:
             add(MASTER_KEY, domain, True, 'masterdata')
         if domain in {'cards', 'card_update'} and include_card_audio:
             if tables is None:
                 raise ValueError('卡牌资源规划需要 masterdata 表')
             for row in tables.require('mst_character_card'):
                 add(f"Musics/voice_{row['CharacterCardId']}.acb", domain, False, 'audio')
-        if domain == 'home_voices':
+        if domain in {'home_voices', 'home_voice_duo'}:
             speakers = set()
             for key in sorted(resources):
                 if not key.startswith('Musics/'):
@@ -55,7 +55,7 @@ def build_plan(domains, resources, tables=None, *, include_card_audio=True, reso
                     speakers.add(match['stem'].lower())
                     add(key, domain, True, 'audio')
             for stem in sorted(set(STEM_TO_CHARACTER_ID) - speakers):
-                errors.append(f'home_voices: 正式清单缺少角色包 {stem}')
+                errors.append(f'{domain}: 正式清单缺少角色包 {stem}')
         if domain == 'audio':
             keys = [key for key in resources if key.startswith('Musics/') and key.endswith('.acb')]
             if not keys:
@@ -154,7 +154,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
         stage = provider.root / 'jobs' / uuid.uuid4().hex
         tables = None
         masterdata = None
-        if set(domains) & (MASTERDATA | {'home_voices', 'card_update'}):
+        if set(domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_update'}):
             notify('masterdata')
             downloaded = provider.download(MASTER_KEY, offline=offline, cancelled=cancelled)
             prepared = prepare_production_masterdata(downloaded, stage / 'master_data.s2b')

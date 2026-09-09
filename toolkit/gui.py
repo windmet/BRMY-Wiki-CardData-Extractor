@@ -13,7 +13,16 @@ TASKS = {
     'birthday': '生日庆典台词', 'card_update': '更新已有卡表', 'items': '道具图鉴',
     'music': '音乐资料', 'snap': 'Snap 文案', 'recipes': '配方', 'missions': '隐藏任务',
     'lyrics': '歌词', 'scripts': '剧情脚本', 'charts': 'OJT Chart（本地）', 'audio': '通用语音文本',
+    'ojt': 'OJT 活动档案', 'birthday_archive': '年度生日档案',
+    'home_voice_duo': '双人主页台词', 'story_catalog': '剧情目录', 'collections': '收藏档案',
 }
+TASK_GROUPS = [
+    ('卡牌与收藏', ('cards', 'card_update', 'collections', 'items'), '更新已有卡表会保留人工列。收藏档案区分卡牌关联、奖励引用与已确认获取入口。'),
+    ('活动', ('events', 'ojt', 'missions', 'recipes'), 'OJT 活动档案来自 masterdata，包含轮次、题面和奖励；坐标文件仍需本地 OJT Chart。'),
+    ('语音', ('home_voices', 'home_voice_duo', 'audio'), '主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对。缺少资源时会保留缺项说明。'),
+    ('生日', ('birthday', 'birthday_archive'), '生日庆典台词按生日轮次整理；年度生日档案按角色和年份汇总登录奖励、点击奖励、服装与台词。生日祝福请到“语音”。'),
+    ('剧情与其他', ('story_catalog', 'scripts', 'charts', 'lyrics', 'music', 'snap'), '剧情目录是 masterdata 索引；剧情脚本解析独立正文。OJT Chart 是站位数据，不是音乐谱面。'),
+]
 MODES = {'正式服在线': 'online', '正式服离线缓存': 'offline', '使用本地资源': 'local'}
 
 
@@ -61,10 +70,10 @@ class JobRequest:
             if 'charts' in self.domains:
                 raise ValueError('在线OJT Chart路径尚未确认，请切换到本地资源模式')
         else:
-            if set(self.domains) & (MASTERDATA | {'home_voices', 'card_update'}):
+            if set(self.domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_update'}):
                 if not Path(self.masterdata).is_file():
                     raise ValueError('本地任务需要选择 masterdata 文件')
-            if set(self.domains) & {'home_voices', 'audio'}:
+            if set(self.domains) & {'home_voices', 'home_voice_duo', 'audio'}:
                 if not self.audio or not Path(self.audio).is_dir():
                     raise ValueError('该任务需要选择本地 ACB 音频目录')
             if self.audio and not Path(self.audio).is_dir():
@@ -158,12 +167,19 @@ class ToolkitApp:
         self.mode_hint.pack(anchor='w', pady=(0, 8))
         tasks = ttk.LabelFrame(main, text='要生成什么', padding=8)
         tasks.pack(fill='x')
-        for index, (name, label) in enumerate(TASKS.items()):
-            button = ttk.Checkbutton(tasks, text=label, variable=self.selected[name])
-            button.grid(row=index // 4, column=index % 4, sticky='w', padx=(0, 18), pady=3)
-            self.inputs.append(button)
-        for column in range(4):
-            tasks.columnconfigure(column, weight=1)
+        self.task_tabs = ttk.Notebook(tasks)
+        self.task_tabs.pack(fill='x')
+        for title, names, help_text in TASK_GROUPS:
+            panel = ttk.Frame(self.task_tabs, padding=8)
+            self.task_tabs.add(panel, text=title)
+            for index, name in enumerate(names):
+                button = ttk.Checkbutton(panel, text=TASKS[name], variable=self.selected[name])
+                button.grid(row=index // 4, column=index % 4, sticky='w', padx=(0, 12), pady=3)
+                self.inputs.append(button)
+            ttk.Label(panel, text=help_text, style='Hint.TLabel', wraplength=760).grid(
+                row=2, column=0, columnspan=4, sticky='w', pady=(6, 0))
+            for column in range(4):
+                panel.columnconfigure(column, weight=1)
         options = ttk.Frame(main)
         options.pack(fill='x', pady=7)
         check = ttk.Checkbutton(options, text='同步卡牌语音（正式资源任务可选）', variable=self.include_card_audio)

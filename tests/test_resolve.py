@@ -29,6 +29,18 @@ class Response(io.BytesIO):
         return self.url
 
 
+class NewDomainPlanTests(unittest.TestCase):
+    def test_new_masterdata_domains_and_duo_share_required_inputs(self):
+        from toolkit.domains.home_voices import CHARACTER_ACB_STEMS
+        resources = {MASTER_KEY: None, **{f'Musics/voice_{stem}_general.acb': None for stem in CHARACTER_ACB_STEMS.values()}}
+        names = ['ojt', 'birthday_archive', 'story_catalog', 'collections', 'home_voice_duo']
+        plan = build_plan(names, resources)
+        self.assertEqual([], plan['errors'])
+        self.assertEqual(22, len(plan['resources']))
+        self.assertEqual(names, plan['resources'][0]['domains'])
+        self.assertTrue(all(row['required'] for row in plan['resources']))
+
+
 def provider_for(root, payloads):
     rows = [[key.split('/', 1)[1], 1, 2 if key.startswith('Tables/') else
              1 if key.startswith('Scripts/') else 6 if key.startswith('Jukebox/') else 5, 0, 1]
