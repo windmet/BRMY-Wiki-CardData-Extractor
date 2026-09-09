@@ -118,6 +118,21 @@ class GuiWidgetTests(unittest.TestCase):
         ]})
         self.assertEqual('story.s2bscript.json', self.app.results.item('0', 'values')[0])
 
+    def test_information_does_not_mark_every_artifact_as_missing_content(self):
+        self.app.active_request = self.app.request()
+        report = {'status': 'PASS_WITH_WARNINGS', 'artifacts': [
+            {'path': 'ojt.xlsx', 'kind': 'wiki', 'domain': 'ojt', 'domain_status': 'PASS'},
+            {'path': 'birthday.xlsx', 'kind': 'wiki', 'domain': 'birthday_archive', 'domain_status': 'PASS'}],
+            'warnings': [{'domain': 'resources', 'kind': 'offline_snapshot', 'warning': 'offline'},
+                         {'domain': 'ojt', 'warning': 'missing coordinates'}]}
+        self.app._complete(report)
+        self.assertEqual('已生成，请核对', self.app.results.item('0', 'values')[2])
+        self.assertEqual('已生成', self.app.results.item('1', 'values')[2])
+        content = self.app.details.get('1.0', 'end')
+        self.assertIn('内容与数据需要核对（1 项）', content)
+        self.assertIn('资源与运行提示（1 项）', content)
+        self.assertEqual(report, self.app.last_result)
+
 
 if __name__ == '__main__':
     unittest.main()

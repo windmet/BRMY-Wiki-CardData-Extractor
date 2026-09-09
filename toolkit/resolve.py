@@ -147,9 +147,12 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
         audit['manifest_sha256'] = catalog['manifest_sha256']
         audit['unknown_record_count'] = len(catalog['unknown_records'])
         if offline:
-            audit['warnings'].append('当前使用离线缓存，未检查线上更新')
+            audit['warnings'].append({'domain': 'resources', 'kind': 'offline_snapshot',
+                                      'warning': '当前使用离线缓存，未检查线上更新'})
         if catalog['unknown_records']:
-            audit['warnings'].append(f"清单有 {len(catalog['unknown_records'])} 条未知类别，已排除在自动下载之外")
+            audit['warnings'].append({'domain': 'resources', 'kind': 'unused_manifest_categories',
+                                      'count': len(catalog['unknown_records']),
+                                      'warning': f"清单有 {len(catalog['unknown_records'])} 条未知类别，已排除在自动下载之外"})
         # Each run has a fresh parser-input directory; removed/old files cannot leak in.
         stage = provider.root / 'jobs' / uuid.uuid4().hex
         tables = None

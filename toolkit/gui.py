@@ -7,6 +7,7 @@ import json
 import os
 import tkinter as tk
 from tkinter import ttk, filedialog
+from .core.feedback import feedback_groups, issue_text, artifact_needs_review
 
 TASKS = {
     'cards': '卡牌表', 'events': '活动资料', 'home_voices': '主页 / 生日祝福',
@@ -413,6 +414,7 @@ class ToolkitApp:
 
     def _complete(self, result):
         self.last_result = result
+        feedback = feedback_groups(result)
         self._busy(False)
         status = result.get('status', 'FAIL')
         if status == 'PLANNED':
@@ -427,7 +429,9 @@ class ToolkitApp:
                                 f"未通过校验 {assessment['not_verified']} 项。{next_step}"
                                 '（基础数据准备后的状态）')
         else:
-            labels = {'PASS': '生成完成', 'PASS_WITH_WARNINGS': '生成完成，但有信息需要核对', 'FAIL': '任务未完整完成'}
+            labels = {'PASS': '生成完成', 'PASS_WITH_WARNINGS': (
+                '生成完成，有内容需要核对' if feedback['review'] else '生成完成，有运行提示'),
+                'FAIL': '任务未完整完成'}
             if self.cancel_event.is_set():
                 label = '任务已取消'
             else:
@@ -441,16 +445,16 @@ class ToolkitApp:
                 self.results.insert('', 'end', iid=row, values=(Path(artifact['path']).name,
                                     TASKS.get(artifact['domain'], artifact['domain']),
                                     '不完整' if artifact.get('domain_status') == 'FAIL' else
-                                    '已生成，请核对' if result.get('warnings') else '已生成'))
+                                    '已生成，请核对' if artifact_needs_review(artifact, feedback) else '已生成'))
         if result.get('warnings') or result.get('errors'):
-            self._log('需要核对：')
-            for issue in [*result.get('errors', []), *result.get('warnings', [])]:
-                if isinstance(issue, dict):
-                    issue = ('首次使用此输出目录，已建立数据结构基线。后续更新会与此基线比较。'
-                             if issue.get('kind') == 'baseline_initialized' else
-                             issue.get('warning') or issue.get('error') or json.dumps(issue, ensure_ascii=False))
-                self._log('• ' + str(issue))
-            self._log('\n源资料缺项不会自动补成完整数据。\n')
+            for key, heading in [('errors', '运行失败'), ('review', '内容与数据需要核对'),
+                                 ('information', '资源与运行提示')]:
+                if feedback[key]:
+                    self._log(f'{heading}（{len(feedback[key])} 项）：')
+                    for issue in feedback[key]:
+                        self._log('• ' + issue_text(issue))
+            if feedback['review']:
+                self._log('\n源资料缺项不会自动补成完整数据。\n')
         self._log('本次产物与详细记录：\n' + json.dumps(result, ensure_ascii=False, indent=2))
 
     def _log(self, text, clear=False):
