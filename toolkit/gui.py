@@ -12,7 +12,7 @@ TASKS = {
     'cards': '卡牌表', 'events': '活动资料', 'home_voices': '主页 / 生日祝福',
     'birthday': '生日庆典台词', 'card_update': '更新已有卡表', 'items': '道具图鉴',
     'music': '音乐资料', 'snap': 'Snap 文案', 'recipes': '配方', 'missions': '隐藏任务',
-    'lyrics': '歌词', 'scripts': '剧情脚本', 'charts': '谱面（本地）', 'audio': '通用语音文本',
+    'lyrics': '歌词', 'scripts': '剧情脚本', 'charts': 'OJT Chart（本地）', 'audio': '通用语音文本',
 }
 MODES = {'正式服在线': 'online', '正式服离线缓存': 'offline', '使用本地资源': 'local'}
 
@@ -59,7 +59,7 @@ class JobRequest:
             if not self.cache.strip():
                 raise ValueError('请选择资源缓存目录')
             if 'charts' in self.domains:
-                raise ValueError('在线谱面路径尚未确认，请切换到本地资源模式')
+                raise ValueError('在线OJT Chart路径尚未确认，请切换到本地资源模式')
         else:
             if set(self.domains) & (MASTERDATA | {'home_voices', 'card_update'}):
                 if not Path(self.masterdata).is_file():
@@ -71,7 +71,7 @@ class JobRequest:
                 raise ValueError('本地音频目录不存在')
             if set(self.domains) & {'scripts', 'lyrics', 'charts'}:
                 if not self.source or not Path(self.source).exists():
-                    raise ValueError('请选择独立歌词、脚本或谱面文件 / 文件夹')
+                    raise ValueError('请选择独立歌词、脚本或OJT Chart文件 / 文件夹')
         return self
 
 
@@ -205,7 +205,7 @@ class ToolkitApp:
         self.inputs.append(add)
         self._path_row(advanced, 'Masterdata', 'masterdata')
         self._path_row(advanced, 'ACB 音频目录', 'audio', directory=True)
-        self._path_row(advanced, '歌词 / 脚本 / 谱面', 'source', allow_folder=True)
+        self._path_row(advanced, '歌词 / 脚本 / OJT Chart', 'source', allow_folder=True)
         self._path_row(advanced, '旧卡牌工作簿', 'old_workbook')
         self._path_row(advanced, '资源缓存', 'cache', directory=True)
         for label, name in [('生日轮次（可空）', 'cycle'), ('语音主体（可空）', 'subject'),

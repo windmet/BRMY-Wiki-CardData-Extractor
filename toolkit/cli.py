@@ -11,7 +11,7 @@
 [s2b 文件解析] — 可指定文件或目录；不指定则扫描当前目录
     run lyrics [文件或目录]                    歌词解析 (.s2blyrics → JSON+LRC)
     run scripts [文件或目录]                   脚本解析 (.s2bscript → JSON)
-    run charts [文件或目录]                    谱面解析 (.s2bchart → JSON)
+    run charts [文件或目录]                    OJT Chart解析 (.s2bchart → JSON)
 
 [CRI 音频]
     run audio <Musics目录>                     ACB清单、语音文本与卡面语音索引

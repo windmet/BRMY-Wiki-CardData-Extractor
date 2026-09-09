@@ -16,7 +16,7 @@ class GuiRequestTests(unittest.TestCase):
         self.assertEqual('PASS', result['status'])
         self.assertEqual('hidden-widget-construction', result['scope'])
     def test_online_chart_and_missing_update_workbook_are_rejected_before_download(self):
-        with self.assertRaisesRegex(ValueError, '谱面'):
+        with self.assertRaisesRegex(ValueError, 'OJT Chart'):
             JobRequest('online', ['charts'], 'output', 'cache').validate()
         with self.assertRaisesRegex(ValueError, '旧 Excel'):
             JobRequest('online', ['card_update'], 'output', 'cache').validate()

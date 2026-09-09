@@ -22,7 +22,7 @@ Spine 资源复刻、游戏画面还原和桌宠开发不迁入本仓库。Maste
 - `toolkit/domains/card_export.py`：Wiki 列和文本格式
 - `toolkit/domains/audio.py`：ACB/Cue 元数据
 - `toolkit/domains/home_voices.py`：主页、季节、生日和限定语音主体建模与 Wiki 导出
-- 独立 S2B 解析：歌词、脚本和谱面不依赖 Masterdata 解密流程
+- 独立 S2B 解析：歌词、脚本和OJT Chart不依赖 Masterdata 解密流程
 
 新增或调整职责时，每次只移动一个边界，并保持回归测试通过。技能匹配等已有多层规则应先补夹具，再修改实现。
 

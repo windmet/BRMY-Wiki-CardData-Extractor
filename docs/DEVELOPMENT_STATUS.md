@@ -50,7 +50,7 @@ masterdata/
 │  └─ domains/                 各数据域实现
 ├─ scripts/                    原始单功能脚本
 ├─ notes/                      项目文档与字段参考
-├─ lyrics/                     S2B 歌词/脚本/谱面样本
+├─ lyrics/                     S2B 歌词/脚本/OJT Chart样本
 ├─ json_output/                当前 JSON 输出
 ├─ xlsx_output/                当前 XLSX 输出
 ├─ artifacts/                 早期集中成果与图标素材
@@ -90,7 +90,7 @@ master_data.s2b
 
 - `.s2blyrics`：歌词数据，输出 JSON 和 LRC。
 - `.s2bscript`：剧情/演出脚本，输出 JSON。
-- `.s2bchart`：OJT/谱面布局，输出 JSON。
+- `.s2bchart`：OJT Chart 站位布局，输出 JSON。
 
 这三类文件不走 masterdata 选择流程，可以单独选择一个文件或一个目录处理。
 

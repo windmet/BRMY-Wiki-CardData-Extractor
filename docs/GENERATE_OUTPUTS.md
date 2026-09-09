@@ -10,12 +10,12 @@ python -m toolkit generate card_update --masterdata "E:\data\master_data.json" -
 python -m toolkit generate lyrics --source "E:\data\song.s2blyrics" --output "E:\WikiResults"
 ```
 
-可连续列出多个域，masterdata 只读取一次。`--audio` 是音频目录；`--source` 是独立歌词/脚本/谱面输入。主页语音还支持 `--subject`、`--reference-acb`、`--recent-year`；生日支持 `--cycle` / `--year`。
+可连续列出多个域，masterdata 只读取一次。`--audio` 是音频目录；`--source` 是独立歌词/脚本/OJT Chart输入。主页语音还支持 `--subject`、`--reference-acb`、`--recent-year`；生日支持 `--cycle` / `--year`。
 
 输出目录中：
 
 - `wiki_output/`：Wiki XLSX 和可使用的 LRC。
-- `audit_output/`：中间 JSON、原始证据、schema、运行和产物清单；独立脚本/谱面的 JSON 也在此处。
+- `audit_output/`：中间 JSON、原始证据、schema、运行和产物清单；独立脚本/OJT Chart的 JSON 也在此处。
 - `.bmc_toolkit/`：本地解码缓存和 schema 基线。
 
 `audit_output/output_receipt.json` 仅列出本次成功写出的文件，包含所属任务、文件绝对路径、大小及 SHA-256。Excel 被占用时记录实际另存的文件。每次另留 `output_receipt_<run_id>.json`，不会通过扫描目录把旧文件冒充本次结果。

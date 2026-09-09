@@ -434,6 +434,7 @@
 | 19 | ストーリーEXP |
 | 20 | 限定交換素材 |
 | 21 | イベント限定 |
+| 22 | ボイスチケット / 语音券 |
 | 99 | その他 |
 
 ---
@@ -588,7 +589,7 @@
 - `Other/Wait` — 等待，含 `time`
 - `Other/All` — 场景切换，含 `time`
 
-### 9.3 .s2bchart（OJT 谱面表）
+### 9.3 .s2bchart（OJT Chart 站位表）
 
 二进制格式：MsgPack + LZ4 (ext type 99)
 提取结果：JSON

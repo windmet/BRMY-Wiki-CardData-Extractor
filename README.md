@@ -19,7 +19,7 @@
 - 解密并读取 `master_data.s2b` / `master_data.json`
 - 还原卡面、技能、卡池、活动、道具、音乐、生日、配方和任务字段
 - 导出 Wiki 可直接继续加工的 XLSX/JSON
-- 解析独立的歌词、脚本和谱面 S2B 文件
+- 解析独立的歌词、脚本和OJT Chart S2B 文件
 - 使用 ACB 元数据补充卡面语音字段
 - 从 21 人角色 ACB 包提取主页、季节和生日语音，按 Wiki 主体生成长表与审计表
 - 根据 masterdata 对 Spin/Snap 资源进行编号、角色、卡面、服装和活动归类

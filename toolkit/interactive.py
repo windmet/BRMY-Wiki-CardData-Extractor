@@ -39,7 +39,7 @@ DOMAIN_MAP = {
     '11': ('events', '活动总档案'),
     '8': ('lyrics', '歌词解析 (.s2blyrics)'),
     '9': ('scripts', '脚本解析 (.s2bscript)'),
-    '10': ('charts', 'OJT表解析 (.s2bchart)'),
+    '10': ('charts', 'OJT Chart 解析 (.s2bchart)'),
     '12': ('audio', 'ACB音频/语音索引'),
     '13': ('home_voices', '主页/季节/生日 ACB 语音表'),
     '14': ('card_update', '卡牌增量更新（保留人工列）'),
@@ -49,7 +49,7 @@ DOMAIN_MAP = {
 S2B_EXT_MAP = {
     '8': ('lyrics', '.s2blyrics', [("歌词文件", "*.s2blyrics")]),
     '9': ('scripts', '.s2bscript', [("脚本文件", "*.s2bscript")]),
-    '10': ('charts', '.s2bchart', [("谱面文件", "*.s2bchart")]),
+    '10': ('charts', '.s2bchart', [("OJT Chart文件", "*.s2bchart")]),
 }
 
 
@@ -176,7 +176,7 @@ def show_menu():
     print("  --- s2b 文件解析（选择文件或包含目录） ---")
     print("  [8] 歌词解析 (.s2blyrics)")
     print("  [9] 脚本解析 (.s2bscript)")
-    print("  [10] OJT表解析 (.s2bchart)")
+    print("  [10] OJT Chart 解析 (.s2bchart)")
     print()
     print("  --- CRI 音频资源（选择包含 ACB/AWB 的目录） ---")
     print("  [12] ACB音频清单、语音文本与卡面语音索引")
