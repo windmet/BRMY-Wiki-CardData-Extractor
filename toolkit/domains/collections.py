@@ -7,6 +7,7 @@ from ..core.exporter import audit_path, xlsx_path, save_workbook_safely
 from ..core.scanner import save_json
 from ..core.output import record_warning
 from ..core.acquisition import acquisition_index, acquisition_coverage, SOURCE_LABELS
+from ..core.character_metadata import character_metadata
 
 
 COLLECTION_TYPES = (4, 5, 6, 7, 3, 2)
@@ -38,7 +39,8 @@ def extract(session, *, as_of=None):
             entry['UnresolvedRewardReferences'] = [ref for ref in entry['RewardReferences']
                 if not sources.get((ref['SourceTable'], ref['GroupId']))]
     return {'Collections': records, 'Issues': issues, 'SourceIssues': source_issues,
-            'SourceCoverage': acquisition_coverage(tables), 'AsOf': now.isoformat(), 'Timezone': 'UTC'}
+            'SourceCoverage': acquisition_coverage(tables), 'CharacterMetadata': character_metadata(tables),
+            'AsOf': now.isoformat(), 'Timezone': 'UTC'}
 
 
 def export(data):

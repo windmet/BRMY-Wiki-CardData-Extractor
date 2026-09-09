@@ -31,3 +31,11 @@ OJT入口后续：奖励箱固定池948条、随机池2520条、训练36条收�
 真实新增1637条收藏入口引用：主线80、角色105、卡牌1087、每日登录7、特别登录314、累计登录38、玩家生日6（3条配置包含多个收藏奖励）。逐条核对原表、奖励组、复合键及父级通过，旧入口等值，来源异常0。未连接入口的奖励引用从2823降为2462，仍不是完整获取攻略。
 
 证据：`%TEMP%/brmy-story-login-sources-ipw0m45u/verification.json`。155项测试与仓库验证通过。不增加独立登录 GUI 域，本批未重建EXE。
+
+## 角色与颜色 metadata
+
+收藏Audit新增CharacterMetadata：保留25角色原始记录及27条颜色记录。ColorTargetType1按CharacterId关联，type2按CharacterGroupCode保留成员证据，两个目标命名空间不互相兜底；同目标不同ColorLocationType的记录分别保留。当前数据没有独立部门表，不生成不存在的部门名称。未知类型、缺目标或角色歧义保留状态。
+
+颜色大小写和原值不改，ColorLocationType的用途仍未确认，不应用到GUI。角色Profile原值仅作审计材料，不当作已经核对的人物简介。
+
+真实27条均关联到目标，既有2536收藏记录逐项等值。证据：`%TEMP%/brmy-character-metadata-pzxjgtge/audit_output/collections.json`。159项测试与仓库验证通过。
