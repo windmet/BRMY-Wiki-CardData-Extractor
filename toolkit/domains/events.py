@@ -5,6 +5,7 @@ from ..core.data import clean_text
 from ..core.tables import TableCatalog
 from ..core.rewards import RewardResolver, REWARD_TYPE_MAP
 from ..core.output import record_warning
+from .event_classification import classify_event
 
 INPUT_JSON = 'master_data.json'
 
@@ -178,6 +179,7 @@ def extract(session=None):
         }
         event_format = EVENT_FORMAT_MAP.get(event.get("EventFormat"), {"Key": "unknown", "Label": "未知活动类型"})
         subtype_label = SOURCE_SUBTYPE_MAP.get(subtype, SOURCE_SUBTYPE_MAP["unknown"])
+        classification = classify_event(event, event_a.get(event_id))
 
         archive.append({
             "EventId": event_id,
@@ -185,7 +187,8 @@ def extract(session=None):
             "EventFormat": event.get("EventFormat"),
             "EventFormatName": event_format["Key"],
             "EventFormatLabel": event_format["Label"],
-            "ActivityType": event_format["Label"],
+            "ActivityType": classification["DisplayLabel"],
+            "Classification": classification,
             "SourceSubtype": subtype,
             "SourceSubtypeLabel": subtype_label,
             "Subtype": subtype,
