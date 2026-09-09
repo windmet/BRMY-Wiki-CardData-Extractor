@@ -170,6 +170,21 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
             raise ValueError('; '.join(plan['errors']))
         notify('plan', count=len(plan['resources']), plan=plan)
         if plan_only:
+            cache_entries = []
+            for item in plan['resources']:
+                check()
+                try:
+                    cached = provider.download(item['key'], offline=True, cancelled=cancelled)
+                    cache_entries.append({'key': item['key'], 'status': 'verified',
+                                          'sha256': cached['sha256'], 'size': cached['size']})
+                except ValueError as error:
+                    cache_entries.append({'key': item['key'], 'status': 'not_verified', 'reason': str(error)})
+            audit['cache_assessment'] = {
+                'scope': 'after_masterdata_preparation',
+                'verified': sum(entry['status'] == 'verified' for entry in cache_entries),
+                'not_verified': sum(entry['status'] == 'not_verified' for entry in cache_entries),
+                'entries': cache_entries,
+            }
             audit['status'] = 'PLANNED'
             atomic_json(output / 'audit_output/resource_plan.json', audit)
             return audit

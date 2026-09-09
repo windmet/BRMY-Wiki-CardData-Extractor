@@ -58,6 +58,25 @@ def provider_for(root, payloads):
 
 
 class ResolverTests(unittest.TestCase):
+    def test_preview_hash_checks_cache_without_downloading_missing_resources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            key = 'Scripts/story.s2bscript'
+            provider = provider_for(root / 'cache', {key: b'cached content'})
+            provider.refresh()
+            downloaded = provider.download(key)
+            def preview():
+                return synchronize(['scripts'], root / 'out', root / 'cache', provider=provider,
+                                   resource_keys=[key], offline=True, plan_only=True)
+            report = preview()
+            self.assertEqual(1, report['cache_assessment']['verified'])
+            Path(downloaded['path']).write_bytes(b'corrupt content')
+            report = preview()
+            self.assertEqual('PLANNED', report['status'])
+            self.assertEqual(0, report['cache_assessment']['verified'])
+            self.assertEqual(1, report['cache_assessment']['not_verified'])
+            self.assertEqual(b'corrupt content', Path(downloaded['path']).read_bytes())
+
     def test_card_plan_uses_masterdata_ids_and_never_downloads_unrelated_packages(self):
         tables = TableCatalog([{'mst_character_card': [0, 0]},
                                [{'CharacterCardId': 1}, {'CharacterCardId': 2}]])

@@ -65,6 +65,26 @@ class GuiWidgetTests(unittest.TestCase):
         self.assertEqual('normal', str(self.app.start_button['state']))
         self.assertIn('download failed', self.app.details.get('1.0', 'end'))
 
+    def test_preview_uses_explicit_assessment_and_does_not_guess_absent_counts(self):
+        self.app.active_request = self.app.request()
+        report = {'status': 'PLANNED', 'plan': {'resources': [1, 2]},
+                  'cache_assessment': {'verified': 1, 'not_verified': 1}}
+        self.app._complete(report)
+        self.assertIn('已校验可用 1 项', self.app.status.get())
+        del report['cache_assessment']
+        self.app._complete(report)
+        self.assertNotIn('已校验可用', self.app.status.get())
+
+    def test_task_help_covers_every_task_and_has_keyboard_close_binding(self):
+        from toolkit.gui import TASK_HELP, TASKS
+        self.assertEqual(set(TASKS), set(TASK_HELP))
+        self.app.help_button.invoke()
+        dialog = next(child for child in self.root.winfo_children() if isinstance(child, tk.Toplevel))
+        self.assertTrue(dialog.bind('<Escape>'))
+        content = next(child for child in dialog.winfo_children() if isinstance(child, tk.Text)).get('1.0', 'end')
+        self.assertIn('不是 ACB 生日祝福', content)
+        dialog.destroy()
+
     def test_cancel_keeps_ui_responsive_and_prevents_a_second_worker(self):
         started = Event()
         def backend(request, plan, cancelled, progress):

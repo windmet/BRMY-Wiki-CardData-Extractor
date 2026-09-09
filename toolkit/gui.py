@@ -24,6 +24,27 @@ TASK_GROUPS = [
     ('剧情与其他', ('story_catalog', 'scripts', 'lyrics', 'music', 'snap'), '剧情目录是 masterdata 索引；剧情脚本解析独立正文。'),
 ]
 MODES = {'正式服在线': 'online', '正式服离线缓存': 'offline', '使用本地资源': 'local'}
+TASK_HELP = {
+    'cards': '生成卡牌资料；正式资源模式可同时同步卡牌语音。',
+    'card_update': '以旧工作簿为输入更新卡牌，保留人工填写列。请在高级设置选择旧表。',
+    'collections': '服装、Mini、称号、徽章、背景和道具；已确认入口不代表全部获取方式。',
+    'items': '整理道具名称和说明；缺名称保留缺项。',
+    'events': '活动分类、任务档位和奖励；日期区间内不代表账号已解锁。',
+    'ojt': 'OJT 题面、轮次与奖励。可在本地模式补充 Chart 文件以关联角色站位坐标。',
+    'charts': '仅解析本地 OJT 站位文件；不是音乐谱面。要与题面关联，请选 OJT 活动档案。',
+    'missions': '隐藏任务资料；每期活动任务请使用活动资料。',
+    'recipes': '整理配方与相关奖励资料。',
+    'home_voices': '从角色 ACB 提取主页及生日祝福文本；资源缺侧会保留告警。',
+    'home_voice_duo': '按两位角色配对双人主页台词，需要 masterdata 和角色 ACB。',
+    'audio': '提取本地 ACB 的通用文本，不按文件名猜测说话角色。',
+    'birthday': '生日庆典小游戏台词，按轮次整理；不是 ACB 生日祝福。',
+    'birthday_archive': '按角色和年份整理年度生日的登录、点击奖励、服装和台词。',
+    'story_catalog': '剧情索引、门槛与奖励；不包含独立脚本正文，不猜脚本文件名。',
+    'scripts': '解析独立剧情脚本正文；在线模式需明确资源键，本地模式选文件或目录。',
+    'lyrics': '解析歌词与时间信息；在线模式需明确资源键，本地模式选文件或目录。',
+    'music': '音乐主表及可关联资源；无音频关联的音乐仍保留。',
+    'snap': '整理去重后的 Snap 文案，原始关联留在审计资料。',
+}
 
 
 def app_directory():
@@ -197,6 +218,8 @@ class ToolkitApp:
         self.plan_button.pack(side='left')
         self.start_button = ttk.Button(controls, text='同步并生成', command=lambda: self.start(False))
         self.start_button.pack(side='left', padx=10)
+        self.help_button = ttk.Button(controls, text='任务说明', command=self.show_task_help)
+        self.help_button.pack(side='left', padx=(0, 10))
         self.cancel_button = ttk.Button(controls, text='取消', command=self.cancel, state='disabled')
         self.cancel_button.pack(side='left')
         self.progress = ttk.Progressbar(main, mode='determinate')
@@ -285,12 +308,31 @@ class ToolkitApp:
     def _mode_changed(self):
         mode = MODES.get(self.mode.get(), 'online')
         self.mode_hint.configure(text={
-            'online': '从正式资源清单同步本次所需数据；已有且校验通过的缓存会复用。',
+            'online': '预览会读取正式清单，必要时下载基础数据 masterdata；生成时复用已校验缓存。',
             'offline': '只使用已验证的正式资源缓存，不检查线上更新。',
             'local': '请在“输入与高级设置”中添加本地资源；整个流程不联网。',
         }[mode])
         self.start_button.configure(text='生成资料' if mode == 'local' else '同步并生成')
+        self.plan_button.configure(text='检查本地输入' if mode == 'local' else '预览资源与缓存')
         self.card_audio_check.configure(state='disabled' if mode == 'local' else 'normal')
+
+    def show_task_help(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title('任务说明')
+        dialog.transient(self.root)
+        dialog.geometry('700x480')
+        text = tk.Text(dialog, wrap='word', padx=16, pady=12)
+        text.pack(fill='both', expand=True)
+        for group, names, description in TASK_GROUPS:
+            text.insert('end', group + '\n' + description + '\n\n')
+            for name in names:
+                text.insert('end', TASKS[name] + '：' + TASK_HELP[name] + '\n\n')
+        text.configure(state='disabled')
+        close = ttk.Button(dialog, text='关闭（Esc）', command=dialog.destroy)
+        close.pack(pady=8)
+        dialog.bind('<Escape>', lambda event: dialog.destroy())
+        dialog.bind('<Destroy>', lambda event: self.help_button.focus_set() if event.widget == dialog else None)
+        text.focus_set()
 
     def request(self):
         values = {name: variable.get().strip() for name, variable in self.paths.items()}
@@ -377,6 +419,13 @@ class ToolkitApp:
             count = len(result.get('plan', {}).get('resources', []))
             self.status.set(f'资源计划已建立，共 {count} 个资源。可开始同步并生成。' if self.active_request.mode != 'local'
                             else '本地输入路径已检查；可开始生成并校验数据。')
+            assessment = result.get('cache_assessment')
+            if self.active_request.mode != 'local' and assessment:
+                next_step = ('未通过项需先在线同步。' if self.active_request.mode == 'offline'
+                             else '生成时尝试取得未通过项。')
+                self.status.set(f"资源共 {count} 项：已校验可用 {assessment['verified']} 项，"
+                                f"未通过校验 {assessment['not_verified']} 项。{next_step}"
+                                '（基础数据准备后的状态）')
         else:
             labels = {'PASS': '生成完成', 'PASS_WITH_WARNINGS': '生成完成，但有信息需要核对', 'FAIL': '任务未完整完成'}
             if self.cancel_event.is_set():
@@ -391,7 +440,8 @@ class ToolkitApp:
                 self.artifacts[row] = artifact
                 self.results.insert('', 'end', iid=row, values=(Path(artifact['path']).name,
                                     TASKS.get(artifact['domain'], artifact['domain']),
-                                    '不完整' if artifact.get('domain_status') == 'FAIL' else '已生成'))
+                                    '不完整' if artifact.get('domain_status') == 'FAIL' else
+                                    '已生成，请核对' if result.get('warnings') else '已生成'))
         if result.get('warnings') or result.get('errors'):
             self._log('需要核对：')
             for issue in [*result.get('errors', []), *result.get('warnings', [])]:
