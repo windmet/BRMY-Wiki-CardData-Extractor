@@ -1,5 +1,21 @@
 """Typed Wiki reward references; no cross-type or title-screen fallback."""
 from .tables import TableCatalog
+from collections import defaultdict
+
+
+def reward_reference_index(tables):
+    """Reverse typed reward references without claiming an acquisition entry."""
+    result = defaultdict(list)
+    for table, group_key in (
+        ('mst_direct_reward', 'DirectRewardGroupId'), ('mst_present', 'PresentId'),
+        ('mst_event_ojt_prize_box_reward', 'PrizeBoxRewardId'),
+        ('mst_event_ojt_prize_box_reward_random', 'PrizeBoxRewardRandomId'),
+    ):
+        for row in tables.rows(table, active_only=True):
+            key = (row.get('RewardTypeCode'), row.get('RewardTargetId'))
+            result[key].append({'SourceTable': table, 'GroupKey': group_key,
+                                'GroupId': row.get(group_key), 'RawReward': row})
+    return dict(result)
 
 
 # key, label, table, primary key, human-readable field

@@ -9,7 +9,7 @@ from .core.exporter import audit_path
 from .domains import DOMAINS
 
 MASTERDATA = {'cards', 'music', 'snap', 'birthday', 'birthday_archive', 'recipes', 'missions', 'items', 'events', 'ojt'}
-MASTERDATA.add('story_catalog')
+MASTERDATA.update({'story_catalog', 'collections'})
 
 
 def generate(domains, output, *, masterdata=None, audio=None, source=None,
@@ -76,7 +76,7 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                         if audio and not Path(audio).is_dir():
                             raise ValueError(f'音频目录不存在: {audio}')
                         module.run(audio, session=session)
-                    elif domain in {'events', 'ojt', 'birthday_archive', 'story_catalog'}:
+                    elif domain in {'events', 'ojt', 'birthday_archive', 'story_catalog', 'collections'}:
                         module.run(session=session, as_of=as_of or started_at)
                     elif domain in MASTERDATA:
                         module.run(session=session)
