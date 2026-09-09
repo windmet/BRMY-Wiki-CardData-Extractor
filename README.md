@@ -1,57 +1,109 @@
-# Break My Case Wiki 卡牌数据全自动提取工具
+# BRMY Wiki CardData Extractor
 
-这是一个专为 coly 旗下手游《Break My Case》（ブレイクマイケース）Wiki 组编辑人员制作的卡牌数据一键解析与格式化辅助工具。
+面向《Break My Case》Wiki 编辑组的正式资源同步、Masterdata 解密、字段还原和表格导出工具。桌面产品名为 BRMY Wiki Toolkit，当前仓库目录与名称仍保留迁移前命名。
 
-用时好几天，靠 Gemini 老师 debug 了几十轮终于得到了比较好的成果。
+桌面入口：`python -m toolkit gui`；新构建的 EXE 双击默认打开 GUI。使用步骤及当前验收边界见 [GUI 说明](docs/GUI_GUIDE.md)。
 
-为适应后续可能的格式改变以及项目维护，遂在此分享源码，希望能帮助到 Wiki 组的建设~
+新一轮数据审计的已核对问题、建设范围与验收顺序见 [下一阶段建设准备](docs/NEXT_STAGE_PLAN_20260909.md)。其中规划中的新域尚未实现。
 
-后续可能会扒一下event信息和任务一类的，到时候应该也会写在这个项目里，再说吧……这两天有点燃尽了（擦汗）
+需要指定输入与输出目录时，使用新的 [`generate` 入口](docs/GENERATE_OUTPUTS.md)：统一生成 `wiki_output`、`audit_output` 和本次产物清单，保留旧命令兼容。
 
----
+维护者可使用 [`resources` 入口](docs/PRODUCTION_RESOURCES.md)读取正式服清单、按需下载原始资源并准备 masterdata；当前已支持缓存校验和显式离线模式。
 
-## 🛠️ 使用方法
+需要自动取得任务资源并生成表格时，使用 [`sync` 入口](docs/SYNC_TASKS.md)，例如 `python -m toolkit sync cards events --cache E:\BRMYCache --output E:\WikiResults`。
 
-1. **下载程序**：下载本项目发布的最新版 `AutoWikiBuilder.exe`。
-2. **选择文件**：双击运行 `AutoWikiBuilder.exe`，在弹出的窗口中选择游戏最新的 `master_data.s2b` 文件进行解析。
-3. **获取表格**：运行完成后，程序会在同目录下生成一份排版好的 `.xlsx` Excel 表格，可以直接用于后续翻译和建表工作的开展。
+这个仓库的首要目标是把 masterdata 中可复用的数据整理成能够直接用于 Wiki 建设的表格，而不是复刻游戏画面或运行时表现。
 
----
+## 主要用途
 
-## ⚖️ 免责声明 (Disclaimer)
+- 解密并读取 `master_data.s2b` / `master_data.json`
+- 还原卡面、技能、卡池、活动、道具、音乐、生日、配方和任务字段
+- 导出 Wiki 可直接继续加工的 XLSX/JSON
+- 解析独立的歌词、脚本和OJT Chart S2B 文件
+- 使用 ACB 元数据补充卡面语音字段
+- 从 21 人角色 ACB 包提取主页、季节和生日语音，按 Wiki 主体生成长表与审计表
+- 根据 masterdata 对 Spin/Snap 资源进行编号、角色、卡面、服装和活动归类
 
-<details>
-<summary><b> 点击此处展开《Break My Case》数据解析辅助工具免责声明</b></summary>
-<br>
+## Spin/Snap 边界
 
-<small>
+Masterdata 对 Spin/Snap 的职责是**归类、索引和统计**，例如回答某个资源属于哪个角色、卡面、活动或服装。
 
-**提示：在下载、运行或以任何方式使用本辅助工具（以下简称“本程序”）之前，请仔细阅读并充分理解本免责声明的全部条款。一旦开始使用本程序，即视为您已阅读、理解并无条件接受本声明之全部约束。**
+Wiki 的 Spin 相片终稿以游戏内实际截图为准。本工具不会把本地资源复刻结果当作 Wiki 图片验收基线，也不会依赖 Spine 工具才能完成常规拉表。
 
-### 一、 知识产权与版权归属声明
-1. 本程序所解析、提取并展示的所有涉及《Break My Case》（ブレイクマイケース）的游戏文案、卡牌数值、技能属性及其他相关媒体资产，其知识产权、版权、商标权等相关权益，均绝对且无争议地归属于游戏官方开发商及运营商——**株式会社coly (coly Inc.)**。
-2. 本程序自身不包含、不分发且不传播任何受版权保护的《Break My Case》原始游戏包体文件或原始 `.s2b` 格式数据库资产。本程序仅作为本地静态数据的转换辅助工具，不构成对 coly Inc. 知识产权的侵害。
-3. 本程序开发者在任何情况下，均不对《Break My Case》游戏内的任何数据声明所有权。
+详细边界见 [`docs/SPIN_SNAP_BOUNDARY.md`](docs/SPIN_SNAP_BOUNDARY.md)。
 
-### 二、 非官方与非关联声明
-1. 本程序为《Break My Case》游戏爱好者自行开发的民间同人开源项目。其开发之唯一目的，在于辅助非盈利性质的游戏百科（Wiki）数据整理及学术研究，促进同人社区的技术交流。
-2. 本程序的开发者、贡献者及维护者，与 **coly Inc.** 官方及其任何关联公司、合作伙伴、代理商之间，**无任何形式的雇佣、赞助、合作、授权、代理或背书关系**。
+## 使用与测试
 
-### 三、 合规风险与用户责任警告
-1. **违规风险自担**：根据 coly Inc. 针对《Break My Case》制定的用户服务协议（Terms of Service / 利用规约），擅自解包、逆向工程、解密或使用客户端本地资产数据可能属于违规行为。**因使用者个人行为导致的游戏账号被限制、封禁，或由此引发的任何法律、民事纠纷，其全部后果与民事责任均由使用者本人承担。** 本程序开发者及贡献者不对此承担任何直接、间接、连带或附带的责任。
-2. **严禁商业化**：本程序完全免费且开源，**严禁任何第三方将本程序（或本程序解析、导出的数据结果）用于任何形式的商业牟利行为**。任何因第三方违规商业化而引起的法律诉讼，均与本程序开发者无关。
+普通使用推荐 GUI；正式服在线会按所选任务取得资源，正式服离线缓存只复用已校验缓存，本地模式使用指定文件且不联网。输出目录中的 `wiki_output` 保存普通表格，`audit_output` 保存诊断和本次产物清单。卡表更新需指定旧工作簿，以保留人工翻译与自定义列。
 
-### 四、 技术性质与服务限制说明
-1. 本程序属于**静态离线解析工具**，不具备、也不包含任何网络攻击、数据篡改、内存注入、封包拦截、外挂或网络作弊功能。
-2. 本程序的所有操作均在本地（离线环境）对用户自行提供的 `.s2b` 格式文件进行静态读取与格式化转换，绝不涉及、亦不干扰《Break My Case》官方服务器的正常通信、数据存储或服务运行。
+源码安装及新入口示例：
 
-### 五、 申诉与即时下架机制
-本程序及开源仓库开发者高度尊重 coly Inc. 及其关联方的各项合法权益。如果 coly Inc. 官方、版权所有方或其合法授权之代理人认为本程序的开源、分发或使用方式涉嫌侵犯贵方的相关权益，或违反了相关法律法规：
-* 请通过 GitHub Issue 提交官方合规性合规申诉；
-* 或发送正式合规通知至开发者。
+```powershell
+python -m pip install -e .
+python -m toolkit gui
+python -m toolkit list
+python -m toolkit doctor --json
+python -m toolkit sync cards events --cache "E:\BRMYCache" --output "E:\WikiResults"
+python -m toolkit sync birthday --offline --cache "E:\BRMYCache" --output "E:\WikiResults"
+python -m toolkit generate birthday --masterdata "E:\path\to\master_data.json" --output "E:\WikiResults"
+./scripts/verify.ps1
+```
 
-**我们将在收到通知并确认相关主体身份后，于 24 小时内对该开源仓库进行即时下架（Take down）、永久删除相关代码、构建版本及相关衍生数据，绝不推诿。**
+以下为保留兼容的旧命令；其工作目录和输出路径与 GUI / `sync` / `generate` 不同，旧 XLSX 默认位于 `xlsx_output`：
 
-</small>
+```powershell
+python -m toolkit run birthday                 # 自动选择最新生日轮次
+python -m toolkit run birthday --cycle 1       # 第一轮；也支持 2/3
+python -m toolkit run birthday --year 2026     # 按轮次起始年覆盖
+python -m toolkit update cards "E:\path\to\old_cards_data.xlsx"
+python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json"
+# 可选第三参数：按 SubjectKey、CueName 或主体名另导出单个主体
+python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" --subject vo_home_13_126
+# 可选：提供旧 ACB 目录，在当前元数据跨 Cue 重复时尝试恢复旧版正确文本
+python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" --reference-acb "E:\path\to\old\Sound"
 
-</details>
+# 导出指定日期向前 365 天的主页/季节与生日祝福双分表
+python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" --recent-year 2026-08-15
+./scripts/verify.ps1
+```
+
+交互模式生成的 `master_data.json` 使用 `.bmc_toolkit/master_data_cache.json` 校验源 S2B 与输出哈希；同目录替换新版 S2B 后会自动重新解码，损坏或未知格式会停止导出。
+
+Masterdata 域在一次运行中共享同一个 `MasterDataSession`，不会为每个域重复解析大型 JSON。每次运行还会生成：
+
+- `audit_output/run_manifest.json`：输入哈希、schema 状态、各域结果和耗时。
+- `audit_output/schema_report.md`：新增/删除表、字段、类型和行数变化。
+- `.bmc_toolkit/masterdata_schema.json`：上一次成功运行的本地 schema 基线。
+
+首次运行因建立基线显示 `PASS_WITH_WARNINGS` 属正常情况；同一输入再次运行时该基线提示消失，但资源或业务缺项告警可能继续存在，不能据重复运行预期一定为 `PASS`。必需表或字段消失时会在导出前阻断。
+
+涉及字段、关系或导出行为的改动还应按 [`docs/REAL_DATA_REGRESSION.md`](docs/REAL_DATA_REGRESSION.md) 使用固定真实输入执行改前/改后语义比较。
+
+通用 XLSX 导出默认保留原始值类型，不会再把所有纯数字字符串猜成整数。需要数值转换的列必须显式声明列类型；真实回归同时比较单元格值、Excel 数据类型与数字格式。
+
+对已有 Wiki 人工列的卡牌表，使用增量更新模式保留译名、中文语音列和自定义列，并单独生成变更表；详见 [`docs/CARD_UPDATE_MODE.md`](docs/CARD_UPDATE_MODE.md)。
+
+生日庆典 masterdata 的三轮编号方式不同；轮次推导、原始编号保留和真实数据分布见 [`docs/BIRTHDAY_CYCLES.md`](docs/BIRTHDAY_CYCLES.md)。
+
+主页语音通过 GUI / `sync` / `generate` 生成：
+
+- `wiki_output/home_voice_catalog.xlsx`：仅含 `Wiki长表`，台词使用 Excel 单元格内真实换行。旧 `run home_voices` 仍使用 `xlsx_output`。
+- `audit_output/Home_Voice_Catalog.json`：完整机器可读审计记录。
+- `audit_output/home_voice_audit.md`：完整度、参考修复、待行动异常和非阻断信息。
+- `home_voices --recent-year YYYY-MM-DD`：生成近 365 天主页/季节与生日祝福双分表，筛选规则见 [`docs/RECENT_HOME_VOICE_EXPORT.md`](docs/RECENT_HOME_VOICE_EXPORT.md)。
+
+若目标 XLSX 正被 Excel 占用，工具会改存为 `home_voice_catalog_new.xlsx`，避免覆盖失败。
+
+本地构建后的易用入口为 `dist/bmc_toolkit.exe`。EXE 属于忽略的发布产物，不提交进 Git 历史。受控构建固定 Python 3.12.9、Nuitka 4.1.2 及全部构建包，并生成 EXE、SHA-256、manifest 和 smoke report；详见 [`docs/RELEASE_BUILD.md`](docs/RELEASE_BUILD.md)。
+
+`legacy/` 保存迁移前的单用途脚本，只用于核对旧行为。新功能进入 `toolkit/core` 或 `toolkit/domains`。
+
+## 仓库迁移
+
+本仓库由 v1 单脚本卡牌工具迁移为 v2 Masterdata 工具箱。迁移边界、历史保留和审计步骤见 [`docs/V2_MIGRATION.md`](docs/V2_MIGRATION.md)，实现阶段记录见 [`docs/MIGRATION_GUIDE.md`](docs/MIGRATION_GUIDE.md)。旧版源码和 Release 通过 `v1.0.0` 标签及 `legacy/v1-main` 分支保留。
+
+当前优先开发的主页、季节和生日 ACB 语音拉表方案见 [`docs/ACB_HOME_VOICE_EXTRACTION_PLAN.md`](docs/ACB_HOME_VOICE_EXTRACTION_PLAN.md)。
+
+## 数据与许可
+
+仓库只保存源码、文档和人工构造的脱敏测试夹具，不提交游戏数据、音频、图片或批量导出结果。项目自身许可证尚待确定；加入 `LICENSE` 文件前不声明特定开源许可证。
