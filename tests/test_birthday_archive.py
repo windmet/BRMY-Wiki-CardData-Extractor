@@ -6,6 +6,19 @@ from toolkit.domains.birthday_archive import extract
 
 
 class AnnualBirthdayTests(unittest.TestCase):
+    def test_conflicting_costumes_and_duplicate_login_stages_are_not_overwritten(self):
+        tables = {
+            'mst_character_birthday': [{'CharacterId': 1, 'Year': 2026, 'CampaignCostumeModelIdFirstDay': 1}],
+            'mst_character_birthday_campaign_page': [{'CharacterId': 1, 'Year': 2026, 'CostumeModelIdFirstDay': 2}],
+            'mst_character_birthday_login_bonus_sequence': [{'CharacterId': 1, 'Year': 2026, 'Sequence': 1, 'PresentId': 7}] * 2,
+            'mst_costume_model': [{'CostumeModelId': 1, 'CostumeModelName': 'One'}, {'CostumeModelId': 2, 'CostumeModelName': 'Two'}],
+        }
+        data = extract(SimpleNamespace(tables=TableCatalog([dict.fromkeys(tables, []), *tables.values()])), as_of='2026-09-09T00:00:00Z')
+        entry = data['Birthdays'][0]
+        self.assertEqual([], entry['LoginRewards'])
+        self.assertIsNone(entry['Costumes'][0]['CostumeModelId'])
+        self.assertEqual({'conflicting_costume', 'ambiguous_login_sequence'}, {i['Status'] for i in data['Issues']})
+
     def test_year_is_part_of_key_and_present_is_not_direct_reward(self):
         tables = {
             'mst_character_birthday': [{'CharacterId': 1, 'Year': 2025, 'TapRewardNo1': 7}, {'CharacterId': 1, 'Year': 2026}],
