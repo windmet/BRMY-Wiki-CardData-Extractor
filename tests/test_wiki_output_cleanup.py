@@ -111,7 +111,7 @@ class WikiOutputCleanupTests(unittest.TestCase):
                 original_save = Workbook.save
 
                 def save_unless_locked(book, path):
-                    if Path(path).resolve() == output:
+                    if Path(path).resolve() == output.resolve():
                         raise PermissionError('simulated Excel lock')
                     return original_save(book, path)
 
