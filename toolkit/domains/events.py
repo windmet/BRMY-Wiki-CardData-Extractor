@@ -3,6 +3,8 @@ from ..core.scanner import load_json, save_json
 from ..core.exporter import json_path, xlsx_path, save_workbook_safely, audit_path
 from ..core.data import clean_text
 from ..core.tables import TableCatalog
+from ..core.rewards import RewardResolver, REWARD_TYPE_MAP
+from ..core.output import record_warning
 
 INPUT_JSON = 'master_data.json'
 
@@ -26,21 +28,7 @@ SOURCE_SUBTYPE_MAP = {
 
 RARITY_MAP = {1: "R", 2: "SR", 3: "SSR", 101: "XR", 102: "CR"}
 ATTRIBUTE_MAP = {1: "Sun", 2: "Moon", 3: "Star"}
-REWARD_TYPE_MAP = {
-    1: {"Key": "card", "Label": "卡牌"},
-    2: {"Key": "item", "Label": "道具"},
-    3: {"Key": "home_background", "Label": "主页背景"},
-    4: {"Key": "costume_model", "Label": "角色服装"},
-    5: {"Key": "costume_mini", "Label": "迷你角色服装"},
-    6: {"Key": "honor", "Label": "称号"},
-    7: {"Key": "pin", "Label": "Pin"},
-    8: {"Key": "music", "Label": "音乐"},
-    9: {"Key": "spin_album_release_item", "Label": "Spin相册解锁道具"},
-    99: {"Key": "information", "Label": "信息"},
-    100: {"Key": "event_item", "Label": "活动道具"},
-    101: {"Key": "ingredient", "Label": "活动材料"},
-    102: {"Key": "travel_coin", "Label": "旅行币"},
-}
+
 
 
 def _names(ids, mapping):
@@ -54,49 +42,6 @@ def _card_summary(card, character_map):
     rarity = RARITY_MAP.get(card.get("CardRarityCode"), card.get("CardRarityCode"))
     attr = ATTRIBUTE_MAP.get(card.get("CardAttributeCode"), card.get("CardAttributeCode"))
     return f"{card.get('CharacterCardName', '')} / {char_name} / {rarity} / {attr}"
-
-
-def _resolve_reward(row, maps):
-    rtype = row.get("RewardTypeCode")
-    target = row.get("RewardTargetId")
-    count = row.get("RewardCount")
-    reward_type = REWARD_TYPE_MAP.get(rtype, {"Key": f"type_{rtype}", "Label": f"未知类型{rtype}"})
-    key = reward_type["Key"]
-    label = reward_type["Label"]
-
-    if rtype == 1:
-        name = maps["cards"].get(target, f"Card_{target}")
-    elif rtype in (2, 100, 101, 102):
-        name = maps["items"].get(target) or maps["ingredients"].get(target) or label
-    elif rtype == 6:
-        name = maps["titles"].get(target, f"Title_{target}")
-    elif rtype == 7:
-        name = maps["pins"].get(target, f"Pin_{target}")
-    else:
-        name = f"{label}({target})"
-
-    return {
-        "RewardTypeCode": rtype,
-        "RewardType": key,
-        "RewardTypeLabel": label,
-        "RewardTargetId": target,
-        "RewardName": name,
-        "RewardCount": count,
-    }
-
-
-def _direct_rewards(group_id, direct_by_group, maps):
-    if not group_id:
-        return []
-    rows = sorted(direct_by_group.get(group_id, []), key=lambda r: r.get("DirectRewardSequenceNo", 0))
-    return [_resolve_reward(row, maps) for row in rows]
-
-
-def _present_rewards(present_id, present_by_id, maps):
-    if not present_id:
-        return []
-    rows = sorted(present_by_id.get(present_id, []), key=lambda r: r.get("PresentSequenceNo", 0))
-    return [_resolve_reward(row, maps) for row in rows]
 
 
 def extract(session=None):
@@ -125,31 +70,16 @@ def extract(session=None):
     sales_rewards = optional_group("mst_event_sales_reward", "EventId")
     ranking_rewards = optional_group("mst_event_ranking_reward", "EventId")
     ingredient_stages = optional_group("mst_event_puzzle_stage_ingredient", "EventId")
-    direct_by_group = optional_group("mst_direct_reward", "DirectRewardGroupId")
-    present_by_id = optional_group("mst_present", "PresentId")
 
     characters = optional_by_id("mst_character", "CharacterId")
     cards = optional_by_id("mst_character_card", "CharacterCardId")
     items = optional_by_id("mst_item", "ItemId")
     ingredients = optional_by_id("mst_event_ingredient", "IngredientId")
-    titles = optional_by_id("mst_title", "TitleId")
-    pins = optional_by_id("mst_pin", "PinId")
-    honors = optional_by_id("mst_honor", "HonorId")
-    home_voice_products = optional_by_id("mst_home_voice_product", "HomeVoiceProductId")
-
     character_map = {k: v.get("CharacterNameJpn", "") for k, v in characters.items()}
     card_map = {k: _card_summary(v, character_map) for k, v in cards.items()}
     item_map = {k: v.get("ItemName", "") for k, v in items.items()}
     ingredient_map = {k: v.get("IngredientName", "") for k, v in ingredients.items()}
-    maps = {
-        "items": item_map,
-        "ingredients": ingredient_map,
-        "cards": card_map,
-        "titles": {k: v.get("TitleFileName", "") for k, v in titles.items()},
-        "pins": {k: v.get("PinName") or v.get("PinFileName", "") for k, v in pins.items()},
-        "honors": {k: v.get("HonorFileName", "") for k, v in honors.items()},
-        "home_voice_products": {k: v.get("DisplayName", "") for k, v in home_voice_products.items()},
-    }
+    rewards = RewardResolver(tables, card_names=card_map)
 
     archive = []
     for event in sorted(events, key=lambda e: e.get("EventId", 0)):
@@ -184,7 +114,7 @@ def extract(session=None):
                 "KeyCost": row.get("KeyEventStoryKeyUnlockCost", 0),
                 "HasVoice": row.get("HasVoiceFile", False),
                 "PopupText": clean_text(row.get("PopupText", "")),
-                "ReadRewards": _direct_rewards(row.get("ReadDirectRewardGroupId"), direct_by_group, maps),
+                "ReadRewards": rewards.direct(row.get("ReadDirectRewardGroupId")),
             })
 
         rule_sections = []
@@ -224,7 +154,7 @@ def extract(session=None):
                     "RankingType": r.get("RankingType"),
                     "StartRank": r.get("StartRank"),
                     "WappenCount": r.get("RewardWappenCount"),
-                    "Rewards": _present_rewards(r.get("PresentId"), present_by_id, maps),
+                    "Rewards": rewards.present(r.get("PresentId")),
                 }
                 for r in sorted(ranking_rewards.get(event_id, []), key=lambda r: (r.get("RankingType", 0), r.get("StartRank", 0)))
             ],
@@ -233,7 +163,7 @@ def extract(session=None):
                     "ShiftId": r.get("ShiftId"),
                     "KeySales": r.get("KeySales"),
                     "IsPickUp": r.get("IsPickUp"),
-                    "Rewards": _direct_rewards(r.get("DirectRewardGroupId"), direct_by_group, maps),
+                    "Rewards": rewards.direct(r.get("DirectRewardGroupId")),
                 }
                 for r in sorted(sales_rewards.get(event_id, []), key=lambda r: (r.get("ShiftId", 0), r.get("KeySales", 0)))
             ],
@@ -241,7 +171,7 @@ def extract(session=None):
                 {
                     "KeyCount": r.get("KeyCount"),
                     "IsPickUp": r.get("IsPickUp"),
-                    "Rewards": _direct_rewards(r.get("DirectRewardGroupId"), direct_by_group, maps),
+                    "Rewards": rewards.direct(r.get("DirectRewardGroupId")),
                 }
                 for r in sorted(accumulate_rewards.get(event_id, []), key=lambda r: r.get("KeyCount", 0))
             ],
@@ -308,6 +238,9 @@ def extract(session=None):
 
     out = json_path("Event_Archive.json")
     save_json({"Events": archive}, out)
+    save_json({"Issues": rewards.issues}, audit_path("event_reward_resolution.json"))
+    if rewards.issues:
+        record_warning(f"活动奖励有 {len(rewards.issues)} 条解析或名称缺项，详见 event_reward_resolution.json")
     print(f"[+] extracted {len(archive)} events -> {out}")
     return archive
 

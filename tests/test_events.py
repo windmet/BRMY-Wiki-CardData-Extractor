@@ -5,33 +5,30 @@ import unittest
 from pathlib import Path
 
 from toolkit.core.session import MasterDataSession
-from toolkit.domains.events import _resolve_reward, extract
+from toolkit.domains.events import extract
+from toolkit.core.rewards import RewardResolver
+from toolkit.core.tables import TableCatalog
 
 
 class EventRewardTests(unittest.TestCase):
     def setUp(self):
-        self.maps = {
-            "cards": {426: "Vignette -Emperor-"},
-            "items": {506: "Bookmark"},
-            "ingredients": {},
-            "titles": {},
-            "pins": {},
-            "home_voice_products": {},
-        }
+        self.resolver = RewardResolver(TableCatalog([
+            {'mst_character_card': [], 'mst_item': []},
+            [{'CharacterCardId': 426, 'CharacterCardName': 'Vignette -Emperor-'}],
+            [{'ItemId': 506, 'ItemName': 'Bookmark'}],
+        ]))
 
     def test_reward_type_one_is_character_card(self):
-        reward = _resolve_reward(
+        reward = self.resolver.resolve(
             {"RewardTypeCode": 1, "RewardTargetId": 426, "RewardCount": 1},
-            self.maps,
         )
 
         self.assertEqual("card", reward["RewardType"])
         self.assertEqual("Vignette -Emperor-", reward["RewardName"])
 
     def test_reward_type_two_is_item(self):
-        reward = _resolve_reward(
+        reward = self.resolver.resolve(
             {"RewardTypeCode": 2, "RewardTargetId": 506, "RewardCount": 10},
-            self.maps,
         )
 
         self.assertEqual("item", reward["RewardType"])
