@@ -273,6 +273,16 @@ def _subject_identity(record, names, season_lookup):
     return f"acb_only:cue={cue_name}", "acb_only", cue_name, None
 
 
+def character_role(character_id):
+    if character_id in EXPECTED_CHARACTER_IDS:
+        return 'staff'
+    if character_id == 24:
+        return 'mascot'
+    if character_id in (22, 23, 25):
+        return 'npc'
+    return 'unknown'
+
+
 def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXPECTED_CHARACTER_IDS):
     """Join scanned ACB metadata and return normalized records plus subject summaries."""
     if not isinstance(tables, TableCatalog):
@@ -281,7 +291,6 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
     character_rows = {
         row["CharacterId"]: row
         for row in _active_rows(tables, "mst_character")
-        if row.get("CharacterId") in expected_character_ids
     }
     character_names = {
         row["CharacterId"]: row.get("CharacterNameJpn", f"角色{row['CharacterId']}")
@@ -455,6 +464,7 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
             "SubjectType": subject_records[0]["SubjectType"],
             "SubjectDisplayName": subject_records[0]["SubjectDisplayName"],
             "SubjectCharacterId": subject_records[0]["SubjectCharacterId"],
+            "SubjectCharacterRole": character_role(subject_records[0]["SubjectCharacterId"]),
             "HomeVoiceNo": subject_records[0].get("HomeVoiceNo"),
             "HomeVoiceCategory": subject_records[0].get("HomeVoiceCategory"),
             "SeasonId": subject_records[0].get("SeasonId"),
