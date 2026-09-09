@@ -1,4 +1,5 @@
 """OJT masterdata archive; chart coordinate files remain a separate input."""
+import json
 from openpyxl import Workbook
 
 from ..core.availability import assessment_time, date_window, STATUS_LABELS
@@ -26,6 +27,7 @@ def extract(session, *, as_of=None):
     texts = grouped('mst_event_ojt_terminal_character_text', 'OjtShiftId')
     fixed = grouped('mst_event_ojt_prize_box_reward', 'PrizeBoxRewardId')
     random = grouped('mst_event_ojt_prize_box_reward_random', 'PrizeBoxRewardRandomId')
+    maps = grouped('mst_puzzle_map', 'PuzzleMapId')
 
     def expand(groups, key, table, location):
         if key in (None, 0):
@@ -50,10 +52,20 @@ def extract(session, *, as_of=None):
         for shift in sorted(shifts.get(eid, []), key=lambda r: r['OjtShiftId']):
             sid = shift['OjtShiftId']
             item = {'RawShift': shift, 'Stages': stages.get(sid, []),
-                    'TerminalTexts': texts.get(sid, []), 'TrainingRewards': [], 'PrizeBoxes': [],
+                    'TerminalTexts': texts.get(sid, []), 'TrainingRewards': [], 'PrizeBoxes': [], 'StageMaps': [],
                     'Availability': date_window(shift.get('StartTime'), shift.get('EndTime'), as_of=now)}
+            for stage in item['Stages']:
+                matches = maps.get(stage.get('PuzzleMapId'), [])
+                item['StageMaps'].append({'RawStage': stage, 'Maps': matches})
+                if len(matches) != 1:
+                    issues.append({'Status': 'missing_or_ambiguous_map', 'OjtShiftId': sid,
+                                   'OjtPhase': stage.get('OjtPhase'), 'PuzzleMapId': stage.get('PuzzleMapId')})
             for row in training.get(sid, []):
-                item['TrainingRewards'].append({'Raw': row, 'Rewards': rewards.direct(row.get('DirectRewardGroupId'))})
+                phase_stages = [stage for stage in item['Stages'] if stage.get('OjtPhase') == row.get('OjtPhase')]
+                if not phase_stages:
+                    issues.append({'Status': 'missing_training_phase', 'OjtShiftId': sid, 'OjtPhase': row.get('OjtPhase')})
+                item['TrainingRewards'].append({'Raw': row, 'Stages': phase_stages,
+                                               'Rewards': rewards.direct(row.get('DirectRewardGroupId'))})
             for box in sorted(boxes.get(sid, []), key=lambda r: r['PrizeBoxNo']):
                 loc = {'EventId': eid, 'OjtShiftId': sid, 'PrizeBoxNo': box['PrizeBoxNo']}
                 item['PrizeBoxes'].append({'Raw': box,
@@ -66,7 +78,10 @@ def extract(session, *, as_of=None):
         for sid, rows in groups.items():
             if sid not in used_shifts:
                 issues.append({'Status': 'unlinked_shift', 'Section': name, 'OjtShiftId': sid, 'Rows': rows})
+    constants = [{'Raw': row, 'ChartStampConversionRewards': rewards.direct(row.get('ChartStampConvertedDirectRewardGroupId'))}
+                 for row in tables.rows('mst_event_ojt_constant', active_only=True)]
     return {'Events': archive, 'AsOf': now.isoformat(), 'Timezone': 'UTC',
+            'BreakBonus': tables.rows('mst_event_ojt_break_bonus', active_only=True), 'Constants': constants,
             'ChartCoordinates': 'not_loaded', 'Issues': issues, 'RewardIssues': rewards.issues,
             'RawTables': {name: tables.rows(name) for name in tables.names if name.startswith('mst_event_ojt_')}}
 
@@ -107,6 +122,19 @@ def export(data):
                     for reward in box[key]:
                         rr = reward['RawReward']
                         sheets['BoxRewards'].append(bp + [label, reward['RewardName'], reward['RewardCount'], rr.get('PrizeStock'), rr.get('IsPickUp'), rr.get('LotteryRate')])
+    bonus = wb.create_sheet('BreakBonus')
+    bonus.append(['BREAK次数', '奖牌增幅原值'])
+    for row in sorted(data.get('BreakBonus', []), key=lambda r: r.get('OjtPuzzleBreakCount', 0)):
+        bonus.append([row.get('OjtPuzzleBreakCount'), row.get('PrizeMedalIncreaseRate')])
+    constants = wb.create_sheet('GlobalRules')
+    constants.append(['常量组', '规则字段', '原值 / 奖励'])
+    for entry in data.get('Constants', []):
+        raw = entry['Raw']
+        for key, value in raw.items():
+            if key not in ('ConstantKey', 'IsActive', 'ChartStampConvertedDirectRewardGroupId'):
+                constants.append([raw.get('ConstantKey'), key, json.dumps(value, ensure_ascii=False) if isinstance(value, (list, dict)) else value])
+        constants.append([raw.get('ConstantKey'), 'ChartStamp 转换奖励',
+                          ' / '.join(f"{r['RewardName']} x{r['RewardCount']}" for r in entry['ChartStampConversionRewards'])])
     notes = wb.create_sheet('Notes')
     notes.append(['核对时刻 UTC', data['AsOf']])
     notes.append(['日期状态', '日期区间内不代表账号已解锁'])

@@ -6,6 +6,25 @@ from toolkit.domains.ojt import extract
 
 
 class OjtTests(unittest.TestCase):
+    def test_training_phase_uses_shift_and_global_conversion_uses_reward_group(self):
+        tables = {
+            'mst_event': [{'EventId': 50, 'EventFormat': 5}], 'mst_event_c': [{'EventId': 50}],
+            'mst_event_ojt_chart': [{'EventId': 50}],
+            'mst_event_ojt_shift': [{'EventId': 50, 'OjtShiftId': 7}, {'EventId': 50, 'OjtShiftId': 8}],
+            'mst_event_ojt_puzzle_stage': [{'OjtShiftId': 8, 'OjtPhase': 1, 'PuzzleMapId': 9}],
+            'mst_puzzle_map': [{'PuzzleMapId': 9}],
+            'mst_event_ojt_training_reward': [{'OjtShiftId': 7, 'OjtPhase': 1}],
+            'mst_event_ojt_constant': [{'ConstantKey': 1, 'ChartStampConvertedDirectRewardGroupId': 20}],
+            'mst_direct_reward': [{'DirectRewardGroupId': 20, 'RewardTypeCode': 2, 'RewardTargetId': 1, 'RewardCount': 5}],
+            'mst_item': [{'ItemId': 1, 'ItemName': 'Conversion'}],
+        }
+        session = SimpleNamespace(tables=TableCatalog([dict.fromkeys(tables, []), *tables.values()]))
+        data = extract(session, as_of='2026-09-09T00:00:00Z')
+        self.assertEqual('missing_training_phase', data['Issues'][0]['Status'])
+        self.assertEqual([], data['Events'][0]['Shifts'][0]['TrainingRewards'][0]['Stages'])
+        self.assertEqual(9, data['Events'][0]['Shifts'][1]['StageMaps'][0]['Maps'][0]['PuzzleMapId'])
+        self.assertEqual('Conversion', data['Constants'][0]['ChartStampConversionRewards'][0]['RewardName'])
+
     def test_shift_owner_and_reward_namespaces(self):
         tables = {
             'mst_event': [{'EventId': 50, 'EventFormat': 5}],
