@@ -80,3 +80,5 @@ N0 本地 109 tests 与 verify 已通过，日志 `%TEMP%/brmy-next-stage-verify
 3. Music 使用 left join；music_info 的多变体时长不能当整首曲长，cue/cue_sheet 不猜一对一。音频/封面扩展名先对照正式资源键验证。
 4. 补 Item22；统一 OJT 用户文案与指南，charts 机器入口兼容不改。
 5. 固定上述快照执行改前/改后对照，记录 6 卡、奖励类型和音乐资产字段的具体变化；此后再推进 N2。
+
+后续进度：N4既有缺项见 [正式语音复查](HOME_VOICE_GAP_REVIEW.md)；N5 [Story Catalog首批](STORY_CATALOG.md) 已完成1928条索引，跨类型目标等关系仍待完善。
