@@ -57,4 +57,20 @@ def acquisition_index(tables):
         for field in ('TapRewardNo1', 'TapRewardNo2', 'TapRewardNo3', 'TapRewardSecretPin'):
             add('mst_direct_reward', row.get(field), 'mst_character_birthday', dict(row, RewardField=field),
                 'character_birthday', [row.get('CharacterId'), row.get('Year')], '角色年度生日点击奖励')
+    shifts = owners('mst_event_ojt_shift', 'OjtShiftId')
+    for table in ('mst_event_ojt_prize_box', 'mst_event_ojt_training_reward'):
+        for row in tables.rows(table, active_only=True):
+            matched = shifts.get(row.get('OjtShiftId'), [])
+            event = events.get(matched[0].get('EventId'), []) if len(matched) == 1 else []
+            if len(matched) != 1 or len(event) != 1 or event[0].get('EventFormat') != 5:
+                issues.append({'Status': 'missing_or_ambiguous_ojt_owner', 'Table': table, 'Raw': row})
+                continue
+            if table == 'mst_event_ojt_training_reward':
+                targets = [('mst_direct_reward', 'DirectRewardGroupId', 'ojt_training')]
+            else:
+                targets = [('mst_event_ojt_prize_box_reward', 'PrizeBoxRewardId', 'ojt_fixed_box'),
+                           ('mst_event_ojt_prize_box_reward_random', 'PrizeBoxRewardRandomId', 'ojt_random_box')]
+            for reward_table, field, kind in targets:
+                add(reward_table, row.get(field), table, row, kind, event[0]['EventId'],
+                    event[0].get('EventTitle', ''), [*matched, *event])
     return dict(result), issues

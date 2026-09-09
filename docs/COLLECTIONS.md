@@ -11,3 +11,5 @@ N6未完成：最终获取入口尚未从奖励组反向连接到事件、任务
 后续入口首批：事件排名/营业/累计/配方/剧情、兑换所、任务（Event/Campaign分型）、序列码与角色年度生日已反向连接。1066对象具有known_entries，1470对象为no_known_entries；后者不等于不可获取。共13050入口引用，保留每个原始消费记录、owner证据及奖励行，不合并一物多来源。新增AcquisitionEntries页；原2536对象字段和5778奖励引用保持一致。
 
 真实每个消费记录均存在原表且其明确奖励组键相等，来源异常0。证据：`%TEMP%/brmy-collection-sources-kp6b9e0z/verification.json`。138项测试和仓库验证通过。OJT、其他登录/剧情/成长等入口尚待补充，不能称完整获取攻略。
+
+OJT入口后续：奖励箱固定池948条、随机池2520条、训练36条收藏引用已沿OjtShiftId→EventId连接。池类型与组编号联合匹配，重复编号不串池；轮次与EventFormat5验证失败会进入来源告警。新3404条入口逐条复查owner链通过，旧入口等值，139项测试和仓库验证通过。证据：`%TEMP%/brmy-ojt-acquisition-txk26cva/verification.json`。其他未适配入口仍保留未知，不宣称已完整覆盖。

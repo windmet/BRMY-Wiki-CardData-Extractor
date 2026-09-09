@@ -70,6 +70,6 @@ def export(data):
 def run(session=None, *, as_of=None):
     data = extract(session, as_of=as_of)
     save_json(data, audit_path('collections.json'))
-    if data['Issues']:
-        record_warning(f"收藏档案有 {len(data['Issues'])} 条关系缺项，详见 collections.json")
+    if data['Issues'] or data['SourceIssues']:
+        record_warning(f"收藏档案有 {len(data['Issues'])} 条对象关系缺项、{len(data['SourceIssues'])} 条来源缺项，详见 collections.json")
     return export(data)
