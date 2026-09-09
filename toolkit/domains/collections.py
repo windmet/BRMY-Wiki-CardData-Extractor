@@ -6,6 +6,7 @@ from ..core.availability import assessment_time, date_window
 from ..core.exporter import audit_path, xlsx_path, save_workbook_safely
 from ..core.scanner import save_json
 from ..core.output import record_warning
+from ..core.acquisition import acquisition_index
 
 
 COLLECTION_TYPES = (4, 5, 6, 7, 3, 2)
@@ -14,6 +15,7 @@ COLLECTION_TYPES = (4, 5, 6, 7, 3, 2)
 def extract(session, *, as_of=None):
     tables = session.tables; now = assessment_time(as_of)
     refs = reward_reference_index(tables)
+    sources, source_issues = acquisition_index(tables)
     cards = tables.group_by('mst_character_card', 'CharacterCardId', active_only=False, required=False)
     records, issues = [], []
     for code in COLLECTION_TYPES:
@@ -29,7 +31,11 @@ def extract(session, *, as_of=None):
                 'Availability': date_window(raw.get('ReleaseDateTime') or raw.get('StartTime'),
                     raw.get('EndTime') or ('9999-01-01T00:00:00Z' if raw.get('ReleaseDateTime') else None), as_of=now),
                 'AcquisitionEntryStatus': 'not_resolved'})
-    return {'Collections': records, 'Issues': issues, 'AsOf': now.isoformat(), 'Timezone': 'UTC'}
+            entry = records[-1]
+            entry['AcquisitionEntries'] = [dict(source, RewardReference=ref)
+                for ref in entry['RewardReferences'] for source in sources.get((ref['SourceTable'], ref['GroupId']), [])]
+            entry['AcquisitionEntryStatus'] = 'known_entries' if entry['AcquisitionEntries'] else 'no_known_entries'
+    return {'Collections': records, 'Issues': issues, 'SourceIssues': source_issues, 'AsOf': now.isoformat(), 'Timezone': 'UTC'}
 
 
 def export(data):
@@ -44,8 +50,14 @@ def export(data):
             sheet.append([entry['Id'], entry['Name'], entry['NameStatus'], entry['Raw'].get('CharacterId'),
                           ' / '.join(f"{c['CharacterCardId']}: {c.get('CharacterCardName', '')}" for c in entry['Cards']),
                           len(entry['RewardReferences']), entry['Availability']['Status']])
+    acquisition = wb.create_sheet('AcquisitionEntries')
+    acquisition.append(['收藏类别', '编号', '名称', '入口类别', '入口编号', '入口说明', '奖励数量'])
+    for entry in data['Collections']:
+        for source in entry.get('AcquisitionEntries', []):
+            acquisition.append([entry['Label'], entry['Id'], entry['Name'], source['Kind'], str(source['OwnerId']),
+                                source['Name'], source['RewardReference']['RawReward'].get('RewardCount')])
     notes = wb.create_sheet('Notes'); notes.append(['核对时刻 UTC', data['AsOf']])
-    notes.append(['获取关系', '卡牌关联、奖励组引用与最终获取入口分开；本批最终入口尚未解析'])
+    notes.append(['获取关系', '仅列已确认入口；不承诺覆盖所有获取方式，原始奖励引用另存审计'])
     notes.append(['名称', '空称号/徽章名保留编号，不以图标文件名代替'])
     notes.append(['日期', '日期区间不代表账号已拥有或解锁；无日期时保留未知'])
     for sheet in wb:

@@ -19,7 +19,7 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(['mst_direct_reward', 'mst_present'], [r['SourceTable'] for r in style['RewardReferences']])
         self.assertEqual([11], [r['GroupId'] for r in honor['RewardReferences']])
         self.assertNotIn('not-a-name', honor['Name'])
-        self.assertEqual('not_resolved', style['AcquisitionEntryStatus'])
+        self.assertEqual('no_known_entries', style['AcquisitionEntryStatus'])
 
 
 if __name__ == '__main__':
