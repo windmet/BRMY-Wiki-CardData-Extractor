@@ -4,6 +4,8 @@
 
 桌面入口：`python -m toolkit gui`；新构建的 EXE 双击默认打开 GUI。使用步骤及当前验收边界见 [GUI 说明](docs/GUI_GUIDE.md)。
 
+新一轮数据审计的已核对问题、建设范围与验收顺序见 [下一阶段建设准备](docs/NEXT_STAGE_PLAN_20260909.md)。其中规划中的新域尚未实现。
+
 需要指定输入与输出目录时，使用新的 [`generate` 入口](docs/GENERATE_OUTPUTS.md)：统一生成 `wiki_output`、`audit_output` 和本次产物清单，保留旧命令兼容。
 
 维护者可使用 [`resources` 入口](docs/PRODUCTION_RESOURCES.md)读取正式服清单、按需下载原始资源并准备 masterdata；当前已支持缓存校验和显式离线模式。
