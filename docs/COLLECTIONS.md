@@ -34,6 +34,8 @@ OJT入口后续：奖励箱固定池948条、随机池2520条、训练36条收�
 
 ## 角色与颜色 metadata
 
+Spine 交叉核对补充：隔壁独立工程还保留相册便签专用的 `SPIN_STICKY_NOTE_COLORS`，不同于这里的 mst_color_code。例：角色2主数据色 `#7db247`，便签色 `#BED4A9`；Spine 分别导出 CharacterColor 与 StickyNoteColor，绘制便签优先后者。不能将“两套色号”解释为 ColorLocationType 的两个值，也不能据此覆盖 Wiki 主数据色。代码与测试已核对，原始游戏方法来源说明沿用 Spine 既有注释，本次没有重做反编译取证。
+
 收藏Audit新增CharacterMetadata：保留25角色原始记录及27条颜色记录。ColorTargetType1按CharacterId关联，type2按CharacterGroupCode保留成员证据，两个目标命名空间不互相兜底；同目标不同ColorLocationType的记录分别保留。当前数据没有独立部门表，不生成不存在的部门名称。未知类型、缺目标或角色歧义保留状态。
 
 颜色大小写和原值不改，ColorLocationType的用途仍未确认，不应用到GUI。角色Profile原值仅作审计材料，不当作已经核对的人物简介。
