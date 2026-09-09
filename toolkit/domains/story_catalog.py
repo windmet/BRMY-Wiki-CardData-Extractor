@@ -52,7 +52,45 @@ def extract(session, *, as_of=None):
                 'Raw': row, 'ReadRewards': rewards.direct(row.get('ReadDirectRewardGroupId')),
                 'Availability': date_window(release, end, as_of=now),
                 'ExplicitScripts': scripts, 'ScriptResolution': 'explicit' if scripts else 'not_declared'})
-    return {'Sections': sections, 'Issues': issues, 'RewardIssues': rewards.issues,
+    section_index = {(entry['SourceTable'], tuple(entry['Key'])): entry for entry in sections}
+    conditions = tables.group_by('mst_main_story_from_other_story_type_unlock_condition',
+                                'MainStoryFromOtherStoryTypeUnlockConditionId', required=False)
+    links = []
+    for entry in sections:
+        target = None
+        row = entry['Raw']
+        if entry['SourceTable'] == 'mst_main_story_from_other_story_type_section' and len(entry['Parents']) == 1:
+            chapter = entry['Parents'][0]
+            if chapter.get('StoryTypeCode') == 4:
+                target = ('mst_event_story_section', (chapter.get('StoryTargetChapterId'), row.get('MainStoryFromOtherStoryTypeSectionNo')))
+            unlock_id = chapter.get('MainStoryFromOtherStoryTypeUnlockConditionId')
+            entry['UnlockConditions'] = conditions.get(unlock_id, [])
+            if unlock_id and len(entry['UnlockConditions']) != 1:
+                issues.append({'Status': 'missing_or_ambiguous_unlock_condition', 'Key': entry['Key'], 'Id': unlock_id})
+        elif entry['Kind'] == 'puzzle':
+            if row.get('StoryTypeCode') == 1:
+                target = ('mst_main_story_section', (row.get('StoryTargetBaseId'), row.get('StoryTargetChapterId'), row.get('StoryTargetSectionNo')))
+        else:
+            continue
+        resolved = section_index.get(target) if target else None
+        status = 'resolved' if resolved else 'missing_target' if target else 'unsupported_story_type'
+        link = {'SourceTable': entry['SourceTable'], 'SourceKey': entry['Key'],
+                'TargetTable': target[0] if target else None, 'TargetKey': list(target[1]) if target else None,
+                'Status': status}
+        links.append(link)
+        if status != 'resolved':
+            issues.append(link)
+    event_owners = tables.group_by('mst_event_story', 'EventId', required=False)
+    free_windows = []
+    for row in tables.rows('mst_event_story_free', active_only=True):
+        owner = event_owners.get(row.get('EventId'), [])
+        status = 'resolved' if len(owner) == 1 else 'missing_or_ambiguous_event_story'
+        free_windows.append({'Raw': row, 'OwnerStatus': status,
+                             'Availability': date_window(row.get('StartTime'), row.get('EndTime'), as_of=now)})
+        if status != 'resolved':
+            issues.append({'Status': status, 'Raw': row})
+    return {'Sections': sections, 'CrossStoryLinks': links, 'EventFreeWindows': free_windows,
+            'Issues': issues, 'RewardIssues': rewards.issues,
             'AsOf': now.isoformat(), 'Timezone': 'UTC',
             'RawTables': {n: tables.rows(n) for n in tables.names if 'story' in n}}
 
@@ -77,6 +115,26 @@ def export(data):
     notes = wb.create_sheet('Notes'); notes.append(['核对时刻 UTC', data['AsOf']])
     notes.append(['用途', '剧情元数据索引；不等于正文已解析或账号已解锁'])
     notes.append(['文件名', '仅列原表明确声明的脚本，不按编号拼造'])
+    links = wb.create_sheet('CrossStoryLinks')
+    links.append(['来源表', '来源复合编号', '目标表', '目标复合编号', '关联状态'])
+    for link in data.get('CrossStoryLinks', []):
+        links.append([link['SourceTable'], '/'.join(map(str, link['SourceKey'])), link['TargetTable'],
+                      '/'.join(map(str, link['TargetKey'] or [])), link['Status']])
+    windows = wb.create_sheet('EventFreeWindows')
+    windows.append(['活动ID', '免费组ID', '开始', '结束', '日期状态'])
+    for entry in data.get('EventFreeWindows', []):
+        row = entry['Raw']
+        windows.append([row.get('EventId'), row.get('EventStoryFreeGroupId'), row.get('StartTime'), row.get('EndTime'), entry['Availability']['Status']])
+    unlock = wb.create_sheet('CrossStoryUnlock')
+    unlock.append(['来源复合编号', '条件码原值', 'Value1', 'Value2', 'Value3'])
+    seen = set()
+    for entry in data['Sections']:
+        for row in entry.get('UnlockConditions', []):
+            chapter_key = tuple(entry['Key'][:2])
+            key = (chapter_key, row.get('MainStoryFromOtherStoryTypeUnlockConditionId'))
+            if key not in seen:
+                seen.add(key)
+                unlock.append(['/'.join(map(str, chapter_key)), *[row.get(k) for k in ('MainStoryFromOtherStoryTypeUnlockConditionCode', 'Value1', 'Value2', 'Value3')]])
     for sheet in wb:
         sheet.freeze_panes = 'A2'
         for column in sheet.columns:
