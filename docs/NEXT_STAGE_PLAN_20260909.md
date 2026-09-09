@@ -1,8 +1,6 @@
 # 下一阶段建设准备（2026-09-09）
 
-实施进度：N1 首批 [统一奖励解析](REWARD_RESOLVER.md) 已实现并接入 events，114 tests 与54活动真实回归通过。N1 其余来源、Music、Item22、OJT 命名及 N2–N7 未完成；下方准备阶段描述保留为实施依据。
-
-后续进度：[Serial/Present 卡牌来源](SERIAL_PRESENT_ACQUISITION.md) 已接入，118 tests 通过，471卡对照仅六张特典卡的来源/方式有意变化。Music 关联后续亦已完成，见 [Music 关系验收](MUSIC_RELATIONS.md)。Item22 与 OJT 文案现已完成，见 [N1 收尾记录](N1_CLOSEOUT.md)。N1 源码和数据回归完成；新 EXE / 可见 GUI 验收待 N7，N2 已完成 [活动分类](EVENT_CLASSIFICATION.md)，[任务关系](EVENT_MISSIONS.md) 已完成，[日期状态](DATE_WINDOW_STATUS.md) 已接入；N2 源码与固定数据回归完成，候选 GUI 验收仍待 N7；N3 已完成 [OJT 主数据首批](OJT_ARCHIVE.md)，坐标仍待真实样本，[年度生日首批](BIRTHDAY_ARCHIVE.md) 已完成；N4 [双人主页首批](HOME_VOICE_DUO.md) 已通过真实ACB文本验证，[限定与时段](HOME_VOICE_CONDITIONS.md) 已补充，吉祥物/缺项复查及N5–N7尚待实施。
+当前状态以 [下一阶段收口工作单](NEXT_STAGE_CLOSEOUT_20260909.md) 为准。N1/N2 及 N3–N6 多个业务批次已经实现，五个新域已接入分组 GUI；OJT 坐标连接、来源覆盖收口和候选可见验收仍未完成。下文保留初次准备时的基线与验收约定，不能将其中历史待办视为当前状态。
 
 ## 本次范围与材料优先级
 
