@@ -115,6 +115,12 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                     session.write_audit(context.results, started_at=started_at, success=not context.errors)
                 except Exception as error:
                     record_error(error)
+            if session and resource_manifest is not None and 'groove' in domains and not context.errors:
+                try:
+                    from .groove_receipt import write_receipt
+                    write_receipt(context, session, resource_manifest)
+                except Exception as error:
+                    record_error(error)
     return context.finish()
 
 
