@@ -181,7 +181,8 @@ def test_direct_item_links_are_joined_but_unproven_links_stay_separate():
     assert "item_rarity_to_chance_box_item_rarity" in unresolved
     assert "wish_list_rate_level_application" in unresolved
 
-    assert result["Issues"] == []
+    # Missing achievement tables in this drop-only fixture fail closed.
+    assert all(issue['Status'] == 'unresolved_stage_challenge' for issue in result['Issues'])
 
 
 class GrooveDropTests(unittest.TestCase):

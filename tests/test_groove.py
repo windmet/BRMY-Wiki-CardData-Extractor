@@ -112,7 +112,10 @@ def check_build_dataset_links_bonus_relation_and_spin():
 
     assert result["RunnerPositions"][0]["Runner4"] == 4
     assert result["Stages"][0]["Side"] == "A"
-    assert result["Issues"] == []
+    # This legacy fixture deliberately lacks achievement definition tables.
+    assert all(issue['Status'] == 'unresolved_stage_challenge' for issue in result['Issues'])
+    assert len(result['Stages'][0]['Challenges']) == 4
+    assert all(row['Resolution'] == 'unresolved' for row in result['Stages'][0]['Challenges'])
     assert all(row['HasStaffCard'] for row in result['Characters'])
 
 

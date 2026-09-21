@@ -13,6 +13,7 @@ from ..core.exporter import audit_path, json_path, write_workbook, xlsx_path
 from ..core.output import record_warning
 from ..core.scanner import load_json, save_json
 from ..core.tables import TableCatalog
+from .groove_stages import StageChallenges
 
 
 INPUT_JSON = "master_data.json"
@@ -627,6 +628,7 @@ def build_dataset(tables):
         })
 
     # --- Stages -------------------------------------------------------------
+    challenge_source = StageChallenges(tables)
     stages = []
     for row in sorted(
         stage_rows,
@@ -658,6 +660,8 @@ def build_dataset(tables):
             "GrooveAchievementRewardId":
                 row.get("GrooveAchievementRewardId"),
             "GrooveCommonRewardId": row.get("GrooveCommonRewardId"),
+            "CommonRewardResolution": "unresolved",
+            "Challenges": challenge_source.project(row, issues),
             "ExtraAchievementIds": [
                 row.get("GrooveExtraAchievementId1"),
                 row.get("GrooveExtraAchievementId2"),
