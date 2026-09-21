@@ -1,15 +1,44 @@
-# 忽略 Python 缓存
 __pycache__/
-*.pyc
-
-# 忽略 PyInstaller 打包产生的临时文件
+*.py[cod]
+.pytest_cache/
+.bmc_toolkit/
+.venv/
+venv/
 build/
 dist/
-*.spec
+*.egg-info/
+*.whl
+*.exe
+nuitka-crash-report.xml
 
-# 忽略游戏源文件和解密出来的临时数据（规避版权风险）
+# Game inputs and extracted outputs
+master_data*.json
+master_data*.s2b
 *.s2b
-*.bin
-*.json
-*.csv
+*.s2blyrics
+*.s2bscript
+*.s2bchart
+*.acb
+*.awb
 *.xlsx
+*.csv
+*.lrc
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.wav
+*.mp3
+artifacts/
+data/
+inputs/
+outputs/
+json_output/
+xlsx_output/
+wiki_output/
+audit_output/
+
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
