@@ -10,6 +10,7 @@ from tkinter import ttk, filedialog
 from .core.feedback import feedback_groups, issue_text, artifact_needs_review
 
 TASKS = {
+    'groove': 'GROOVE 配队数据',
     'cards': '卡牌表', 'events': '活动资料', 'home_voices': '主页 / 生日祝福',
     'birthday': '生日庆典台词', 'card_update': '更新已有卡表', 'items': '道具图鉴',
     'music': '音乐资料', 'snap': 'Snap 文案', 'recipes': '配方', 'missions': '隐藏任务',
@@ -18,6 +19,7 @@ TASKS = {
     'home_voice_duo': '双人主页台词', 'story_catalog': '剧情目录', 'collections': '收藏档案',
 }
 TASK_GROUPS = [
+    ('GROOVE', ('groove',), '曲目、Bonus Runner、Relation 与各 SIDE 数据。'),
     ('卡牌与收藏', ('cards', 'card_update', 'collections', 'items'), '更新已有卡表会保留人工列。收藏档案区分卡牌关联、奖励引用与已确认获取入口。'),
     ('活动', ('events', 'ojt', 'missions', 'recipes', 'charts'), 'OJT 档案包含轮次、题面和奖励。本地模式可在高级设置补充 OJT Chart 坐标；单独的 OJT Chart 任务仅解析文件。'),
     ('语音', ('home_voices', 'home_voice_duo', 'audio'), '主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对。缺少资源时会保留缺项说明。'),
@@ -26,6 +28,7 @@ TASK_GROUPS = [
 ]
 MODES = {'正式服在线': 'online', '正式服离线缓存': 'offline', '使用本地资源': 'local'}
 TASK_HELP = {
+    'groove': '曲目加成、Runner 位次、Relation 与 SIDE；导出源数据，不推算掉落期望。',
     'cards': '生成卡牌资料；正式资源模式可同时同步卡牌语音。',
     'card_update': '以旧工作簿为输入更新卡牌，保留人工填写列。请在高级设置选择旧表。',
     'collections': '服装、Mini、称号、徽章、背景和道具；已确认入口不代表全部获取方式。',

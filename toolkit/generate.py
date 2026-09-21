@@ -10,7 +10,7 @@ from .domains import DOMAINS
 from .core.domain_contracts import validate_domain_input
 
 MASTERDATA = {'cards', 'music', 'snap', 'birthday', 'birthday_archive', 'recipes', 'missions', 'items', 'events', 'ojt'}
-MASTERDATA.update({'story_catalog', 'collections'})
+MASTERDATA.update({'story_catalog', 'collections', 'groove'})
 
 
 def generate(domains, output, *, masterdata=None, audio=None, source=None,

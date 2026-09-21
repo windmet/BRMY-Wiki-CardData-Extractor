@@ -1,6 +1,17 @@
 """Required identities for new archives; empty tables remain valid input."""
 
 CONTRACTS = {
+    'groove': {
+        'mst_character_card': ('CharacterId',),
+        'mst_character': ('CharacterId', 'CharacterNameJpn'),
+        'mst_music': ('MusicId', 'DisplayName'),
+        'mst_groove_music': ('MusicId', 'GrooveMusicType', 'ReleaseDateTime', 'EndTime', 'SortOrder'),
+        'mst_groove_music_bonus_runner': ('MusicId', 'CharacterId', 'GrooveRunnerBonusLevel'),
+        'mst_groove_card_level_exp': ('GrooveRunnerStatus', 'CardLevelExpRunner1', 'CardLevelExpRunner2', 'CardLevelExpRunner3', 'CardLevelExpRunner4'),
+        'mst_groove_runner_bonus': ('GrooveRunnerBonusLevel', 'CardLevelExpIncreaseCount', 'ChanceBoxLotteryIncreaseCount'),
+        'mst_groove_music_stage': ('MusicId', 'GrooveMusicStageType', 'GrooveMusicStageDifficulty', 'RelationLotteryRateIncreaseRate'),
+        'mst_groove_relation': ('GrooveRelationId', 'CharacterIds', 'LotteryRate', 'RelationText'),
+    },
     'ojt': {
         'mst_event_c': ('EventId',),
         'mst_event_ojt_chart': ('EventId', 'ChartFileName'),

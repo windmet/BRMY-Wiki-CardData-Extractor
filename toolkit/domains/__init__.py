@@ -1,8 +1,9 @@
 from . import cards, card_update, music, snap, birthday, recipes, missions, items, events, audio, home_voices
 from . import lyrics, scripts, charts, ojt, birthday_archive, home_voice_duo
-from . import story_catalog, collections
+from . import story_catalog, collections, groove
 
 DOMAINS = {
+    'groove': groove,
     'collections': collections,
     'story_catalog': story_catalog,
     'cards': cards,
