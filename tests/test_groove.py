@@ -20,6 +20,12 @@ def _catalog():
         "mst_groove_constant",
         "mst_spin_film",
         "mst_character_card",
+        "mst_item",
+        "mst_item_groove_stamina_recover",
+        "mst_groove_wish_list_item",
+        "mst_groove_wish_list_lottery_rate_level",
+        "mst_groove_chance_box_color",
+        "mst_groove_play_quality_reward_rate",
     ]
     directory = {name: [0, 0] for name in names}
     return TableCatalog([
@@ -83,6 +89,7 @@ def _catalog():
              "FilmRarityCode": 2, "SpinSetIds": [200001]},
         ],
         [{"CharacterId": 1, "IsActive": True}, {"CharacterId": 2, "IsActive": True}],
+        [], [], [], [], [], [],
     ])
 
 

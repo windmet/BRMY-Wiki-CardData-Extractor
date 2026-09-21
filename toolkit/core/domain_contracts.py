@@ -2,6 +2,13 @@
 
 CONTRACTS = {
     'groove': {
+        'mst_item': ('ItemId', 'ItemName', 'ItemDescription1'),
+        'mst_item_groove_stamina_recover': ('ItemId', 'RecoveryAmount'),
+        'mst_groove_constant': ('ConstantKey', 'RelationLotteryRateDenominator', 'WishListItemLotteryRateDenominator', 'ChanceBoxPinCustomItemLotteryRateMax', 'ChanceBoxWishListItemMaxRate', 'ConsumeGrooveStaminaRecoveryCrystal'),
+        'mst_groove_wish_list_item': ('ItemId', 'LotteryRate', 'ReleaseDateTime', 'EndTime', 'SortOrder'),
+        'mst_groove_wish_list_lottery_rate_level': ('GrooveWishListLotteryRateLevelId', 'BorderLotteryRate', 'Text'),
+        'mst_groove_chance_box_color': ('ChanceBoxItemRarity', 'ChanceBoxColor', 'LotteryRate'),
+        'mst_groove_play_quality_reward_rate': ('PlayQualityRewardRateId', 'Rainbow', 'Gold', 'Silver', 'Copper'),
         'mst_character_card': ('CharacterId',),
         'mst_character': ('CharacterId', 'CharacterNameJpn'),
         'mst_music': ('MusicId', 'DisplayName'),
