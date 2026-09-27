@@ -1,4 +1,5 @@
 import json
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,7 +13,7 @@ from toolkit.domains import music as music_domain
 def run_music(output, *, masterdata):
     tables = TableCatalog(json.loads(masterdata.read_text(encoding="utf-8")))
     with OutputContext(output, domain="music").activate():
-        music_domain.run(session=SimpleNamespace(tables=tables))
+        music_domain.run(session=SimpleNamespace(tables=tables, json_sha256=hashlib.sha256(masterdata.read_bytes()).hexdigest()))
 
 
 class MusicRelationsTests(unittest.TestCase):

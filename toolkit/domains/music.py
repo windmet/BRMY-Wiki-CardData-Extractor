@@ -93,5 +93,8 @@ def export():
 
 
 def run(audio_dir=None, session=None):
+    if session is not None:
+        from .music_source import build_source
+        save_json(build_source(session.tables, session.json_sha256), json_path('Music_Source.json'))
     extract(audio_dir=audio_dir, session=session)
     export()
