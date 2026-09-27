@@ -1,0 +1,12 @@
+# Validated release toolchain. Use only with CPython 3.12.9 on Windows x64.
+Nuitka==4.1.2
+et-xmlfile==2.0.0
+lz4==4.4.5
+msgpack==1.1.2
+mutagen==1.47.0
+openpyxl==3.1.5
+packaging==26.3
+pip==26.2.1
+setuptools==82.0.1
+wheel==0.48.0
+zstandard==0.25.0

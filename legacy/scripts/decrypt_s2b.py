@@ -14,7 +14,7 @@ def try_decompress(data, tag="unknown"):
     try:
         size = msgpack.unpackb(data[:5])
         decompressed = lz4.block.decompress(data[5:], uncompressed_size=size)
-        #print(f"[+] {tag}: lz4(带size) 解压成功, size={size}")
+        print(f"[+] {tag}: lz4(带size) 解压成功, size={size}")
         return decompressed
     except Exception:
         pass
@@ -83,12 +83,12 @@ def try_decompress(data, tag="unknown"):
 def ext_hook(code, data):
     """处理 msgpack 扩展类型"""
     if code == 99:
-        #print("[*] 遇到扩展类型 99 (疑似加密/压缩块), 尝试解压...")
+        print("[*] 遇到扩展类型 99 (疑似加密/压缩块), 尝试解压...")
         decompressed = try_decompress(data, tag="ext99")
         try:
             # 尝试把解压出来的东西再当做 msgpack 解析
             unpacked = msgpack.unpackb(decompressed, raw=False)
-            #print("[+] 扩展类型 99 解压并解码 MsgPack 成功!")
+            print("[+] 扩展类型 99 解压并解码 MsgPack 成功!")
             return unpacked
         except Exception as e:
             print("[-] 扩展类型 99 解码 MsgPack 失败 (可能是纯文本或其他格式):", e)
@@ -108,9 +108,9 @@ def json_serial(obj):
         return obj.to_datetime().isoformat()
     raise TypeError(f"Unsupported type: {type(obj)}")
 
-def main(input_file="master_data.s2b", output_file="master_data.json"):
-    print(f"[*] 开始解析 {input_file} ...")
-    with open(input_file, "rb") as f:
+def main():
+    print("[*] 开始解析 master_data.s2b ...")
+    with open("master_data.s2b", "rb") as f:
         raw = f.read()
 
     unpacker = msgpack.Unpacker(ext_hook=ext_hook, raw=False)
@@ -123,9 +123,10 @@ def main(input_file="master_data.s2b", output_file="master_data.json"):
     print(f"[*] 成功解码总对象数: {len(objs)}")
 
     # 保存 JSON
-    with open(output_file, "w", encoding="utf-8") as out:
+    with open("master_data.json", "w", encoding="utf-8") as out:
         json.dump(objs, out, default=json_serial, ensure_ascii=False, indent=2)
-    print(f"[+] 已保存到 {output_file}")
+
+    print("[+] 已保存到 master_data.json, 快去看看有没有变大！")
 
 if __name__ == "__main__":
     main()

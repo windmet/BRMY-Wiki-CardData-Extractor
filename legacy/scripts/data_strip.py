@@ -1,8 +1,15 @@
 import json
+import csv
 import re
-from openpyxl import Workbook
 
-def extract_card_data(json_file_path, output_xlsx_path):
+# 尝试导入 openpyxl 以便直接生成原生的 Excel (.xlsx) 格式
+try:
+    from openpyxl import Workbook
+    OPENPYXL_AVAILABLE = True
+except ImportError:
+    OPENPYXL_AVAILABLE = False
+
+def extract_card_data(json_file_path, output_csv_path):
     with open(json_file_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
         
@@ -22,7 +29,7 @@ def extract_card_data(json_file_path, output_xlsx_path):
     release_events = {}
     processed_cards = []
     
-    # 第一遍扫描
+    # ★ 第一遍扫描
     for cid in sorted_cids:
         card_info = data[cid]
         meta = card_info.get("Meta", {})
@@ -74,7 +81,7 @@ def extract_card_data(json_file_path, output_xlsx_path):
             "notice_event": meta.get("NoticeEvent", ""), "rarity": str(meta.get("Rarity"))
         })
 
-    # 第二遍推演
+    # ★ 第二遍推演
     stop_inferring = False
     last_valid_event = ""
     rows = []
@@ -106,6 +113,7 @@ def extract_card_data(json_file_path, output_xlsx_path):
         meta = c["meta"]
         stats = card_info.get("Stats", {})
         
+        # 数值解析与突破加成计算
         aura_min = stats.get("Aura", {}).get("Min", 0)
         aura_base_max = stats.get("Aura", {}).get("Max", 0)
         visual_min = stats.get("Visual", {}).get("Min", 0)
@@ -177,26 +185,36 @@ def extract_card_data(json_file_path, output_xlsx_path):
         ]
         rows.append(row)
         
-    # 纯原生 Excel 构建逻辑
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "cards_data"
-    ws.append(headers)
-    
-    for row in rows:
-        cleaned_row = []
-        for item in row:
-            if isinstance(item, str) and item.isdigit():
-                cleaned_row.append(int(item)) # 转化为纯数字，方便后续Excel计算
-            else:
-                cleaned_row.append(item)
-        ws.append(cleaned_row)
+    # 1. 导出为标准的 .csv 文件 (逗号分隔 + 带 BOM 头，双击直接无警告/无向导安全打开)
+    with open(output_csv_path, 'w', encoding='utf-8-sig', newline='') as f:
+        writer = csv.writer(f, delimiter=',')
+        writer.writerow(headers)
+        writer.writerows(rows)
+    print(f"[+] CSV表格已保存至: {output_csv_path} (已支持双击完美直开)")
+
+    # 2. 如果环境内存在 openpyxl 库，则自动额外输出一份原生的 .xlsx 格式，方便共享
+    if OPENPYXL_AVAILABLE:
+        output_xlsx_path = output_csv_path.replace('.csv', '.xlsx')
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "cards_data"
         
-    wb.save(output_xlsx_path)
-    print(f"[+] Excel 原生格式 (.xlsx) 已生成至: {output_xlsx_path}")
+        # 写入表头与数据 (数值类型在 Excel 里会被正确识别为数值而非纯文本)
+        ws.append(headers)
+        for row in rows:
+            # 尝试将数字格式的字符串转化为真正的整型写入，以便在 Excel 中直接使用 SUM 等公式
+            cleaned_row = []
+            for item in row:
+                if isinstance(item, str) and item.isdigit():
+                    cleaned_row.append(int(item))
+                else:
+                    cleaned_row.append(item)
+            ws.append(cleaned_row)
+            
+        wb.save(output_xlsx_path)
+        print(f"[+] Excel原生格式 (.xlsx) 已同步自动生成至: {output_xlsx_path}")
+    else:
+        print("[!] 提示: 如果想直接一步生成原生的 .xlsx 格式，请在终端运行 'pip install openpyxl' 安装组件。")
 
-def main(input_json="All_Cards_Database.json", output_xlsx="cards_data.xlsx"):
-    extract_card_data(input_json, output_xlsx)
-
-if __name__ == "__main__":
-    main()
+# 执行脚本（后缀修改为 .csv）
+extract_card_data('All_Cards_Database.json', 'cards_data.csv')
