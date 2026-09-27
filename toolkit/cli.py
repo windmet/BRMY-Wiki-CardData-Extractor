@@ -46,7 +46,7 @@ from .core.session import MasterDataSession, utc_now
 # 确保工作目录正确（通常放在 master_data.json 同级）
 MASTER_DIR = os.getcwd()
 MASTERDATA_DOMAIN_NAMES = {
-    'cards', 'music', 'snap', 'birthday', 'recipes', 'missions', 'items', 'events'
+    'cards', 'music', 'jukebox', 'snap', 'birthday', 'recipes', 'missions', 'items', 'events'
 }
 
 

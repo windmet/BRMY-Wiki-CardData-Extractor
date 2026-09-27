@@ -1,6 +1,20 @@
 """Required identities for new archives; empty tables remain valid input."""
 
 CONTRACTS = {
+    'jukebox': {
+        'mst_music': ('MusicId', 'DisplayName'),
+        'mst_music_out_game': ('MusicId', 'AudioFileName', 'JacketFileName'),
+        'mst_music_position_jukebox': ('MusicId',),
+        'mst_music_cue': ('MusicCueId',),
+        'mst_music_cue_sheet': ('MusicCueSheetId',),
+        'mst_direct_reward': ('DirectRewardGroupId', 'RewardTypeCode', 'RewardTargetId'),
+        'mst_mission_sequence': ('MissionId', 'MissionSequenceNo', 'DirectRewardGroupId'),
+        'mst_mission': ('MissionId', 'Description'),
+        'mst_character_card_revision': ('CharacterCardId', 'RevisionRank'),
+        'mst_character_card': ('CharacterCardId',),
+        'mst_event': ('EventId',),
+        'mst_campaign': ('CampaignId',),
+    },
     'groove': {
         'mst_item': ('ItemId', 'ItemName', 'ItemDescription1'),
         'mst_item_groove_stamina_recover': ('ItemId', 'RecoveryAmount'),
