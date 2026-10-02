@@ -41,6 +41,17 @@ try {
             }
         }
 
+        $websiteHelp = (& $executablePath website check --help 2>&1) -join "`n"
+        if ($LASTEXITCODE -ne 0 -or $websiteHelp -notmatch '--expected-manifest') {
+            throw "EXE website modules or CLI options are missing.`n$websiteHelp"
+        }
+        $emptyCache = Join-Path $temporaryRoot 'empty-cache'
+        $websiteOutput = Join-Path $temporaryRoot 'website-output'
+        $websiteFailure = (& $executablePath website check --offline --cache $emptyCache --output $websiteOutput 2>&1) -join "`n"
+        if ($LASTEXITCODE -eq 0 -or -not (Test-Path (Join-Path $websiteOutput 'website_failure.json'))) {
+            throw "EXE offline missing-cache check did not fail explicitly.`n$websiteFailure"
+        }
+
         $masterdataBytes = [Convert]::FromBase64String(
             "xxJjzgAAAAzAgaltc3Rfc21va2UAxxhjzgAAABHwApGCoklkAaROYW1lpVNtb2tl"
         )
@@ -73,6 +84,7 @@ try {
             doctor = $doctor
             gui_construction = $gui
             list_markers = @("cards", "home_voices", "update cards")
+            website_cli = 'PASS: help and offline missing-cache rejection'
             masterdata_decrypt = [ordered]@{
                 status = "PASS"
                 table_count = 1

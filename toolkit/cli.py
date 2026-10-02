@@ -27,6 +27,7 @@
     sync <域...> --cache <目录> --output <目录> [--offline] [--plan-only]
                                               按任务同步正式资源并生成
     resources catalog|masterdata|download --cache <目录> [--offline]
+    website check|prepare --cache <目录> --output <目录> [--offline]
                                               正式服资源清单与按需下载
     generate <域...> --output <目录> --masterdata <文件>
                                               显式输入输出，生成本次产物清单
@@ -384,6 +385,10 @@ def main():
             gui_main()
         else:
             raise SystemExit('gui 仅支持 --self-test 或无参数启动')
+    elif cmd == 'website':
+        from .website.service import main as website_main
+        if not website_main(args[1:]):
+            raise SystemExit(1)
     elif cmd == 'sync':
         from .resolve import main as sync_main
         if not sync_main(args[1:]):
