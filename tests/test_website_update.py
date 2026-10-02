@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from toolkit.resources import Resource
-from toolkit.website.service import check, export_sources, prepare
+from toolkit.website.service import check, export_sources, prepare, main
 
 
 class WebsiteUpdateTests(unittest.TestCase):
@@ -52,6 +52,14 @@ class WebsiteUpdateTests(unittest.TestCase):
         with self.assertRaises((ValueError, KeyError)):
             export_sources(master, self.root / 'output')
         self.assertFalse((self.root / 'output').exists())
+
+    def test_failed_cli_retry_replaces_stale_success_receipt(self):
+        (self.root / 'website_receipt.json').write_text('{"status":"PASS"}', 'utf-8')
+        with patch('toolkit.website.service.prepare', side_effect=ValueError('changed source')):
+            result = main(['prepare', '--cache', str(self.root / 'cache'), '--output', str(self.root),
+                           '--expected-manifest', 'a'*64])
+        self.assertFalse(result)
+        self.assertEqual('FAIL', json.loads((self.root / 'website_receipt.json').read_text('utf-8'))['status'])
 
 
 if __name__ == '__main__':

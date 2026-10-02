@@ -136,6 +136,10 @@ def main(args):
         print(json.dumps({key: report.get(key) for key in ('status', 'manifestSha256', 'resourceFingerprint', 'runId')}))
         return True
     except Exception as error:
-        atomic_json(options.output / 'website_failure.json', {'status': 'FAIL', 'error': str(error)})
+        failure = {'status': 'FAIL', 'error': str(error), 'publication': 'source_only'}
+        atomic_json(options.output / 'website_failure.json', failure)
+        if options.action == 'prepare':
+            # A reused output directory must never expose an old PASS as this run.
+            atomic_json(options.output / 'website_receipt.json', failure)
         print(f'Website source update failed: {error}')
         return False
