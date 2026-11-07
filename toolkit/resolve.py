@@ -1,6 +1,7 @@
 """Resolve task inputs from the production catalog, then invoke generation."""
 from pathlib import Path
 import lzma
+import shutil
 import tempfile
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -89,6 +90,17 @@ def build_plan(domains, resources, tables=None, *, include_card_audio=True, reso
             output_names.add(identity)
     return {'domains': domains, 'resources': list(selected.values()), 'warnings': warnings,
             'errors': errors, 'include_card_audio': include_card_audio}
+
+
+def discard_staged_resources(stage):
+    """Drop per-run copies of parser inputs; they duplicate the verified raw cache.
+
+    The decoded masterdata and its provenance stay at the stage root because
+    receipts and website preparation re-verify that chain after generation.
+    """
+    for path in Path(stage).iterdir() if Path(stage).is_dir() else ():
+        if path.is_dir():
+            shutil.rmtree(path)
 
 
 def materialize(download, destination, kind):
@@ -240,10 +252,13 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
         audio_dir = stage / 'audio'
         if (set(domains) & {'cards', 'card_update'} and include_card_audio) or 'card_combi_voices' in domains:
             audio_dir.mkdir(parents=True, exist_ok=True)
-        return generate(domains, output, masterdata=masterdata,
-                        audio=str(audio_dir) if audio_dir.exists() else None,
-                        source=sources, resource_manifest=audit,
-                        cancelled=cancelled, progress=progress, **generation_options)
+        report = generate(domains, output, masterdata=masterdata,
+                          audio=str(audio_dir) if audio_dir.exists() else None,
+                          source=sources, resource_manifest=audit,
+                          cancelled=cancelled, progress=progress, **generation_options)
+        if report['status'] != 'FAIL':
+            discard_staged_resources(stage)
+        return report
     except Exception as error:
         audit['errors'].append(str(error))
         context = OutputContext(output)

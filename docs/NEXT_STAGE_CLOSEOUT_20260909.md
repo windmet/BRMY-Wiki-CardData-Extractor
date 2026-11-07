@@ -31,7 +31,7 @@ Wiki 继续在当前仓库建设。Spine 保持独立；正式源能力经 Wiki 
 
 ### A. OJT 坐标连接
 
-本地已找到 `E:/做了一半的字幕/bmc_unpack/scripts/Scripts/event43_chart_layout.s2bchart`，SHA-256 `4e5599e52b75309a758de17a7a1bf0fcaefb371f452710bc5e5b29b8e3c908b3`。已有严格解析证据显示 `IconLayouts` 含21角色的 `IconPosition` 与 `SiblingIndex`；文件 stem 与 Event43 的 `ChartFileName` 一致。单位尚未确认。
+本地已找到 `E:/BRMY_Data/bmc_unpack/scripts/Scripts/event43_chart_layout.s2bchart`，SHA-256 `4e5599e52b75309a758de17a7a1bf0fcaefb371f452710bc5e5b29b8e3c908b3`。已有严格解析证据显示 `IconLayouts` 含21角色的 `IconPosition` 与 `SiblingIndex`；文件 stem 与 Event43 的 `ChartFileName` 一致。单位尚未确认。
 
 1. 为 OJT 增加可选本地 chart 输入，贯通 generate 与 GUI；未提供文件时仍可生成主数据档案，并明确坐标未加载。
 2. 仅按明确 ChartFileName 匹配。重复文件、无匹配、损坏结构、非法角色或坐标均留诊断；不按事件编号猜别名，不构造线上 URL。
