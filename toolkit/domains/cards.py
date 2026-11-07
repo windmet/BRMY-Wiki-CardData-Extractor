@@ -16,6 +16,7 @@ from ..core.data import (
 from .card_relations import enrich_card_relations
 from .card_export import build_card_sheet
 from .audio import CARD_CUE_ORDER, scan_card_voices
+from . import card_voice_review
 from ..core.output import record_warning
 
 INPUT_JSON = 'master_data.json'
@@ -398,6 +399,7 @@ def extract(audio_dir=None, session=None):
         if audio_warnings:
             print(f"[!] ACB 扫描警告 {len(audio_warnings)} 条")
             record_warning(f"卡牌 ACB 扫描警告 {len(audio_warnings)} 条")
+        card_voice_review.run(audio_dir, tables, lambda cid: character_map.get(cid, '/'))
 
     out = json_path('All_Cards_Database.json')
     save_json(cards_db, out)
