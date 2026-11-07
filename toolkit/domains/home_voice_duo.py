@@ -56,12 +56,15 @@ def run(acb_root, session=None):
     def name(cid):
         return characters.get(cid, {}).get('CharacterNameJpn', f'Character({cid})')
     rows = []
-    for pair in data['Pairs']:
+    # Each character pair can have several conversations; keep them adjacent and numbered.
+    for pair in sorted(data['Pairs'], key=lambda p: (p['PairKey'], p['First']['HomeVoiceNo'])):
         first, second = pair['First'], pair['Partner']
-        rows.append([name(first['CharacterId']), name(second['CharacterId']), first['Text'], second['Text'],
+        rows.append([name(first['CharacterId']), name(second['CharacterId']),
+                     first['HomeVoiceNo'], second['HomeVoiceNo'], first['Text'], second['Text'],
                      pair['Raw'].get('PartnerVoiceStart'), first['Status'], second['Status']])
     write_xlsx(rows, xlsx_path('home_voice_duo.xlsx'),
-               ['角色', '搭档', '角色台词', '搭档台词', '搭档开始时间原值', '角色文本状态', '搭档文本状态'], sheet_title='双人主页')
+               ['角色', '搭档', '角色台词编号', '搭档台词编号', '角色台词', '搭档台词', '搭档开始时间原值',
+                '角色文本状态', '搭档文本状态'], sheet_title='双人主页')
     if data['Issues'] or warnings:
         record_warning(f"双人主页有 {len(data['Issues'])} 条文本缺项、{len(warnings)} 条扫描告警，详见 home_voice_duo.json")
     return data
