@@ -175,6 +175,8 @@ card_vo_skill_17
 
 CR 卡的“卡牌角色名”直接输出两名角色，主角色技能仍写入原“卡牌技能语音J”，副角色技能写入新增列。普通卡的 `card_vo_skill_combi` 只进入协作语音列，不会误判成副角色技能。
 
+例外：三轮生日卡的 `card_vo_skill_combi` 依次播放部门内多名成员的语音，协作语音列只保留整条 Cue 的元数据文本，逐段内容见 [多段协作语音例外表](CARD_COMBI_VOICES.md)。
+
 卡牌 XLSX 的日文语音会移除 `<br>` 和实际换行，避免 Wiki 拉表后出现强制断行。JSON 仍保留 `Text` 与 `TextHtml` 两种形式，关系证据中的 `Confidence`、`Warnings` 也只用于内部排查，不再导出为 Wiki 列。
 
 ## 9. 当前验证基线
