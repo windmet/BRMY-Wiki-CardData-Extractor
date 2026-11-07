@@ -116,6 +116,9 @@ class ResolverTests(unittest.TestCase):
             self.assertEqual({'none', 'lzma-alone'}, {r['envelope'] for r in audit['downloads']})
             for record in audit['downloads']:
                 self.assertNotEqual(record['path'], record['prepared_path'])
+                # Staged copies are discarded after a successful run; the raw cache stays.
+                self.assertFalse(Path(record['prepared_path']).exists())
+                self.assertTrue(Path(record['path']).exists())
 
     def test_required_failure_and_cancellation_prevent_generation(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -138,11 +141,17 @@ class ResolverTests(unittest.TestCase):
             master = msgpack.packb({'mst_character_card': [0, 0]}) + msgpack.packb([{'CharacterCardId': 1}])
             provider = provider_for(root / 'cache', {MASTER_KEY: deflate(master),
                                                     'Musics/voice_1.acb': OSError('unavailable')})
-            with patch('toolkit.resolve.generate', return_value={'status': 'TEST'}) as generate:
+            seen = {}
+
+            def fake_generate(*args, **kwargs):
+                seen['audio_is_dir'] = Path(kwargs['audio']).is_dir()
+                return {'status': 'TEST'}
+
+            with patch('toolkit.resolve.generate', side_effect=fake_generate) as generate:
                 synchronize(['cards'], root / 'out', root / 'cache', provider=provider)
                 kwargs = generate.call_args.kwargs
                 self.assertTrue(kwargs['resource_manifest']['warnings'])
-                self.assertTrue(Path(kwargs['audio']).is_dir())
+                self.assertTrue(seen['audio_is_dir'])
 
     def test_plan_only_downloads_masterdata_but_not_card_audio(self):
         with tempfile.TemporaryDirectory() as directory:
