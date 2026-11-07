@@ -38,9 +38,9 @@ def build_plan(domains, resources, tables=None, *, include_card_audio=True, reso
         item['required'] |= required
 
     for domain in domains:
-        if domain in MASTERDATA | {'home_voices', 'home_voice_duo', 'card_update'}:
+        if domain in MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update'}:
             add(MASTER_KEY, domain, True, 'masterdata')
-        if domain in {'cards', 'card_update'} and include_card_audio:
+        if (domain in {'cards', 'card_update'} and include_card_audio) or domain == 'card_combi_voices':
             if tables is None:
                 raise ValueError('卡牌资源规划需要 masterdata 表')
             for row in tables.require('mst_character_card'):
@@ -163,13 +163,14 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
         stage = provider.root / 'jobs' / uuid.uuid4().hex
         tables = None
         masterdata = None
-        if set(domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_update'}):
+        if set(domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update'}):
             notify('masterdata')
             downloaded = provider.download(MASTER_KEY, offline=offline, cancelled=cancelled)
             prepared = prepare_production_masterdata(downloaded, stage / 'master_data.s2b')
             audit['downloads'].append({**downloaded, **prepared})
             masterdata = prepared['decoded_path']
-            if ('home_voices' in domains or (set(domains) & {'cards', 'card_update'} and include_card_audio)):
+            if ('home_voices' in domains or 'card_combi_voices' in domains
+                    or (set(domains) & {'cards', 'card_update'} and include_card_audio)):
                 tables = TableCatalog(decode_masterdata(masterdata))
         plan = build_plan(domains, provider.resources, tables, include_card_audio=include_card_audio,
                           resource_keys=resource_keys)
@@ -237,7 +238,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
                             if domain in entry.get('domains', [])]
                    for domain in SUFFIXES if domain in domains}
         audio_dir = stage / 'audio'
-        if set(domains) & {'cards', 'card_update'} and include_card_audio:
+        if (set(domains) & {'cards', 'card_update'} and include_card_audio) or 'card_combi_voices' in domains:
             audio_dir.mkdir(parents=True, exist_ok=True)
         return generate(domains, output, masterdata=masterdata,
                         audio=str(audio_dir) if audio_dir.exists() else None,

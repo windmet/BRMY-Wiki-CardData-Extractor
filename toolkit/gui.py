@@ -16,13 +16,13 @@ TASKS = {
     'music': '音乐资料', 'snap': 'Snap 文案', 'recipes': '配方', 'missions': '隐藏任务',
     'lyrics': '歌词', 'scripts': '剧情脚本', 'charts': 'OJT Chart（本地）', 'audio': '通用语音文本',
     'ojt': 'OJT 活动档案', 'birthday_archive': '年度生日档案',
-    'home_voice_duo': '双人主页台词', 'story_catalog': '剧情目录', 'collections': '收藏档案',
+    'home_voice_duo': '双人主页台词', 'card_combi_voices': '多段协作语音（例外表）', 'story_catalog': '剧情目录', 'collections': '收藏档案',
 }
 TASK_GROUPS = [
     ('GROOVE', ('groove',), '曲目、Bonus Runner、Relation 与各 SIDE 数据。'),
     ('卡牌与收藏', ('cards', 'card_update', 'collections', 'items'), '更新已有卡表会保留人工列。收藏档案区分卡牌关联、奖励引用与已确认获取入口。'),
     ('活动', ('events', 'ojt', 'missions', 'recipes', 'charts'), 'OJT 档案包含轮次、题面和奖励。本地模式可在高级设置补充 OJT Chart 坐标；单独的 OJT Chart 任务仅解析文件。'),
-    ('语音', ('home_voices', 'home_voice_duo', 'audio'), '主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对。缺少资源时会保留缺项说明。'),
+    ('语音', ('home_voices', 'home_voice_duo', 'card_combi_voices', 'audio'), '主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对。多段协作语音是卡牌表之外的例外表。缺少资源时会保留缺项说明。'),
     ('生日', ('birthday', 'birthday_archive'), '生日庆典台词按生日轮次整理；年度生日档案按角色和年份汇总登录奖励、点击奖励、服装与台词。生日祝福请到“语音”。'),
     ('剧情与其他', ('story_catalog', 'scripts', 'lyrics', 'music', 'snap'), '剧情目录是 masterdata 索引；剧情脚本解析独立正文。'),
 ]
@@ -40,6 +40,7 @@ TASK_HELP = {
     'recipes': '整理配方与相关奖励资料。',
     'home_voices': '从角色 ACB 提取主页及生日祝福文本；资源缺侧会保留告警。',
     'home_voice_duo': '按两位角色配对双人主页台词，需要 masterdata 和角色 ACB。',
+    'card_combi_voices': '列出一条 Cue 含多段音频的卡牌（如三轮生日部门协作），逐段导出音频供人工听写；不写入卡牌全表。',
     'audio': '提取本地 ACB 的通用文本，不按文件名猜测说话角色。',
     'birthday': '生日庆典小游戏台词，按轮次整理；不是 ACB 生日祝福。',
     'birthday_archive': '按角色和年份整理年度生日的登录、点击奖励、服装和台词。',
@@ -95,10 +96,10 @@ class JobRequest:
             if 'charts' in self.domains:
                 raise ValueError('在线OJT Chart路径尚未确认，请切换到本地资源模式')
         else:
-            if set(self.domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_update'}):
+            if set(self.domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update'}):
                 if not Path(self.masterdata).is_file():
                     raise ValueError('本地任务需要选择 masterdata 文件')
-            if set(self.domains) & {'home_voices', 'home_voice_duo', 'audio'}:
+            if set(self.domains) & {'home_voices', 'home_voice_duo', 'card_combi_voices', 'audio'}:
                 if not self.audio or not Path(self.audio).is_dir():
                     raise ValueError('该任务需要选择本地 ACB 音频目录')
             if self.audio and not Path(self.audio).is_dir():

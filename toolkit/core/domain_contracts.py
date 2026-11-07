@@ -54,6 +54,10 @@ CONTRACTS = {
         'mst_character_home_voice_duo': ('CharacterId', 'HomeVoiceNo', 'PartnerCharacterId', 'PartnerHomeVoiceNo'),
         'mst_home_voice': ('HomeVoiceTypeCode', 'HomeVoiceCategory', 'HomeVoiceTargetId', 'HomeVoiceNo', 'VoiceCueName'),
     },
+    'card_combi_voices': {
+        'mst_character_card': ('CharacterCardId', 'CharacterId', 'CombiCharacterId'),
+        'mst_character': ('CharacterId', 'CharacterGroupCode'),
+    },
     'story_catalog': {
         'mst_main_story_section': ('MainStoryThreadNo', 'MainStoryChapterNo', 'MainStorySectionNo'),
         'mst_character_story_section': ('CharacterId', 'CharacterStoryChapterNo', 'CharacterStorySectionNo'),

@@ -35,7 +35,7 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
             unknown = set(domains) - set(DOMAINS)
             if unknown:
                 raise ValueError(f'未知任务: {sorted(unknown)}')
-            if set(domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_update'}):
+            if set(domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update'}):
                 if not masterdata:
                     raise ValueError('此任务需要 masterdata 文件')
                 path = Path(masterdata).resolve()
@@ -67,6 +67,10 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                     elif domain == 'home_voice_duo':
                         if not audio or not Path(audio).is_dir():
                             raise ValueError('双人主页语音需要 ACB 目录')
+                        module.run(audio, session=session)
+                    elif domain == 'card_combi_voices':
+                        if not audio or not Path(audio).is_dir():
+                            raise ValueError('多段协作语音需要卡牌 ACB 目录')
                         module.run(audio, session=session)
                     elif domain == 'home_voices':
                         if not audio:
