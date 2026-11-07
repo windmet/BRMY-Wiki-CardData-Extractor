@@ -1,0 +1,32 @@
+name: tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - environment: release-compatible
+            python: "3.12.9"
+          - environment: compatible
+            python: "3.12"
+    name: test (${{ matrix.environment }})
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements/release-build.txt
+      - if: matrix.environment == 'release-compatible'
+        run: python -m pip install -r requirements/release-build.txt
+      - if: matrix.environment == 'release-compatible'
+        run: python -m pip install --no-deps --no-build-isolation -e .
+      - if: matrix.environment == 'compatible'
+        run: python -m pip install -e .
+      - shell: pwsh
+        run: ./scripts/verify.ps1

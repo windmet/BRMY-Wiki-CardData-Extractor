@@ -2,13 +2,13 @@ import json
 import re
 
 # 配置文件名
-#INPUT_JSON = 'master_data.json'
+INPUT_JSON = 'master_data.json'
 TARGET_CARD_ID = None  # 设置为 None 则会遍历所有卡牌并生成一个超大表
 
-def main(input_json="master_data.json", output_json="All_Cards_Database.json"):
+def main():
     print(f"[*] 正在加载数据库...")
     try:
-        with open(input_json, 'r', encoding='utf-8') as f:
+        with open(INPUT_JSON, 'r', encoding='utf-8') as f:
             data = json.load(f)
         print(f"[+] 数据库加载成功！")
     except Exception as e:
@@ -227,7 +227,7 @@ def main(input_json="master_data.json", output_json="All_Cards_Database.json"):
         elif isinstance(obj, list):
             for item in obj: scan_obj(item)
 
-    #print("[*] 正在执行深度扫描与数据缝合...")
+    print("[*] 正在执行深度扫描与数据缝合...")
     scan_obj(data)
 
     # ★ 新增：概率精确转译拦截器
@@ -253,7 +253,7 @@ def main(input_json="master_data.json", output_json="All_Cards_Database.json"):
         
         return desc
 
-    #print("[*] 正在执行后处理: 填补协作占位符、精修概率并重定向XR卡活动...")
+    print("[*] 正在执行后处理: 填补协作占位符、精修概率并重定向XR卡活动...")
     color_regex = re.compile(r'(サンピース（赤色）|サンピース（桃色）|ムーンピース（空色）|ムーンピース（青色）|スターピース（黄色）|スターピース（緑色）)')
 
     for cid, card in cards_db.items():
@@ -326,9 +326,9 @@ def main(input_json="master_data.json", output_json="All_Cards_Database.json"):
             leader_skill["Desc"] = apply_percentage_fix(leader_skill["Desc"], rarity)
 
     filename = f"Comprehensive_Card_{TARGET_CARD_ID}_Data.json" if TARGET_CARD_ID else "All_Cards_Database.json"
-    with open(output_json, "w", encoding="utf-8") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         json.dump(cards_db.get(TARGET_CARD_ID) if TARGET_CARD_ID else cards_db, f, ensure_ascii=False, indent=4)
-    print(f"[+] 卡牌信息已保存至: {output_json}")
+    print(f"[+] 抓取完成！最全档案已保存至: {filename}")
 
 if __name__ == "__main__":
     main()
