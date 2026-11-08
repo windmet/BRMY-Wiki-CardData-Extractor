@@ -17,8 +17,8 @@ NAME_MAP = {
     "麻波麗": "麗",
 }
 
-# Code 102 was added after the available dump.cs enum. It is the CR rarity used
-# by the first Vignette multi-character cards; the raw code is retained in Meta.
+# Matches Coly.S2BShared.Enums.CardRarityCode in the 2.1.0 dump.cs (CR = 102 is
+# the multi-character Vignette rarity). scripts/dump_schema.py flags new codes.
 RARITY_MAP = {1: "R", 2: "SR", 3: "SSR", 101: "XR", 102: "CR"}
 ATTRIBUTE_MAP = {1: "日", 2: "月", 3: "星"}
 
