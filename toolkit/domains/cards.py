@@ -146,7 +146,7 @@ def _build_lookups(tables):
         },
         leader_effects={
             row['LeaderSkillEffectId']: {
-                "Name": row.get('SkillName', f"Leader_{row['LeaderSkillEffectId']}"),
+                "Name": row.get('SkillName') or row.get('SkillEffect') or f"Leader_{row['LeaderSkillEffectId']}",
                 "Desc": row.get('SkillDescription', ''),
             }
             for row in tables.require('mst_leader_skill_effect')
@@ -176,7 +176,7 @@ def _new_card():
 def _costs(row, lookups):
     costs = []
     for i in range(1, 7):
-        iid = row.get(f'ItemId{i}', 0)
+        iid = row.get(f'CostItemId{i}', 0)
         count = row.get(f'CostItemCount{i}', 0)
         if iid > 0 and count > 0:
             costs.append({"Item": lookups.items.get(iid, f"Item_{iid}"), "Count": count})
@@ -226,8 +226,7 @@ def _apply_revision(card, row, lookups):
 
 def _cost_applier(category, level_key, prefix):
     def apply(card, row, lookups):
-        if 'ItemId1' in row:
-            card["UpgradeCosts"][category][f"{prefix}{row[level_key]}"] = _costs(row, lookups)
+        card["UpgradeCosts"][category][f"{prefix}{row[level_key]}"] = _costs(row, lookups)
     return apply
 
 
