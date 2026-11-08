@@ -103,7 +103,7 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                             if domain in {'scripts', 'charts', 'lyrics'} and Path(input_path).is_file():
                                 expected = {'scripts': '.s2bscript', 'charts': '.s2bchart',
                                             'lyrics': '.s2blyrics'}[domain]
-                                if Path(input_path).suffix.lower() != expected:
+                                if not Path(input_path).name.lower().endswith(expected):
                                     raise ValueError(f'{domain} 需要 {expected} 文件')
                             module.run(str(Path(input_path).resolve()))
                     if cancelled and cancelled():

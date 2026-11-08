@@ -26,6 +26,8 @@ def extract(session, *, as_of=None):
              'Texts': 'mst_character_birthday_mini_game_text',
              'Login': 'mst_character_birthday_login_bonus_sequence'}
     groups = {key: index(name) for key, name in names.items()}
+    # Optional since the server removed it; the overview count is left blank then.
+    has_mini_game = names['MiniGame'] in tables.names
     masters = index('mst_character_birthday')
     characters = tables.by_id('mst_character', 'CharacterId', required=False)
     costumes = tables.group_by('mst_costume_model', 'CostumeModelId', required=False, active_only=False)
@@ -38,7 +40,8 @@ def extract(session, *, as_of=None):
         entry = {'CharacterId': cid, 'Year': year,
                  'CharacterName': characters.get(cid, {}).get('CharacterNameJpn', f'Character({cid})'),
                  'Raw': raw, 'LoginRewards': [], 'TapRewards': [], 'Costumes': [],
-                 'Availability': date_window(raw.get('StartTime'), raw.get('EndTime'), as_of=now)}
+                 'Availability': date_window(raw.get('StartTime'), raw.get('EndTime'), as_of=now),
+                 'HasMiniGameTable': has_mini_game}
         for field in ('CampaignPage', 'LoginPage', 'MiniGame', 'Texts'):
             entry[field] = groups[field].get(key, [])
             if field != 'Texts' and len(entry[field]) > 1:
@@ -94,7 +97,8 @@ def export(data):
         return ' / '.join(f"{r['RewardName']} x{r['RewardCount']}" for r in rows)
     for entry in data['Birthdays']:
         prefix = [entry['CharacterId'], entry['CharacterName'], entry['Year']]; raw = entry['Raw']
-        overview.append(prefix + [raw.get('StartTime'), raw.get('EndTime'), STATUS_LABELS[entry['Availability']['Status']], len(entry['LoginRewards']), len(entry['MiniGame'])])
+        overview.append(prefix + [raw.get('StartTime'), raw.get('EndTime'), STATUS_LABELS[entry['Availability']['Status']], len(entry['LoginRewards']),
+                                 len(entry['MiniGame']) if entry.get('HasMiniGameTable', True) else ''])
         for row in entry['LoginRewards']:
             login.append(prefix + [row['Raw'].get('Sequence'), reward_text(row['Rewards'])])
         for row in entry['TapRewards']:

@@ -36,6 +36,22 @@ class AnnualBirthdayTests(unittest.TestCase):
         self.assertEqual([], new['Texts'])
         self.assertEqual('orphan_birthday_relation', data['Issues'][0]['Status'])
 
+    def test_mini_game_count_is_blank_when_the_server_dropped_the_table(self):
+        from openpyxl import load_workbook
+        from toolkit.core.output import OutputContext
+        from toolkit.domains.birthday_archive import export
+        import tempfile
+        from pathlib import Path
+        tables = {'mst_character_birthday': [{'CharacterId': 1, 'Year': 2026}]}
+        data = extract(SimpleNamespace(tables=TableCatalog([dict.fromkeys(tables, []), *tables.values()])),
+                       as_of='2026-09-09T00:00:00Z')
+        with tempfile.TemporaryDirectory() as directory:
+            with OutputContext(Path(directory)).activate():
+                export(data)
+            workbook = next(Path(directory).rglob('*.xlsx'))
+            row = list(load_workbook(workbook).worksheets[0].iter_rows(min_row=2, values_only=True))[0]
+        self.assertIn(row[-1], (None, ''))
+
 
 if __name__ == '__main__':
     unittest.main()

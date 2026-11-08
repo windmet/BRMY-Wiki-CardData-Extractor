@@ -113,12 +113,16 @@ def materialize(download, destination, kind):
     envelope = 'none'
     data = raw
     if kind in SUFFIXES:
-        if raw.startswith(b'\x5d'):
+        # At least one shipped script (main_2_1_1_after) is wrapped twice.
+        layers = 0
+        while data.startswith(b'\x5d') and layers < 2:
             decoder = lzma.LZMADecompressor(format=lzma.FORMAT_ALONE, memlimit=256 * 1024 * 1024)
-            data = decoder.decompress(raw, max_length=64 * 1024 * 1024 + 1)
+            data = decoder.decompress(data, max_length=64 * 1024 * 1024 + 1)
             if len(data) > 64 * 1024 * 1024 or not decoder.eof or decoder.unused_data:
                 raise ValueError('独立 S2B 的 LZMA 外层损坏或过大')
-            envelope = 'lzma-alone'
+            layers += 1
+        if layers:
+            envelope = 'lzma-alone' if layers == 1 else 'lzma-alone-x2'
         with tempfile.NamedTemporaryFile(dir=destination.parent, suffix='.validation', delete=False) as stream:
             temporary = Path(stream.name)
             stream.write(data)

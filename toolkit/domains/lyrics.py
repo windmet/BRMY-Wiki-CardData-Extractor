@@ -1,6 +1,6 @@
 """.s2blyrics 歌词文件解析 → JSON + LRC 字幕。"""
 import os
-from ..core.output import output_directory, record_output, record_error
+from ..core.output import output_directory, record_output, record_error, record_warning
 
 from ..core.s2b_parser import parse_s2b_file, save_json
 
@@ -60,6 +60,11 @@ def run(input_path=None):
             data = parse_s2b_file(fp)
             base = os.path.splitext(fn)[0]
             save_json(data, os.path.join(json_dir, f"{fn}.json"))
+            if not data or not data[0]:
+                # The manifest ships an empty placeholder (Jukebox/.s2blyrics).
+                print(f"  [-] {fn}: 空歌词文件，跳过 LRC")
+                record_warning(f"{fn}: 空歌词文件，未生成 LRC")
+                continue
             convert_to_lrc(data, os.path.join(xlsx_dir, f"{base}.lrc"))
             print(f"  [+] {fn} → JSON + LRC")
         except Exception as e:

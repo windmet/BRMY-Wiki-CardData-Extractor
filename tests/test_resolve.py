@@ -104,16 +104,23 @@ class ResolverTests(unittest.TestCase):
             lyric = msgpack.packb([[[1, 2.5, 'lyric']]], use_bin_type=True)
             payloads = {'Scripts/story.s2bscript': lzma.compress(script, format=lzma.FORMAT_ALONE),
                         'Jukebox/song.s2blyrics': lyric,
+                        # Shipped oddities: a twice-wrapped script and a lyrics key with no stem.
+                        'Scripts/twice.s2bscript': lzma.compress(lzma.compress(script, format=lzma.FORMAT_ALONE),
+                                                                 format=lzma.FORMAT_ALONE),
+                        'Jukebox/.s2blyrics': msgpack.packb(None),
                         'Scripts/unselected.s2bscript': ValueError('must not download')}
             provider = provider_for(root / 'cache', payloads)
             report = synchronize(['scripts', 'lyrics'], root / 'out', root / 'cache', provider=provider,
-                                 resource_keys=['Scripts/story.s2bscript', 'Jukebox/song.s2blyrics'])
-            self.assertEqual('PASS', report['status'], report['errors'])
+                                 resource_keys=['Scripts/story.s2bscript', 'Jukebox/song.s2blyrics',
+                                                'Scripts/twice.s2bscript', 'Jukebox/.s2blyrics'])
+            self.assertEqual('PASS_WITH_WARNINGS', report['status'], report['errors'])
+            self.assertIn('空歌词', json.dumps(report['warnings'], ensure_ascii=False))
             paths = {Path(a['path']).name for a in report['artifacts']}
-            self.assertEqual({'resource_manifest.json', 'story.s2bscript.json', 'song.s2blyrics.json', 'song.lrc'}, paths)
+            self.assertEqual({'resource_manifest.json', 'story.s2bscript.json', 'song.s2blyrics.json', 'song.lrc',
+                              'twice.s2bscript.json', '.s2blyrics.json'}, paths)
             self.assertIn('lyric', (root / 'out/wiki_output/song.lrc').read_text(encoding='utf-8-sig'))
             audit = json.loads((root / 'out/audit_output/resource_manifest.json').read_text(encoding='utf-8'))
-            self.assertEqual({'none', 'lzma-alone'}, {r['envelope'] for r in audit['downloads']})
+            self.assertEqual({'none', 'lzma-alone', 'lzma-alone-x2'}, {r['envelope'] for r in audit['downloads']})
             for record in audit['downloads']:
                 self.assertNotEqual(record['path'], record['prepared_path'])
                 # Staged copies are discarded after a successful run; the raw cache stays.
