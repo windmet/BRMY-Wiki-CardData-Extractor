@@ -1,6 +1,6 @@
 # 卡牌数据管线
 
-> 最后核对：2026-07-16  
+> 最后核对：2026-11-08（客户端 2.1.0 dump + Ghidra）  
 > 适用入口：`toolkit/domains/cards.py`  
 > 输出：`json_output/All_Cards_Database.json`、`xlsx_output/cards_data.xlsx`
 
@@ -8,13 +8,19 @@
 
 旧实现把表定位、技能渲染、活动推断、语音关联和 47 列 Excel 拼装集中在一个函数中，并三次递归扫描完整 masterdata。获取方式还依赖卡号顺序、`last_valid` 和全局 `stop`，一张新 SSR 无法识别时会清空其后的所有卡。
 
-当前实现分为五层：
+当前实现分为六层：
 
 1. `core/tables.py`：按 masterdata 表目录读取具名表。
-2. `domains/cards.py`：提取卡牌原始字段、数值、技能、消耗、剧情和资源。
-3. `domains/card_relations.py`：建立活动、卡池、直发奖励、交换所、多角色和双人主页语音关系。
-4. `domains/audio.py` + `core/cri_utf.py`：从 ACB `@UTF` 表精确关联 CueName 与台词。
-5. `domains/card_export.py`：使用命名列定义生成 Wiki 表，不再维护易错的超长位置数组。
+2. `domains/cards.py`：`_build_lookups` 建映射表，`CARD_TABLES` 逐表调用 `_apply_*` 填充卡牌（不再按字段名猜表），随后做 Wiki 用语后处理。
+3. `core/skill_text.py`：按客户端 `SkillDescriptionParser` 渲染技能文本，见第 11 节。
+4. `domains/card_relations.py`：建立活动、卡池、直发奖励、交换所、多角色和双人主页语音关系。
+5. `domains/audio.py` + `core/cri_utf.py`：从 ACB `@UTF` 表精确关联 CueName 与台词。
+6. `domains/card_export.py`：使用命名列定义生成 Wiki 表，不再维护易错的超长位置数组。
+
+2026-11-08 改为逐表处理时发现两处字段猜错，一直静默失效：
+
+- 升级材料表的列名是 `CostItemId1..6`，旧代码判断 `ItemId1`，所以 `UpgradeCosts` 全空，Wiki 的“卡牌升级道具1–3”从未填过。现在 466 张卡有值；25 张卡材料超过 3 种，Wiki 列只放前 3 种，完整清单在 JSON。
+- `mst_leader_skill_effect` 没有 `SkillName`，队长技能名回退为 `SkillEffect`（`VisualUp` 等），不再是 `Leader_<id>`。
 
 ## 2. 回滚点
 
@@ -181,16 +187,12 @@ CR 卡的“卡牌角色名”直接输出两名角色，主角色技能仍写�
 
 ## 9. 当前验证基线
 
-- 卡牌总数：433。
-- 稀有度：R 65、SR 105、SSR 246、XR 15、CR 2。
-- 获取方式：常驻 63、活动卡池 222、周年卡池 44、生日限定 45、活动报酬 59。
-- 获取方式空白：0。
-- 获取关系警告：0。
-- 含剧情索引的卡：416。
-- 已关联 ACB 正文的卡：433。
-- 精确 `matched_by_acb_utf` Cue 元数据：1977，其中非空台词 1907。
-- 未替换技能占位符：0。
-- 自动化测试：14 项。
+2026-11-08 masterdata + 652 个 ACB：
+
+- 卡牌总数：495；R 74、SR 115、SSR 277、XR 23、CR 6。
+- 获取方式：活动卡池 257、活动报酬 70、常驻 63、生日限定 54、周年卡池 45、序列码兑换 6。
+- 技能占位符无法解析：0（有则作为运行警告记录）。
+- 自动化测试：207 项。
 
 ## 10. 后续扩展原则
 
@@ -199,3 +201,52 @@ CR 卡的“卡牌角色名”直接输出两名角色，主角色技能仍写�
 3. 新稀有度同时保留原始代码和人工确认显示名。
 4. 新语音形态以 CueName 和 `CueIndex` 关联，不以标题或物理流顺序关联。
 5. 原 47 列除非 Wiki 导入流程同步升级，否则只允许在末尾追加列。
+6. 新 APK 到手后先跑 `scripts/dump_schema.py`，它会列出 masterdata 中客户端未定义的枚举值和字段。
+
+## 11. 技能文本：照客户端规则渲染
+
+依据：`Manager.Utility.SkillDescriptionParser.Parse`（2.1.0，RVA `0x7F35F24`）及其辅助函数的 Ghidra 反编译。客户端在不显示图标时的顺序：
+
+1. `skill_value`、`piece_value`、`attribute_value`、`group_value`、`character_value` 依次处理，`<名>N` 一律替换为 `SkillValueN` 的标签。每个占位符只看自己序号的值。
+2. `Util.SpecialPieceNameToTextId` 中的特殊棋子名替换为 `mst_text`：`combopiece_1..3` → 100118–100120，`bombpiece_1..6` → 100121–100126，`hiramekipiece_1..6` → 100127–100132，`rainbowpiece` → 100133。
+3. `combo:{x}`、`text:{x}` 解包。客户端先取第一个匹配的 `x`，再用它替换所有匹配。
+4. `strength_value1..6` → `mst_text` 100134–100138（小、中、大、特大、超特大）。
+
+标签来源：部门 `mst_text` 100014–100019，属性 100114–100117，角色 `mst_character.CharacterNameJpn`，棋子 `mst_piece_info.Name`。找不到时客户端给空串，工具同样给空串并记入运行警告。
+
+Wiki 自己的用语在客户端规则之后应用，并单独保留：棋子写作“サンピース（赤色）”（`PIECE_MAP`）、属性图标转文字、去掉协作文本开头的“さらに”、强度词换算百分比。
+
+改用客户端规则后，2026-11-08 数据的 Wiki 输出变化：
+
+- 卡 221、240、270 的协作 SP 效果原来错了。旧代码只传 `SkillValue1`，`piece_value2/3` 用卡面 SP 颜色顶替；现在按各自的 `SkillValueN` 渲染，例如 240 从“桃桃桃”改为“桃・空・黄”。
+- `combopiece_1` 写作“シングルコンボピース”，`hiramekipiece_N` 带颜色（如“緑ひらめきピース”），与客户端 `mst_text` 一致，共 127 格。
+
+### 强度百分比没有客户端依据
+
+`PassiveSkillController.CalcDropRate`（RVA `0x7B2FEDC`）对同属性的 SHOWER 累加 `SkillValue2`，再减去 BLOCK 的 `SkillValue2`，得到 net：
+
+- net ≥ 0：该属性棋子权重 ×`(1 + min(net, 6))`，重力等特殊模式下 net 减半（`CalcDropRateOnIncrease`，RVA `0x7B301D4`）；
+- net < 0：权重 ×`0.6^|net|`（`CalcDropRateOnDecrease`）。
+
+`strength_value3` 只决定显示的“小/中/大”。对应的 `SkillValue2` 为：小 1、中 2、大 4、特大 5、超特大 6，即权重 ×2、×3、×5、×6、×7；BLOCK 小、中、大分别为 ×0.6、×0.36、×0.13。现行 Wiki 写法“8/10/12/14/20%UP、1/2/4%DOWN”在客户端中没有对应，暂未改动，等 Wiki 组决定表述方式。
+
+## 12. 客户端证据的复现方法
+
+材料：`E:\BRMY_Data\apk_2.1.0\il2cpp\`（`libil2cpp.so`、`global-metadata.dat`、Il2CppDumper 生成的 `dump/dump.cs`、`script.json`）。
+
+1. **结构与枚举**：`python scripts/dump_schema.py <dump.cs> --masterdata master_data.json [--json out.json]`。`[MemoryTable]` 类给出每张表的字段和类型，`Coly.S2BShared.Enums` 给出代码枚举。2026-11-08 数据对 2.1.0 客户端只报出 `PinCategoryType = 8`（masterdata 比客户端新）。
+2. **方法体**：Ghidra 12.1.4（`E:\Tools\ghidra_12.1.4_PUBLIC`，需 JDK 21：`E:\Tools\jdk-21.0.12.1+1`）。项目 `E:\Tools\ghidra_projects\BRMY_2_1_0` 已导入 `libil2cpp.so`，未做全量自动分析（154 MB，耗时数小时），按需反编译：
+
+```powershell
+python scripts/ghidra/il2cpp_names.py index <script.json> <idx>
+python scripts/ghidra/il2cpp_names.py find <idx>\methods.tsv 'SkillDescriptionParser$$Parse'
+$env:JAVA_HOME = 'E:\Tools\jdk-21.0.12.1+1'
+& 'E:\Tools\ghidra_12.1.4_PUBLIC\support\analyzeHeadless.bat' 'E:\Tools\ghidra_projects' 'BRMY_2_1_0' `
+  -process 'libil2cpp.so' -noanalysis -scriptPath scripts\ghidra `
+  -postScript DecompileRvas.java <idx>\methods.tsv out.c 0x7F35F24
+python scripts/ghidra/il2cpp_names.py annotate <idx>\names.tsv out.c out_named.c
+```
+
+`DecompileRvas.java` 会先给被调用地址建函数并按 `script.json` 命名，否则未分析的二进制会把调用当成跳转，函数体只剩几行。`PTR_*` 操作数会附上指针目标，`annotate` 再把目标换成字符串字面量或类型名。Ghidra 的镜像基址是 `0x100000`，dump.cs 的 RVA 以 0 为基址。
+
+新 APK 上市后，用 Il2CppDumper 重新生成 dump，然后 `-import` 新的 `libil2cpp.so` 到一个新项目即可。

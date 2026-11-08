@@ -10,9 +10,14 @@
 | `cd3a9f8` | 适配当前服务器数据：birthday_archive 不再强依赖 mini_game 表；双层 LZMA 脚本可解；空歌词占位跳过并告警 |
 | `6c7628f` | birthday 默认导出全部轮次（每轮一个工作表，可用 `--cycle/--year` 选单轮）；home_voice_catalog 按用途分子表（节日与话题/周年纪念/季节/角色生日祝福/玩家生日/常驻与问候），A–E 列不变，新增“开始时间”“备注”；OJT `.s2bchart` 在线下载（CDN 路径 `Chart/`） |
 | `f44b43d` | 下载器对断连/SSL EOF 重试 3 次，HTTP 4xx 不重试 |
-| （本次） | `scripts/combi_speaker_id.py` + `docs/COMBI_SPEAKER_ID.md`：协作语音声纹识别 |
+| `dbcce4a` | `scripts/combi_speaker_id.py` + `docs/COMBI_SPEAKER_ID.md`：协作语音声纹识别 |
+| `c79ea07` | cards.py 改为逐表处理（输出与旧实现逐字节一致） |
+| `ae53f57` | 修复升级材料（`CostItemId`）与队长技能名，Wiki“卡牌升级道具1–3”首次有值 |
+| `3697e0c` | `scripts/dump_schema.py`：按 dump.cs 检查 masterdata 字段与枚举 |
+| `fc1e359` | `core/skill_text.py`：按客户端 SkillDescriptionParser 渲染技能文本 |
+| （本次） | Ghidra 无分析反编译工具 `scripts/ghidra/` 与文档 |
 
-测试：197 个全部通过（约 13 秒）。
+测试：207 个全部通过（约 14 秒）。
 
 ## 关键结论
 
@@ -31,6 +36,15 @@
 | `E:\WikiResults\20261108_speaker_id\` | 声纹结果 `combi_speakers.json` 和解码缓存 |
 
 新卡：496 静、500 大河、503 揺（Present for Yuragi）、502 疑似有的三轮生日卡、507 戦（只有称号图标和 1 个脚本）、501 活动 R 卡。
+
+## card data 解析整理（同日后续）
+
+详见 `docs/CARD_PIPELINE.md` 第 1、11、12 节。要点：
+
+- 逐表处理后发现升级材料一直没读到（列名是 `CostItemId`），现已修复。
+- 技能文本改按客户端规则（Ghidra 反编译 2.1.0 `SkillDescriptionParser`）。修正卡 221/240/270 协作 SP 颜色；`combopiece_1` 改为“シングルコンボピース”，`hiramekipiece_N` 带颜色。
+- 强度“%UP”换算没有客户端依据：客户端是棋子权重 ×(1+SkillValue2)，小/中/大/特大/超特大 = 1/2/4/5/6。等 Wiki 组决定是否改写。
+- Ghidra 项目 `E:\Tools\ghidra_projects\BRMY_2_1_0` 已导入 2.1.0 `libil2cpp.so`（未全量分析）。
 
 ## 待办
 
