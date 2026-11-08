@@ -19,14 +19,27 @@ TASKS = {
     'home_voice_duo': '双人主页台词', 'card_combi_voices': '多段协作语音（例外表）', 'story_catalog': '剧情目录', 'collections': '收藏档案',
 }
 TASK_GROUPS = [
-    ('GROOVE', ('groove',), '曲目、Bonus Runner、Relation 与各 SIDE 数据。'),
-    ('卡牌与收藏', ('cards', 'card_update', 'collections', 'items'), '更新已有卡表会保留人工列。收藏档案区分卡牌关联、奖励引用与已确认获取入口。'),
-    ('活动', ('events', 'ojt', 'missions', 'recipes', 'charts'), 'OJT 档案包含轮次、题面和奖励。本地模式可在高级设置补充 OJT Chart 坐标；单独的 OJT Chart 任务仅解析文件。'),
-    ('语音', ('home_voices', 'home_voice_duo', 'card_combi_voices', 'audio'), '主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对。多段协作语音是卡牌表之外的例外表。缺少资源时会保留缺项说明。'),
-    ('生日', ('birthday', 'birthday_archive'), '生日庆典台词按生日轮次整理；年度生日档案按角色和年份汇总登录奖励、点击奖励、服装与台词。生日祝福请到“语音”。'),
-    ('剧情与其他', ('story_catalog', 'scripts', 'lyrics', 'music', 'snap'), '剧情目录是 masterdata 索引；剧情脚本解析独立正文。'),
+    ('卡牌', ('cards', 'card_update', 'collections', 'items'),
+     '更新已有卡表会保留人工列。收藏档案区分卡牌关联、奖励引用与已确认获取入口。'),
+    ('语音', ('home_voices', 'home_voice_duo', 'card_combi_voices', 'audio'),
+     '主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对。多段协作语音是卡牌表之外的例外表。缺少资源时会保留缺项说明。'),
+    ('活动与剧情', ('events', 'ojt', 'missions', 'recipes', 'birthday', 'birthday_archive',
+                'story_catalog', 'scripts', 'charts', 'snap'),
+     'OJT 档案包含轮次、题面和奖励；单独的 OJT Chart 任务仅解析本地文件。生日庆典台词按轮次整理，'
+     '年度生日档案按角色和年份汇总。剧情目录是 masterdata 索引，剧情脚本解析独立正文。'),
+    ('音乐', ('music', 'lyrics'), '音乐主表及可关联资源；歌词需要指定资源。'),
+    ('网站数据', ('groove',), '供计算器网站使用的源数据。'),
 ]
-MODES = {'正式服在线': 'online', '正式服离线缓存': 'offline', '使用本地资源': 'local'}
+PRESETS = {
+    '版本更新全套': ('cards', 'collections', 'items', 'events', 'ojt', 'missions', 'story_catalog',
+                'birthday_archive', 'home_voices', 'home_voice_duo', 'music', 'snap'),
+    '只更新语音': ('home_voices', 'home_voice_duo', 'card_combi_voices'),
+    '只出活动表': ('events', 'ojt', 'missions'),
+}
+MODES = {'联网更新': 'online', '用本地缓存': 'offline'}
+# Names saved by earlier versions; local files are now an advanced-page switch.
+LEGACY_MODES = {'正式服在线': '联网更新', '正式服离线缓存': '用本地缓存'}
+TASK_HINT = '鼠标移到任务上可查看它生成什么。'
 TASK_HELP = {
     'groove': '曲目加成、Runner 位次、Relation 与 SIDE；导出源数据，不推算掉落期望。',
     'cards': '生成卡牌资料；正式资源模式可同时同步卡牌语音。',
@@ -73,7 +86,7 @@ class JobRequest:
     resource_keys: list = field(default_factory=list)
 
     def validate(self):
-        from .generate import MASTERDATA
+        from .generate import NEEDS_MASTERDATA
         if self.mode not in {'online', 'offline', 'local'}:
             raise ValueError('请选择资源模式')
         if not self.domains or set(self.domains) - set(TASKS):
@@ -96,7 +109,7 @@ class JobRequest:
             if 'charts' in self.domains:
                 raise ValueError('在线OJT Chart路径尚未确认，请切换到本地资源模式')
         else:
-            if set(self.domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update'}):
+            if set(self.domains) & NEEDS_MASTERDATA:
                 if not Path(self.masterdata).is_file():
                     raise ValueError('本地任务需要选择 masterdata 文件')
             if set(self.domains) & {'home_voices', 'home_voice_duo', 'card_combi_voices', 'audio'}:
@@ -148,10 +161,9 @@ class ToolkitApp:
         self.last_result = None
         self.active_request = None
         self.root.title('BRMY Wiki Toolkit')
-        self.root.geometry('980x800')
-        self.root.minsize(860, 760)
         self.root.protocol('WM_DELETE_WINDOW', self.close)
-        self.mode = tk.StringVar(value='正式服在线')
+        self.mode = tk.StringVar(value='联网更新')
+        self.use_local = tk.BooleanVar(value=False)
         self.status = tk.StringVar(value='选择需要的资料，检查资源后开始生成。')
         self.paths = {name: tk.StringVar() for name in
                       ['output', 'cache', 'masterdata', 'audio', 'source', 'old_workbook',
@@ -163,6 +175,11 @@ class ToolkitApp:
         self.inputs = []
         self._build()
         self._restore()
+        self.root.update_idletasks()
+        width = max(980, self.root.winfo_reqwidth())
+        height = max(860, self.root.winfo_reqheight())
+        self.root.geometry(f'{width}x{height}')
+        self.root.minsize(min(width, 860), min(height, 800))
         self._mode_changed()
         self.root.after(100, self._poll)
 
@@ -172,6 +189,7 @@ class ToolkitApp:
             style.theme_use('vista')
         style.configure('Title.TLabel', font=('Microsoft YaHei UI', 19, 'bold'))
         style.configure('Hint.TLabel', foreground='#526070')
+        style.configure('Group.TLabel', font=('Microsoft YaHei UI', 10, 'bold'))
         outer = ttk.Frame(self.root, padding=16)
         outer.pack(fill='both', expand=True)
         ttk.Label(outer, text='BRMY Wiki Toolkit', style='Title.TLabel').pack(anchor='w')
@@ -189,33 +207,37 @@ class ToolkitApp:
         source.pack(fill='x', pady=(0, 8))
         ttk.Label(source, text='资源来源').pack(side='left', padx=(0, 10))
         self.mode_box = ttk.Combobox(source, textvariable=self.mode, values=list(MODES),
-                                     state='readonly', width=22)
+                                     state='readonly', width=14)
         self.mode_box.pack(side='left')
         self.mode_box.bind('<<ComboboxSelected>>', lambda event: self._mode_changed())
         self.inputs.append(self.mode_box)
-        self.mode_hint = ttk.Label(main, style='Hint.TLabel', wraplength=800)
-        self.mode_hint.pack(anchor='w', pady=(0, 8))
+        self.mode_hint = ttk.Label(source, style='Hint.TLabel', wraplength=640)
+        self.mode_hint.pack(side='left', padx=(12, 0))
         tasks = ttk.LabelFrame(main, text='要生成什么', padding=8)
         tasks.pack(fill='x')
-        self.task_tabs = ttk.Notebook(tasks)
-        self.task_tabs.pack(fill='x')
-        for title, names, help_text in TASK_GROUPS:
-            panel = ttk.Frame(self.task_tabs, padding=8)
-            self.task_tabs.add(panel, text=title)
+        presets = ttk.Frame(tasks)
+        presets.pack(fill='x', pady=(0, 4))
+        ttk.Label(presets, text='常用组合').pack(side='left', padx=(0, 8))
+        for title, names in list(PRESETS.items()) + [('清空', ())]:
+            button = ttk.Button(presets, text=title, command=lambda names=names: self.apply_preset(names))
+            button.pack(side='left', padx=(0, 6))
+            self.inputs.append(button)
+        self.task_hint = tk.StringVar(value=TASK_HINT)
+        grid = ttk.Frame(tasks)
+        grid.pack(fill='x')
+        row = 0
+        for title, names, _ in TASK_GROUPS:
+            ttk.Label(grid, text=title, style='Group.TLabel').grid(row=row, column=0, sticky='nw', padx=(0, 14), pady=3)
             for index, name in enumerate(names):
-                button = ttk.Checkbutton(panel, text=TASKS[name], variable=self.selected[name])
-                button.grid(row=index // 4, column=index % 4, sticky='w', padx=(0, 12), pady=3)
+                button = ttk.Checkbutton(grid, text=TASKS[name], variable=self.selected[name])
+                button.grid(row=row + index // 4, column=1 + index % 4, sticky='w', padx=(0, 12), pady=3)
+                button.bind('<Enter>', lambda event, name=name: self.task_hint.set(f'{TASKS[name]}：{TASK_HELP[name]}'))
+                button.bind('<Leave>', lambda event: self.task_hint.set(TASK_HINT))
                 self.inputs.append(button)
-            ttk.Label(panel, text=help_text, style='Hint.TLabel', wraplength=760).grid(
-                row=2, column=0, columnspan=4, sticky='w', pady=(6, 0))
-            for column in range(4):
-                panel.columnconfigure(column, weight=1)
-        options = ttk.Frame(main)
-        options.pack(fill='x', pady=7)
-        check = ttk.Checkbutton(options, text='同步卡牌语音（正式资源任务可选）', variable=self.include_card_audio)
-        self.card_audio_check = check
-        check.pack(side='left')
-        self.inputs.append(check)
+            row += (len(names) + 3) // 4
+            ttk.Separator(grid).grid(row=row, column=0, columnspan=5, sticky='ew', pady=1)
+            row += 1
+        ttk.Label(tasks, textvariable=self.task_hint, style='Hint.TLabel', wraplength=860).pack(anchor='w', pady=(4, 0))
         self._path_row(main, '输出到', 'output', directory=True)
         controls = ttk.Frame(main)
         controls.pack(fill='x', pady=(8, 8))
@@ -232,7 +254,7 @@ class ToolkitApp:
         ttk.Label(main, textvariable=self.status, wraplength=820).pack(anchor='w', pady=(5, 7))
         result = ttk.Frame(main)
         result.pack(fill='both', expand=True)
-        self.results = ttk.Treeview(result, columns=('name', 'task', 'status'), show='headings', height=5)
+        self.results = ttk.Treeview(result, columns=('name', 'task', 'status'), show='headings', height=4)
         for name, label, width in [('name', '本次文件', 430), ('task', '资料', 180), ('status', '状态', 100)]:
             self.results.heading(name, text=label)
             self.results.column(name, width=width, minwidth=70)
@@ -246,11 +268,22 @@ class ToolkitApp:
         ttk.Button(actions, text='打开选中文件', command=self.open_selected).pack(side='left')
         ttk.Button(actions, text='打开输出目录', command=self.open_output).pack(side='left', padx=8)
         ttk.Label(actions, text='审计信息请查看“运行详情”。', style='Hint.TLabel').pack(side='right')
-        ttk.Label(advanced, text='本地资源可单独使用；在线模式自动取得任务所需数据。',
+        ttk.Label(advanced, text='平时不需要改这里：联网更新会自动取得任务所需数据。',
                   style='Hint.TLabel').pack(anchor='w', pady=(0, 10))
-        add = ttk.Button(advanced, text='添加并识别本地文件…', command=self.add_local_file)
-        add.pack(anchor='w', pady=(0, 10))
+        local = ttk.Frame(advanced)
+        local.pack(fill='x', pady=(0, 10))
+        check = ttk.Checkbutton(local, text='改用本地文件（不联网）', variable=self.use_local,
+                                command=self._mode_changed)
+        check.pack(side='left')
+        self.inputs.append(check)
+        add = ttk.Button(local, text='添加并识别本地文件…', command=self.add_local_file)
+        add.pack(side='left', padx=12)
         self.inputs.append(add)
+        check = ttk.Checkbutton(advanced, text='卡牌表同时填入卡面语音台词（联网和缓存模式）',
+                                variable=self.include_card_audio)
+        self.card_audio_check = check
+        check.pack(anchor='w', pady=(0, 6))
+        self.inputs.append(check)
         self._path_row(advanced, 'Masterdata', 'masterdata')
         self._path_row(advanced, 'ACB 音频目录', 'audio', directory=True)
         self._path_row(advanced, '歌词 / 脚本 / OJT Chart', 'source', allow_folder=True)
@@ -306,19 +339,28 @@ class ToolkitApp:
         else:
             self.status.set('尚未识别该文件类型，请在输入设置中指定。')
             return
-        self.mode.set('使用本地资源')
+        self.use_local.set(True)
         self._mode_changed()
         self.status.set(f'已添加 {Path(path).name}；生成时会校验文件内容。')
 
+    def mode_code(self):
+        return 'local' if self.use_local.get() else MODES.get(self.mode.get(), 'online')
+
+    def apply_preset(self, names):
+        for name, variable in self.selected.items():
+            variable.set(name in names)
+        self.task_hint.set(f'已选 {len(names)} 项。' if names else TASK_HINT)
+
     def _mode_changed(self):
-        mode = MODES.get(self.mode.get(), 'online')
+        mode = self.mode_code()
         self.mode_hint.configure(text={
-            'online': '预览会读取正式清单，必要时下载基础数据 masterdata；生成时复用已校验缓存。',
-            'offline': '只使用已验证的正式资源缓存，不检查线上更新。',
-            'local': '请在“输入与高级设置”中添加本地资源；整个流程不联网。',
+            'online': '检查正式服更新，只下载所选任务需要的资源。',
+            'offline': '只用已下载过的资源，不联网。',
+            'local': '已在“输入与高级设置”中改用本地文件，资源来源选项不生效。',
         }[mode])
+        self.mode_box.configure(state='disabled' if mode == 'local' else 'readonly')
         self.start_button.configure(text='生成资料' if mode == 'local' else '同步并生成')
-        self.plan_button.configure(text='检查本地输入' if mode == 'local' else '预览资源与缓存')
+        self.plan_button.configure(text='检查本地输入' if mode == 'local' else '先检查资源')
         self.card_audio_check.configure(state='disabled' if mode == 'local' else 'normal')
 
     def show_task_help(self):
@@ -342,7 +384,7 @@ class ToolkitApp:
     def request(self):
         values = {name: variable.get().strip() for name, variable in self.paths.items()}
         values['resource_keys'] = [key.strip() for key in values['resource_keys'].split(';') if key.strip()]
-        return JobRequest(MODES.get(self.mode.get(), ''), [name for name, value in self.selected.items() if value.get()],
+        return JobRequest(self.mode_code(), [name for name, value in self.selected.items() if value.get()],
                           include_card_audio=self.include_card_audio.get(), **values).validate()
 
     def start(self, plan_only=False):
@@ -440,6 +482,8 @@ class ToolkitApp:
                 label = '任务已取消'
             else:
                 label = labels.get(status, status)
+                if status == 'FAIL':
+                    self.tabs.select(2)
             wiki = [a for a in result.get('artifacts', []) if a['kind'] == 'wiki'
                     or (a['domain'] in {'scripts', 'charts'} and a['path'].endswith('.json'))]
             self.status.set(f'{label} · 本次 {len(wiki)} 个文件，请核对状态。详情见“运行详情”。')
@@ -490,14 +534,16 @@ class ToolkitApp:
 
     def _save_settings(self):
         from .resources import atomic_json
-        atomic_json(self.settings_path, {'mode': self.mode.get(), 'paths': {k: v.get() for k, v in self.paths.items()},
+        atomic_json(self.settings_path, {'mode': self.mode.get(), 'local': self.use_local.get(), 'paths': {k: v.get() for k, v in self.paths.items()},
                     'tasks': [k for k, v in self.selected.items() if v.get()], 'card_audio': self.include_card_audio.get()})
 
     def _restore(self):
         try:
             data = json.loads(self.settings_path.read_text(encoding='utf-8'))
-            if data.get('mode') in MODES:
-                self.mode.set(data['mode'])
+            mode = LEGACY_MODES.get(data.get('mode'), data.get('mode'))
+            if mode in MODES:
+                self.mode.set(mode)
+            self.use_local.set(bool(data.get('local', data.get('mode') == '使用本地资源')))
             for key, value in data.get('paths', {}).items():
                 if key in self.paths and isinstance(value, str):
                     self.paths[key].set(value)
@@ -517,10 +563,16 @@ class ToolkitApp:
 
 
 def main(initial_path=None):
+    if os.name == 'nt':
+        try:  # Crisp text on scaled displays; the window sizes itself to fit.
+            import ctypes
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except (AttributeError, OSError):
+            pass
     root = tk.Tk()
     app = ToolkitApp(root)
     if initial_path:
-        app.mode.set('使用本地资源')
+        app.use_local.set(True)
         app.paths['masterdata'].set(str(Path(initial_path).resolve()))
         app._mode_changed()
     root.mainloop()

@@ -115,6 +115,28 @@ class GenerateTests(unittest.TestCase):
             self.assertEqual('FAIL', report['status'])
             self.assertIn('取消', report['errors'][0]['error'])
 
+    def test_task_options_reach_their_domains(self):
+        """Covers what the retired `cli run birthday/home_voices` and `cli update cards` passed."""
+        from unittest.mock import MagicMock
+        from toolkit.domains import DOMAINS
+        session = MagicMock()
+        session.assessment.changes, session.assessment.errors = [], []
+        modules = {name: MagicMock() for name in ('birthday', 'home_voices', 'card_update')}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'Musics').mkdir()
+            with patch('toolkit.generate.MasterDataSession.open', return_value=session), \
+                    patch('toolkit.generate.validate_domain_input'), patch.dict(DOMAINS, modules):
+                report = generate(['birthday', 'home_voices', 'card_update'], root / 'out',
+                                  masterdata=root / 'master_data.json', audio=str(root / 'Musics'),
+                                  old_workbook='old.xlsx', cycle=3, year=2026,
+                                  subject='vo_home_13_126', recent_year='2026-08-15')
+        self.assertEqual('PASS', report['status'])
+        modules['birthday'].run.assert_called_once_with(session=session, target_cycle=3, target_year=2026)
+        modules['card_update'].run.assert_called_once_with('old.xlsx', audio_dir=str(root / 'Musics'), session=session)
+        kwargs = modules['home_voices'].run.call_args.kwargs
+        self.assertEqual(('vo_home_13_126', '2026-08-15'), (kwargs['selected_subject'], kwargs['recent_year_end']))
+
 
 if __name__ == '__main__':
     unittest.main()

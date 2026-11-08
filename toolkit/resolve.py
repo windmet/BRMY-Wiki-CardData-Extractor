@@ -16,7 +16,7 @@ from .core.scanner import save_json
 from .core.s2b_parser import parse_s2b_file
 from .domains import DOMAINS
 from .domains.home_voices import CHARACTER_PACKAGE_RE, STEM_TO_CHARACTER_ID
-from .generate import generate, MASTERDATA
+from .generate import generate, NEEDS_MASTERDATA
 
 MASTER_KEY = 'Tables/master_data.s2b'
 SUFFIXES = {'scripts': '.s2bscript', 'lyrics': '.s2blyrics', 'charts': '.s2bchart'}
@@ -39,7 +39,7 @@ def build_plan(domains, resources, tables=None, *, include_card_audio=True, reso
         item['required'] |= required
 
     for domain in domains:
-        if domain in MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update'}:
+        if domain in NEEDS_MASTERDATA:
             add(MASTER_KEY, domain, True, 'masterdata')
         if (domain in {'cards', 'card_update'} and include_card_audio) or domain == 'card_combi_voices':
             if tables is None:
@@ -175,7 +175,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
         stage = provider.root / 'jobs' / uuid.uuid4().hex
         tables = None
         masterdata = None
-        if set(domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update'}):
+        if set(domains) & NEEDS_MASTERDATA:
             notify('masterdata')
             downloaded = provider.download(MASTER_KEY, offline=offline, cancelled=cancelled)
             prepared = prepare_production_masterdata(downloaded, stage / 'master_data.s2b')
