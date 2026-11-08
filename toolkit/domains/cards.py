@@ -3,7 +3,8 @@
 流程：
 1. ``_build_lookups``：从具名映射表建立道具、角色、技能效果、公告等字典。
 2. ``CARD_TABLES``：逐张卡牌表调用对应的 ``_apply_*``，不再按字段名猜表。
-3. 后处理：活动名溯源、技能文本精修。
+   技能文本由 core/skill_text.py 按客户端 SkillDescriptionParser 的规则渲染。
+3. 后处理：活动名溯源、Wiki 用语（去掉“さらに”、强度换算百分比）。
 4. 关系证据（card_relations）与语音（masterdata + ACB）合并。
 """
 import re
@@ -12,9 +13,8 @@ from dataclasses import dataclass
 from ..core.scanner import load_json, save_json
 from ..core.exporter import write_xlsx, json_path, xlsx_path, audit_path
 from ..core.tables import TableCatalog
-from ..core.data import (
-    RARITY_MAP, ATTRIBUTE_MAP, DEPT_MAP, PIECE_MAP, MAGNITUDE_MAP,
-)
+from ..core.data import RARITY_MAP, ATTRIBUTE_MAP, PIECE_MAP
+from ..core.skill_text import SkillTextRenderer
 from .card_relations import enrich_card_relations
 from .card_export import build_card_sheet
 from .audio import CARD_CUE_ORDER, scan_card_voices
@@ -22,59 +22,6 @@ from . import card_voice_review
 from ..core.output import record_warning
 
 INPUT_JSON = 'master_data.json'
-PIECE_COLOR_RE = re.compile(
-    r'(サンピース（赤色）|サンピース（桃色）|ムーンピース（空色）|ムーンピース（青色）|スターピース（黄色）|スターピース（緑色）)'
-)
-ATTRIBUTE_PIECE_COLOR = {"日": "サンピース（赤色）", "月": "ムーンピース（空色）", "星": "スターピース（黄色）"}
-
-
-def skill_values(obj, count=6):
-    """Keep original SkillValue indexes so sparse future rows cannot shift values."""
-    return {index: obj.get(f"SkillValue{index}") for index in range(1, count + 1)}
-
-
-def format_skill_desc(template, values, character_map=None):
-    if not template:
-        return ""
-    if template.startswith("text:{") and template.endswith("}"):
-        template = template[6:-1]
-
-    template = template.replace("<sprite name=piece_1><sprite name=piece_2>", "サンピース")
-    template = template.replace("<sprite name=piece_3><sprite name=piece_4>", "ムーンピース")
-    template = template.replace("<sprite name=piece_5><sprite name=piece_6>", "スターピース")
-    template = template.replace("サン属性ピースサンピース", "サンピース")
-    template = template.replace("ムーン属性ピースムーンピース", "ムーンピース")
-    template = template.replace("スター属性ピーススターピース", "スターピース")
-    template = template.replace("サン属性ピース", "サンピース")
-    template = template.replace("ムーン属性ピース", "ムーンピース")
-    template = template.replace("スター属性ピース", "スターピース")
-    template = template.replace("属性ピース", "ピース")
-    template = template.replace("combopiece_1", "コンボピース")
-    template = template.replace("combopiece_2", "ダブルコンボピース")
-    template = template.replace("combopiece_3", "トリプルコンボピース")
-    template = re.sub(r'hiramekipiece_\d+', 'ひらめきピース', template)
-    template = re.sub(r'combopiece_\d+', 'コンボピース', template)
-
-    indexed_values = values.items() if hasattr(values, "items") else enumerate(values, start=1)
-    character_map = character_map or {}
-    for index, val in indexed_values:
-        if val is None:
-            continue
-        val_str = str(val)
-        key = f"skill_value{index}"
-        if key in template:
-            template = template.replace(key, val_str)
-        elif f"piece_value{index}" in template and isinstance(val, int) and val in PIECE_MAP:
-            template = template.replace(f"piece_value{index}", PIECE_MAP[val])
-        elif f"strength_value{index}" in template:
-            template = template.replace(f"strength_value{index}", MAGNITUDE_MAP.get(val, val_str))
-        elif f"group_value{index}" in template:
-            template = template.replace(f"group_value{index}", DEPT_MAP.get(val, val_str))
-        elif f"character_value{index}" in template:
-            template = template.replace(f"character_value{index}", character_map.get(val, val_str))
-    return template
-
-
 # ============ 映射表 ============
 
 @dataclass
@@ -87,6 +34,7 @@ class CardLookups:
     leader_effects: dict
     notices: list
     home_voices: dict
+    skill_text: SkillTextRenderer
 
 
 def _home_voice_entry(row):
@@ -158,6 +106,7 @@ def _build_lookups(tables):
             if 'NoticeId' in row and 'TitleName' in row and 'FileDesc' in row
         ],
         home_voices=home_voices,
+        skill_text=SkillTextRenderer(tables, piece_labels=PIECE_MAP),
     )
 
 
@@ -235,13 +184,13 @@ def _apply_leader_skill(card, row, lookups):
     effect = lookups.leader_effects.get(effect_id, {"Name": f"Leader_{effect_id}", "Desc": ""})
     card["LeaderSkill"] = {
         "Name": effect["Name"],
-        "Desc": format_skill_desc(effect["Desc"], skill_values(row), lookups.characters),
+        "Desc": lookups.skill_text.wiki_text(effect["Desc"], row),
     }
 
 
 def _apply_sp_level(card, row, lookups):
     card["SpSkill"][f"Lv{row['SpSkillLevel']}"] = {
-        "Desc": format_skill_desc(row.get('SkillDescription', ''), skill_values(row), lookups.characters),
+        "Desc": lookups.skill_text.wiki_text(row.get('SkillDescription', ''), row),
         "Cost": row.get('SkillCost'),
     }
     effect = lookups.sp_effects.get(row.get('SpSkillEffectId'))
@@ -252,7 +201,7 @@ def _apply_sp_level(card, row, lookups):
 
 def _apply_sp_with_combi(card, row, lookups):
     card["SpSkill"]["CombiBonus"] = {
-        "Desc": format_skill_desc(row.get('SkillDescription', ''), skill_values(row, 1), lookups.characters),
+        "Desc": lookups.skill_text.wiki_text(row.get('SkillDescription', ''), row),
         "Value": row.get('SkillValue1'),
     }
 
@@ -261,7 +210,7 @@ def _apply_auto_level(card, row, lookups):
     effect = lookups.auto_effects.get(row.get('AutoSkillEffectId'), {"Name": "Auto", "Desc": ""})
     card["AutoSkill"][f"Lv{row['AutoSkillLevel']}"] = {
         "Name": effect["Name"],
-        "Desc": format_skill_desc(effect["Desc"], skill_values(row, 3), lookups.characters),
+        "Desc": lookups.skill_text.wiki_text(effect["Desc"], row),
         "PieceCount": row.get('PieceCount'),
     }
 
@@ -269,7 +218,7 @@ def _apply_auto_level(card, row, lookups):
 def _apply_combination_level(card, row, lookups):
     effect = lookups.combination_effects.get(row.get('CombinationEffectId'), {"Desc": ""})
     card["Combination"][f"Lv{row['CombinationLevel']}"] = {
-        "Desc": format_skill_desc(effect["Desc"], skill_values(row), lookups.characters),
+        "Desc": lookups.skill_text.wiki_text(effect["Desc"], row),
     }
 
 
@@ -332,38 +281,26 @@ def _notice_event(cid, card, notices):
     return ""
 
 
-def _sp_piece_color(card):
-    for level, sp in card["SpSkill"].items():
-        if level.startswith("Lv") and "Desc" in sp:
-            match = PIECE_COLOR_RE.search(sp["Desc"])
-            if match:
-                return match.group(1)
-    return ATTRIBUTE_PIECE_COLOR.get(card["Meta"].get("Attribute", ""), "ピース")
-
-
 def _polish_skill_text(card):
-    def polish(desc, color, strip_more=False):
+    def polish(desc, strip_more=False):
         if strip_more:
             desc = re.sub(r'^さらに\s*', '', desc)
-        if color:
-            desc = re.sub(r'piece_value\d+', color, desc)
         return _apply_percentage_fix(desc)
 
-    color = _sp_piece_color(card)
     for level, sp in card["SpSkill"].items():
         if level.startswith("Lv") and "Desc" in sp:
-            sp["Desc"] = polish(sp["Desc"], None)
+            sp["Desc"] = polish(sp["Desc"])
     combi_bonus = card["SpSkill"].get("CombiBonus", {})
     if "Desc" in combi_bonus:
-        combi_bonus["Desc"] = polish(combi_bonus["Desc"], color, strip_more=True)
+        combi_bonus["Desc"] = polish(combi_bonus["Desc"], strip_more=True)
     for level, auto in card["AutoSkill"].items():
         if level.startswith("Lv") and "Desc" in auto:
-            auto["Desc"] = polish(auto["Desc"], color)
+            auto["Desc"] = polish(auto["Desc"])
     for level, combo in card["Combination"].items():
         if level.startswith("Lv") and "Desc" in combo:
-            combo["Desc"] = polish(combo["Desc"], color, strip_more=True)
+            combo["Desc"] = polish(combo["Desc"], strip_more=True)
     if "Desc" in card["LeaderSkill"]:
-        card["LeaderSkill"]["Desc"] = polish(card["LeaderSkill"]["Desc"], None)
+        card["LeaderSkill"]["Desc"] = polish(card["LeaderSkill"]["Desc"])
 
 
 def _post_process(cards_db, lookups):
@@ -372,6 +309,9 @@ def _post_process(cards_db, lookups):
         if str(cid) in ["160", "161"] or card["Meta"].get("Rarity", "") in ["XR", "101", 101]:
             card["Meta"]["NoticeEvent"] = _notice_event(cid, card, lookups.notices)
         _polish_skill_text(card)
+    if lookups.skill_text.unresolved:
+        record_warning(f"技能文本有 {len(lookups.skill_text.unresolved)} 种占位符无法解析: "
+                       f"{sorted(lookups.skill_text.unresolved)[:10]}")
 
 
 # ============ 语音 ============
