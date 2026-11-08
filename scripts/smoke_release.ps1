@@ -120,3 +120,7 @@ finally {
         Remove-Item -LiteralPath $resolvedTemporary -Recurse -Force
     }
 }
+
+# Callers read $LASTEXITCODE, which would otherwise still hold the expected
+# non-zero exit of the masterdata rejection check above.
+exit 0
