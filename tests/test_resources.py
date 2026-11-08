@@ -58,7 +58,7 @@ class ResourcesTests(unittest.TestCase):
             def no_network(*args, **kwargs):
                 self.fail('offline cache recovery must not start a network request')
             provider = ProdManifestProvider(directory, opener=no_network)
-            with self.assertRaisesRegex(FileNotFoundError, '没有正式资源清单.*正式服在线'):
+            with self.assertRaisesRegex(FileNotFoundError, '没有正式资源清单.*联网更新'):
                 provider.refresh(offline=True)
 
     def test_manifest_keeps_unknown_categories_and_raw_metadata(self):

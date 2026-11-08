@@ -36,30 +36,30 @@ PRESETS = {
     '只更新语音': ('home_voices', 'home_voice_duo', 'card_combi_voices'),
     '只出活动表': ('events', 'ojt', 'missions'),
 }
-MODES = {'联网更新': 'online', '用本地缓存': 'offline'}
+MODES = {'联网更新': 'online', '只用已下载缓存': 'offline'}
 # Names saved by earlier versions; local files are now an advanced-page switch.
-LEGACY_MODES = {'正式服在线': '联网更新', '正式服离线缓存': '用本地缓存'}
+LEGACY_MODES = {'正式服在线': '联网更新', '正式服离线缓存': '只用已下载缓存', '用本地缓存': '只用已下载缓存'}
 TASK_HINT = '鼠标移到任务上可查看它生成什么。'
 TASK_HELP = {
     'groove': '曲目加成、Runner 位次、Relation 与 SIDE；导出源数据，不推算掉落期望。',
-    'cards': '生成卡牌资料；正式资源模式可同时同步卡牌语音。',
+    'cards': '生成卡牌资料；联网或只用缓存时可同时填入卡面语音台词（在“输入与高级设置”开关）。',
     'card_update': '以旧工作簿为输入更新卡牌，保留人工填写列。请在高级设置选择旧表。',
     'collections': '服装、Mini、称号、徽章、背景和道具；已确认入口不代表全部获取方式。',
     'items': '整理道具名称和说明；缺名称保留缺项。',
     'events': '活动分类、任务档位和奖励；日期区间内不代表账号已解锁。',
-    'ojt': 'OJT 题面、轮次与奖励。可在本地模式补充 Chart 文件以关联角色站位坐标。',
+    'ojt': 'OJT 题面、轮次与奖励。改用本地文件时可补充 Chart 文件以关联角色站位坐标。',
     'charts': '仅解析本地 OJT 站位文件；不是音乐谱面。要与题面关联，请选 OJT 活动档案。',
     'missions': '隐藏任务资料；每期活动任务请使用活动资料。',
     'recipes': '整理配方与相关奖励资料。',
-    'home_voices': '从角色 ACB 提取主页及生日祝福文本；资源缺侧会保留告警。',
+    'home_voices': '从角色 ACB 提取主页及生日祝福文本；资源缺失时会保留告警。',
     'home_voice_duo': '按两位角色配对双人主页台词，需要 masterdata 和角色 ACB。',
     'card_combi_voices': '列出一条 Cue 含多段音频的卡牌（如三轮生日部门协作），逐段导出音频供人工听写；不写入卡牌全表。',
     'audio': '提取本地 ACB 的通用文本，不按文件名猜测说话角色。',
     'birthday': '生日庆典小游戏台词，按轮次整理；不是 ACB 生日祝福。',
     'birthday_archive': '按角色和年份整理年度生日的登录、点击奖励、服装和台词。',
     'story_catalog': '剧情索引、门槛与奖励；不包含独立脚本正文，不猜脚本文件名。',
-    'scripts': '解析独立剧情脚本正文；在线模式需明确资源键，本地模式选文件或目录。',
-    'lyrics': '解析歌词与时间信息；在线模式需明确资源键，本地模式选文件或目录。',
+    'scripts': '解析独立剧情脚本正文；联网时需在“指定线上资源”填写资源键，改用本地文件时选文件或目录。',
+    'lyrics': '解析歌词与时间信息；联网时需在“指定线上资源”填写资源键，改用本地文件时选文件或目录。',
     'music': '音乐主表及可关联资源；无音频关联的音乐仍保留。',
     'snap': '整理去重后的 Snap 文案，原始关联留在审计资料。',
 }
@@ -94,13 +94,13 @@ class JobRequest:
         if not self.output.strip():
             raise ValueError('请选择输出目录')
         if self.cycle and (not self.cycle.isdigit() or int(self.cycle) < 1):
-            raise ValueError('生日轮次应为正整数，留空自动选择最新轮次')
+            raise ValueError('生日轮次应为正整数，留空则导出全部轮次')
         if self.recent_year:
             from datetime import date
             try:
                 date.fromisoformat(self.recent_year)
             except ValueError:
-                raise ValueError('近一年截止日期应为 YYYY-MM-DD') from None
+                raise ValueError('近一年语音截止日应为 YYYY-MM-DD') from None
         if 'card_update' in self.domains and not Path(self.old_workbook).is_file():
             raise ValueError('更新已有卡表需要选择旧 Excel 工作簿')
         if self.mode != 'local':
@@ -239,7 +239,7 @@ class ToolkitApp:
         self._path_row(main, '输出到', 'output', directory=True)
         controls = ttk.Frame(main)
         controls.pack(fill='x', pady=(8, 8))
-        self.plan_button = ttk.Button(controls, text='检查所需资源', command=lambda: self.start(True))
+        self.plan_button = ttk.Button(controls, text='先检查资源', command=lambda: self.start(True))
         self.plan_button.pack(side='left')
         self.start_button = ttk.Button(controls, text='同步并生成', command=lambda: self.start(False))
         self.start_button.pack(side='left', padx=10)
@@ -277,7 +277,7 @@ class ToolkitApp:
         add = ttk.Button(local, text='添加并识别本地文件…', command=self.add_local_file)
         add.pack(side='left', padx=12)
         self.inputs.append(add)
-        check = ttk.Checkbutton(advanced, text='卡牌表同时填入卡面语音台词（联网和缓存模式）',
+        check = ttk.Checkbutton(advanced, text='卡牌表同时填入卡面语音台词（联网或只用缓存时）',
                                 variable=self.include_card_audio)
         self.card_audio_check = check
         check.pack(anchor='w', pady=(0, 6))
@@ -287,12 +287,14 @@ class ToolkitApp:
         self._path_row(advanced, '歌词 / 脚本 / OJT Chart', 'source', allow_folder=True)
         self._path_row(advanced, '旧卡牌工作簿', 'old_workbook')
         self._path_row(advanced, '资源缓存', 'cache', directory=True)
-        for label, name in [('生日轮次（可空）', 'cycle'), ('语音主体（可空）', 'subject'),
-                            ('近年截止 YYYY-MM-DD', 'recent_year'), ('指定线上资源（分号分隔）', 'resource_keys')]:
+        for label, name in [('生日轮次（空=全部轮次）', 'cycle'), ('单个语音主体另出表（可空）', 'subject'),
+                            ('近一年语音截止日（可空）', 'recent_year'), ('指定线上资源（分号分隔）', 'resource_keys')]:
             self._path_row(advanced, label, name, picker=False)
-        ttk.Label(advanced, text='本地模式不会联网。正式服离线模式只使用已有缓存；缺失资源会明确报错。\n'
-                  '检查在线资源可能下载 masterdata，用于判断卡牌所需的语音包。',
-                  style='Hint.TLabel', wraplength=790).pack(anchor='w', pady=12)
+        ttk.Label(advanced, text='改用本地文件时不联网；“只用已下载缓存”只读取已校验的缓存，缺失资源会明确报错。\n'
+                  '联网时“先检查资源”可能下载 masterdata，用于判断卡牌所需的语音包。\n'
+                  '单个语音主体：填主体名或 CueName，另出一张该主体的主页 / 生日祝福表。\n'
+                  '近一年语音截止日：额外汇总该日期前 365 天的主页与生日语音。',
+                  style='Hint.TLabel', wraplength=1200).pack(anchor='w', pady=12)
         self.details = tk.Text(details, wrap='word', state='disabled', font=('Microsoft YaHei UI', 10))
         self.details.pack(fill='both', expand=True)
 
@@ -357,8 +359,8 @@ class ToolkitApp:
             'local': '已在“输入与高级设置”中改用本地文件，资源来源选项不生效。',
         }[mode])
         self.mode_box.configure(state='disabled' if mode == 'local' else 'readonly')
-        self.start_button.configure(text='生成资料' if mode == 'local' else '同步并生成')
-        self.plan_button.configure(text='检查本地输入' if mode == 'local' else '先检查资源')
+        self.start_button.configure(text={'online': '同步并生成', 'offline': '用缓存生成', 'local': '生成资料'}[mode])
+        self.plan_button.configure(text={'online': '先检查资源', 'offline': '先检查缓存', 'local': '检查本地输入'}[mode])
         self.card_audio_check.configure(state='disabled' if mode == 'local' else 'normal')
 
     def show_task_help(self):

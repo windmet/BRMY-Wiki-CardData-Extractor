@@ -149,14 +149,15 @@ class GuiWidgetTests(unittest.TestCase):
         self.assertEqual('local', self.app.mode_code())
         self.assertEqual('disabled', str(self.app.mode_box['state']))
         self.app.use_local.set(False)
-        self.app.mode.set('用本地缓存')
+        self.app.mode.set('只用已下载缓存')
         self.app._mode_changed()
         self.assertEqual('offline', self.app.mode_code())
         self.assertEqual('readonly', str(self.app.mode_box['state']))
 
     def test_settings_saved_by_earlier_versions_map_to_new_modes(self):
         settings = Path(self.directory.name) / 'old.json'
-        for saved, mode, local in [('正式服离线缓存', '用本地缓存', False), ('使用本地资源', '联网更新', True)]:
+        for saved, mode, local in [('正式服离线缓存', '只用已下载缓存', False), ('用本地缓存', '只用已下载缓存', False),
+                                   ('使用本地资源', '联网更新', True)]:
             settings.write_text(json.dumps({'mode': saved}, ensure_ascii=False), encoding='utf-8')
             app = ToolkitApp(tk.Toplevel(self.root), settings_path=settings)
             self.assertEqual(mode, app.mode.get())
