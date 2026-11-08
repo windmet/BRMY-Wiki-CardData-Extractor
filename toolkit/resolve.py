@@ -63,6 +63,10 @@ def build_plan(domains, resources, tables=None, *, include_card_audio=True, reso
                            if row.get('HomeVoiceTypeCode') == 3}
                 for target in sorted(targets & PACKAGE_BY_TARGET.keys()):
                     add('Musics/' + PACKAGE_BY_TARGET[target], domain, True, 'audio')
+        if domain == 'ojt':
+            # Coordinates are optional: an OJT archive without charts is still useful.
+            for key in sorted(key for key in resources if key.endswith('.s2bchart')):
+                add(key, domain, False, 'charts')
         if domain == 'audio':
             keys = [key for key in resources if key.startswith('Musics/') and key.endswith('.acb')]
             if not keys:
@@ -231,7 +235,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
             except Exception as error:
                 if item['required']:
                     raise ValueError(f"{item['key']}: {error}") from error
-                return None, f"可选卡牌语音不可用: {item['key']}: {error}"
+                return None, f"可选资源不可用: {item['key']}: {error}"
 
         notify('download', index=0, total=len(pending))
         with ThreadPoolExecutor(max_workers=4) as pool:
@@ -252,7 +256,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
         notify('generate')
         sources = {domain: [entry['prepared_path'] for entry in audit['downloads']
                             if domain in entry.get('domains', [])]
-                   for domain in SUFFIXES if domain in domains}
+                   for domain in [*SUFFIXES, 'ojt'] if domain in domains}
         audio_dir = stage / 'audio'
         if (set(domains) & {'cards', 'card_update'} and include_card_audio) or 'card_combi_voices' in domains:
             audio_dir.mkdir(parents=True, exist_ok=True)

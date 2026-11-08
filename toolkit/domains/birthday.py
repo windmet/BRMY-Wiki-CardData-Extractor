@@ -1,6 +1,6 @@
 """生日台词数据提取 + 导出。"""
 from ..core.scanner import load_json, save_json
-from ..core.exporter import write_xlsx, json_path, xlsx_path
+from ..core.exporter import write_workbook, json_path, xlsx_path
 from ..core.data import clean_text
 from ..core.tables import TableCatalog
 
@@ -147,46 +147,64 @@ def extract(session=None, target_year=None, target_cycle=None):
         if cid and year and text_no:
             raw_text_rows.setdefault(cid, {}).setdefault(year, []).append(obj)
 
-    cycle = _resolve_cycle(
-        _infer_cycle(characters, text_rows),
-        target_year=target_year,
-        target_cycle=target_cycle,
-    )
-    boundary = (cycle['BoundaryMonth'], cycle['BoundaryDay'])
-    bday_texts = {}
-    text_metadata = {}
-    for cid, info in characters.items():
-        month, day = info["Month"], info["Day"]
-        character_year = cycle['StartYear'] if (month, day) >= boundary else cycle['StartYear'] + 1
-        bday_texts[cid], text_metadata[cid] = _select_character_texts(
-            raw_text_rows, cid, character_year
-        )
+    inferred = _infer_cycle(characters, text_rows)
+    if target_year is None and target_cycle is None:
+        # Wiki collects every cycle in date order, so all cycles up to the latest are exported.
+        selected = [_resolve_cycle(inferred, target_cycle=number) | {'Selection': 'auto'}
+                    for number in range(1, inferred['Cycle'] + 1)]
+    else:
+        selected = [_resolve_cycle(inferred, target_year=target_year, target_cycle=target_cycle)]
+    boundary = (inferred['BoundaryMonth'], inferred['BoundaryDay'])
+    cycles = []
+    for cycle in selected:
+        bday_texts = {}
+        text_metadata = {}
+        for cid, info in characters.items():
+            month, day = info["Month"], info["Day"]
+            character_year = cycle['StartYear'] if (month, day) >= boundary else cycle['StartYear'] + 1
+            bday_texts[cid], text_metadata[cid] = _select_character_texts(
+                raw_text_rows, cid, character_year
+            )
+        cycles.append({
+            "TargetCycle": cycle['Cycle'],
+            "CycleStartYear": cycle['StartYear'],
+            "CycleSelection": cycle['Selection'],
+            "BirthdayTexts": bday_texts,
+            "BirthdayTextMeta": text_metadata,
+        })
 
+    latest = cycles[-1]
     out = json_path('birthday_extract.json')
     save_json({
-        "TargetCycle": cycle['Cycle'],
-        "CycleStartYear": cycle['StartYear'],
+        **{key: latest[key] for key in ("TargetCycle", "CycleStartYear", "CycleSelection")},
         "CycleBoundary": {
-            "Month": cycle['BoundaryMonth'],
-            "Day": cycle['BoundaryDay'],
+            "Month": inferred['BoundaryMonth'],
+            "Day": inferred['BoundaryDay'],
         },
-        "CycleSelection": cycle['Selection'],
         "Characters": characters,
-        "BirthdayTexts": bday_texts,
-        "BirthdayTextMeta": text_metadata,
+        "BirthdayTexts": latest["BirthdayTexts"],
+        "BirthdayTextMeta": latest["BirthdayTextMeta"],
+        "Cycles": cycles,
     }, out)
     print(
         f"[+] 提取 {len(characters)} 个角色生日数据 "
-        f"(Cycle {cycle['Cycle']}, {cycle['StartYear']}, {cycle['Selection']}) → {out}"
+        f"(Cycle {', '.join(str(c['TargetCycle']) for c in cycles)}, {latest['CycleSelection']}) → {out}"
     )
-    return characters, bday_texts
+    return characters, latest["BirthdayTexts"]
 
 
 def export():
     data = load_json(json_path('birthday_extract.json'))
+    cycles = data.get("Cycles") or [data]
+    sheets = [_cycle_sheet(data, cycle) for cycle in cycles]
+    out = xlsx_path('birthday_lines.xlsx')
+    write_workbook(out, sheets)
+
+
+def _cycle_sheet(data, cycle):
     chars = data.get("Characters", {})
-    texts = data.get("BirthdayTexts", {})
-    cycle_start_year = data.get("CycleStartYear", 2023 + int(data.get("TargetCycle", 3)))
+    texts = cycle.get("BirthdayTexts", {})
+    cycle_start_year = cycle.get("CycleStartYear", 2023 + int(cycle.get("TargetCycle", 3)))
     boundary_data = data.get("CycleBoundary", {"Month": 5, "Day": 14})
     boundary = (boundary_data["Month"], boundary_data["Day"])
 
@@ -208,7 +226,7 @@ def export():
         year = cycle_start_year + sort_key(c)[0]
         date_row.append(f"{year}/{c['month']:02d}/{c['day']:02d}")
     rows.append(date_row)
-    rows.append(["轮次"] + [data.get("TargetCycle", "")] * len(sorted_chars))
+    rows.append(["轮次"] + [cycle.get("TargetCycle", "")] * len(sorted_chars))
     line_count = max(
         (
             int(number)
@@ -222,9 +240,10 @@ def export():
         label_c = f"庆典台词{chr(0x2460 + i - 1)}C"
         rows.append([label_j] + [clean_text(texts.get(str(c["id"]), {}).get(str(i), "")) for c in sorted_chars])
         rows.append([label_c] + [""] * len(sorted_chars))
-    out = xlsx_path('birthday_lines.xlsx')
-    write_xlsx(rows, out, sheet_title="Birthday Lines",
-               col_widths={'A': 20}, wrap_cols={i for i in range(1, len(sorted_chars) + 1)})
+    end_year = (cycle_start_year + 1) % 100
+    return {"title": f"第{cycle.get('TargetCycle', '')}轮 {cycle_start_year}-{end_year:02d}",
+            "rows": rows, "col_widths": {'A': 20},
+            "wrap_cols": range(2, len(sorted_chars) + 2)}
 
 
 def run(session=None, target_year=None, target_cycle=None):

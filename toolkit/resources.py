@@ -17,7 +17,7 @@ import msgpack
 
 PRODUCTION_URL = 'https://s2b-assets-prod.s2b-coly.com/'
 CATEGORY_PATHS = {0: 'Files/Android/', 1: 'Scripts/', 2: 'Tables/',
-                  3: 'LightingSets/', 4: 'Movies/', 5: 'Musics/', 6: 'Jukebox/'}
+                  3: 'LightingSets/', 4: 'Movies/', 5: 'Musics/', 6: 'Jukebox/', 7: 'Chart/'}
 MANIFEST_KEY = 'Tables/FileAssetList.s2bcoly'
 
 

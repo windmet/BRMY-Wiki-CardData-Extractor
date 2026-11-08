@@ -89,6 +89,14 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual([MASTER_KEY], [r['key'] for r in build_plan(
             ['cards'], resources, include_card_audio=False)['resources']])
 
+    def test_ojt_takes_chart_files_as_optional_inputs(self):
+        resources = {MASTER_KEY: None, 'Chart/event33_chart_layout.s2bchart': None, 'Scripts/a.s2bscript': None}
+        plan = build_plan(['ojt'], resources)
+        self.assertEqual([MASTER_KEY, 'Chart/event33_chart_layout.s2bchart'], [r['key'] for r in plan['resources']])
+        self.assertFalse(plan['resources'][1]['required'])
+        self.assertEqual('charts', plan['resources'][1]['kind'])
+        self.assertFalse(build_plan(['charts'], resources)['errors'])
+
     def test_home_requires_known_speakers_and_charts_do_not_guess_paths(self):
         plan = build_plan(['home_voices'], {MASTER_KEY: None, 'Musics/voice_rare_general.acb': None})
         self.assertEqual(21, len(plan['errors']))

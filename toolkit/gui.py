@@ -32,7 +32,7 @@ TASK_GROUPS = [
 ]
 PRESETS = {
     '版本更新全套': ('cards', 'collections', 'items', 'events', 'ojt', 'missions', 'story_catalog',
-                'birthday_archive', 'home_voices', 'home_voice_duo', 'music', 'snap'),
+                'birthday', 'home_voices', 'home_voice_duo', 'music', 'snap'),
     '只更新语音': ('home_voices', 'home_voice_duo', 'card_combi_voices'),
     '只出活动表': ('events', 'ojt', 'missions'),
 }
@@ -106,8 +106,6 @@ class JobRequest:
         if self.mode != 'local':
             if not self.cache.strip():
                 raise ValueError('请选择资源缓存目录')
-            if 'charts' in self.domains:
-                raise ValueError('在线OJT Chart路径尚未确认，请切换到本地资源模式')
         else:
             if set(self.domains) & NEEDS_MASTERDATA:
                 if not Path(self.masterdata).is_file():
