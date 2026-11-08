@@ -1,11 +1,13 @@
 """卡牌数据提取 + 导出。
 
-这是最复杂的域，包含：
-- 全局映射预扫描（道具、技能效果、角色、公告）
-- 卡牌数据深扫描
-- 后处理：概率精修、颜色匹配、活动溯源、获取方式推断
+流程：
+1. ``_build_lookups``：从具名映射表建立道具、角色、技能效果、公告等字典。
+2. ``CARD_TABLES``：逐张卡牌表调用对应的 ``_apply_*``，不再按字段名猜表。
+3. 后处理：活动名溯源、技能文本精修。
+4. 关系证据（card_relations）与语音（masterdata + ACB）合并。
 """
 import re
+from dataclasses import dataclass
 
 from ..core.scanner import load_json, save_json
 from ..core.exporter import write_xlsx, json_path, xlsx_path, audit_path
@@ -23,6 +25,7 @@ INPUT_JSON = 'master_data.json'
 PIECE_COLOR_RE = re.compile(
     r'(サンピース（赤色）|サンピース（桃色）|ムーンピース（空色）|ムーンピース（青色）|スターピース（黄色）|スターピース（緑色）)'
 )
+ATTRIBUTE_PIECE_COLOR = {"日": "サンピース（赤色）", "月": "ムーンピース（空色）", "星": "スターピース（黄色）"}
 
 
 def skill_values(obj, count=6):
@@ -72,334 +75,371 @@ def format_skill_desc(template, values, character_map=None):
     return template
 
 
-def extract(audio_dir=None, session=None):
-    data = session.data if session else load_json(INPUT_JSON)
-    tables = session.tables if session else TableCatalog(data)
+# ============ 映射表 ============
 
-    # ============ 预扫描：全局映射表 ============
-    item_map = {}
-    skill_effect_map = {}
-    character_map = {}
-    sp_effect_def_map = {}
-    notice_list = []
-    card_home_voice_map = {}
+@dataclass
+class CardLookups:
+    items: dict
+    characters: dict
+    sp_effects: dict
+    auto_effects: dict
+    combination_effects: dict
+    leader_effects: dict
+    notices: list
+    home_voices: dict
 
-    main_card_rows = tables.require('mst_character_card')
-    mapping_rows = (
-        tables.require('mst_home_voice')
-        + tables.require('mst_item')
-        + tables.require('mst_character')
-        + tables.rows('mst_character_collaboration')
-        + tables.require('mst_sp_skill_effect')
-        + tables.require('mst_notice')
-        + tables.require('mst_auto_skill_effect')
-        + tables.require('mst_combination_effect')
-        + tables.require('mst_leader_skill_effect')
+
+def _home_voice_entry(row):
+    return {
+        "CueName": row['VoiceCueName'],
+        "HomeVoiceNo": row.get('HomeVoiceNo'),
+        "HomeVoiceCategory": row.get('HomeVoiceCategory'),
+        "KeyTargetValue": row.get('KeyTargetValue'),
+        "TimeDivisionId": row.get('TimeDivisionId'),
+        "IsActive": row.get('IsActive'),
+        "MotionCharacterId": row.get('MotionCharacterId'),
+        "Title": "",
+        "Text": "",
+        "TextHtml": "",
+        "HasText": False,
+        "AcbFile": "",
+    }
+
+
+def _build_lookups(tables):
+    home_voices = {}
+    for row in tables.require('mst_home_voice'):
+        if row.get('HomeVoiceTypeCode') == 2 and row.get('HomeVoiceTargetId') and row.get('VoiceCueName'):
+            home_voices.setdefault(row['HomeVoiceTargetId'], {})[row['VoiceCueName']] = _home_voice_entry(row)
+
+    characters = {}
+    for row in tables.require('mst_character') + tables.rows('mst_character_collaboration'):
+        if 'CharacterId' in row and 'CharacterNameJpn' in row:
+            characters[row['CharacterId']] = row['CharacterNameJpn']
+
+    return CardLookups(
+        items={
+            row['ItemId']: row['ItemName']
+            for row in tables.require('mst_item') if 'ItemId' in row and 'ItemName' in row
+        },
+        characters=characters,
+        sp_effects={
+            row['SpSkillEffectId']: {
+                "SkillEffect": row['SkillEffect'],
+                "SpSkillCategoryCodeList": row.get('SpSkillCategoryCodeList', []),
+            }
+            for row in tables.require('mst_sp_skill_effect')
+            if 'SpSkillEffectId' in row and 'SkillEffect' in row
+        },
+        auto_effects={
+            row['AutoSkillEffectId']: {"Name": row['SkillName'], "Desc": row.get('SkillDescription', '')}
+            for row in tables.require('mst_auto_skill_effect')
+            if 'AutoSkillEffectId' in row and 'SkillName' in row
+        },
+        combination_effects={
+            row['CombinationEffectId']: {
+                "Name": row.get('SkillEffect', f"Combo_{row['CombinationEffectId']}"),
+                "Desc": row.get('SkillDescription', ''),
+            }
+            for row in tables.require('mst_combination_effect')
+            if 'CombinationEffectId' in row and 'SkillDescription' in row
+        },
+        leader_effects={
+            row['LeaderSkillEffectId']: {
+                "Name": row.get('SkillName', f"Leader_{row['LeaderSkillEffectId']}"),
+                "Desc": row.get('SkillDescription', ''),
+            }
+            for row in tables.require('mst_leader_skill_effect')
+            if 'LeaderSkillEffectId' in row and 'SkillDescription' in row
+        },
+        notices=[
+            (row['TitleName'], row['FileDesc'])
+            for row in tables.require('mst_notice')
+            if 'NoticeId' in row and 'TitleName' in row and 'FileDesc' in row
+        ],
+        home_voices=home_voices,
     )
-    for obj in mapping_rows:
-        if obj.get('HomeVoiceTypeCode') == 2 and obj.get('HomeVoiceTargetId') and obj.get('VoiceCueName'):
-            card_id = obj['HomeVoiceTargetId']
-            card_home_voice_map.setdefault(card_id, {})[obj['VoiceCueName']] = {
-                "CueName": obj['VoiceCueName'],
-                "HomeVoiceNo": obj.get('HomeVoiceNo'),
-                "HomeVoiceCategory": obj.get('HomeVoiceCategory'),
-                "KeyTargetValue": obj.get('KeyTargetValue'),
-                "TimeDivisionId": obj.get('TimeDivisionId'),
-                "IsActive": obj.get('IsActive'),
-                "MotionCharacterId": obj.get('MotionCharacterId'),
-                "Title": "",
-                "Text": "",
-                "TextHtml": "",
-                "HasText": False,
-                "AcbFile": "",
-            }
-        if 'ItemId' in obj and 'ItemName' in obj:
-            item_map[obj['ItemId']] = obj['ItemName']
-        if 'CharacterId' in obj and 'CharacterNameJpn' in obj:
-            character_map[obj['CharacterId']] = obj['CharacterNameJpn']
-        if 'SpSkillEffectId' in obj and 'SkillEffect' in obj:
-            sp_effect_def_map[obj['SpSkillEffectId']] = {
-                "SkillEffect": obj['SkillEffect'],
-                "SpSkillCategoryCodeList": obj.get('SpSkillCategoryCodeList', []),
-            }
-        if 'NoticeId' in obj and 'TitleName' in obj and 'FileDesc' in obj:
-            notice_list.append((obj['TitleName'], obj['FileDesc']))
-        if 'AutoSkillEffectId' in obj and 'SkillName' in obj:
-            skill_effect_map[f"Auto_{obj['AutoSkillEffectId']}"] = {
-                "Name": obj['SkillName'], "Desc": obj.get('SkillDescription', ''),
-            }
-        elif 'SkillEffectId' in obj and 'SkillName' in obj:
-            skill_effect_map[f"Sp_{obj['SkillEffectId']}"] = {
-                "Name": obj['SkillName'], "Desc": obj.get('SkillDescription', ''),
-            }
-        elif 'CombinationEffectId' in obj and 'SkillDescription' in obj:
-            skill_effect_map[f"Combo_{obj['CombinationEffectId']}"] = {
-                "Name": obj.get('SkillEffect', f"Combo_{obj['CombinationEffectId']}"),
-                "Desc": obj.get('SkillDescription', ''),
-            }
-        elif 'LeaderSkillEffectId' in obj and 'SkillDescription' in obj:
-            skill_effect_map[f"Leader_{obj['LeaderSkillEffectId']}"] = {
-                "Name": obj.get('SkillName', f"Leader_{obj['LeaderSkillEffectId']}"),
-                "Desc": obj.get('SkillDescription', ''),
-            }
 
-    def extract_costs(obj):
-        costs = []
-        for i in range(1, 7):
-            iid = obj.get(f'ItemId{i}', 0)
-            count = obj.get(f'CostItemCount{i}', 0)
-            if iid > 0 and count > 0:
-                costs.append({"Item": item_map.get(iid, f"Item_{iid}"), "Count": count})
-        return costs
 
-    # ============ 主扫描：卡牌数据 ============
+# ============ 卡牌表 ============
+
+def _new_card():
+    return {
+        "Meta": {}, "Stats": {}, "LeaderSkill": {}, "SpSkill": {},
+        "AutoSkill": {}, "Combination": {}, "Revision": {},
+        "UpgradeCosts": {"AutoSkill": {}, "SpSkill": {}, "Combination": {}, "Revision": {}},
+        "Story": [], "Assets": {}, "Voice": [], "Gacha": [],
+        "Raw": {}, "Relations": {}, "Acquisition": {},
+    }
+
+
+def _costs(row, lookups):
+    costs = []
+    for i in range(1, 7):
+        iid = row.get(f'ItemId{i}', 0)
+        count = row.get(f'CostItemCount{i}', 0)
+        if iid > 0 and count > 0:
+            costs.append({"Item": lookups.items.get(iid, f"Item_{iid}"), "Count": count})
+    return costs
+
+
+def _apply_card(card, row, lookups):
+    characters = lookups.characters
+    card["Raw"] = dict(row)
+    card["Meta"].update({
+        "Name": row.get('CharacterCardName'),
+        "CharId": row.get('CharacterId'),
+        "CharName": characters.get(row.get('CharacterId'), f"Char_{row.get('CharacterId')}"),
+        "Rarity": RARITY_MAP.get(row.get('CardRarityCode'), row.get('CardRarityCode')),
+        "RarityCode": row.get('CardRarityCode'),
+        "Attribute": ATTRIBUTE_MAP.get(row.get('CardAttributeCode'), row.get('CardAttributeCode')),
+        "AttributeCode": row.get('CardAttributeCode'),
+        "RouteCode": row.get('CardRouteCode'),
+        "CombiCharName": characters.get(row.get('CombiCharacterId'), f"Char_{row.get('CombiCharacterId')}"),
+        "Release": row.get('ReleaseDateTime'),
+    })
+    card["Assets"] = {
+        "CardIcon": row.get('CharacterCardIconFileName', ''),
+        "CardIllustration": row.get('CharacterCardFileName', ''),
+        "LiveClip": row.get('LiveClipFileName', ''),
+        "SpSkillEffect": row.get('SpSkillEffectFileName', ''),
+        "VoiceCueSheet": row.get('VoiceCueSheetName', ''),
+    }
+    card["SpSkill"]["Name"] = row.get('SpSkillName')
+
+
+def _apply_parameter(card, row, lookups):
+    card["Stats"] = {
+        "Aura": {"Min": row.get('AuraInitialValue'), "Max": row.get('AuraMaxValue')},
+        "Visual": {"Min": row.get('VisualInitialValue'), "Max": row.get('VisualMaxValue')},
+        "Charisma": {"Min": row.get('CharismaInitialValue'), "Max": row.get('CharismaMaxValue')},
+    }
+
+
+def _apply_revision(card, row, lookups):
+    card["Revision"][f"Rank{row['RevisionRank']}"] = {
+        "Aura+": row.get('AuraAdditionalValue', 0),
+        "Visual+": row.get('VisualAdditionalValue', 0),
+        "Charisma+": row.get('CharismaAdditionalValue', 0),
+    }
+
+
+def _cost_applier(category, level_key, prefix):
+    def apply(card, row, lookups):
+        if 'ItemId1' in row:
+            card["UpgradeCosts"][category][f"{prefix}{row[level_key]}"] = _costs(row, lookups)
+    return apply
+
+
+def _apply_leader_skill(card, row, lookups):
+    effect_id = row.get('LeaderSkillEffectId')
+    effect = lookups.leader_effects.get(effect_id, {"Name": f"Leader_{effect_id}", "Desc": ""})
+    card["LeaderSkill"] = {
+        "Name": effect["Name"],
+        "Desc": format_skill_desc(effect["Desc"], skill_values(row), lookups.characters),
+    }
+
+
+def _apply_sp_level(card, row, lookups):
+    card["SpSkill"][f"Lv{row['SpSkillLevel']}"] = {
+        "Desc": format_skill_desc(row.get('SkillDescription', ''), skill_values(row), lookups.characters),
+        "Cost": row.get('SkillCost'),
+    }
+    effect = lookups.sp_effects.get(row.get('SpSkillEffectId'))
+    if effect:
+        card["SpSkill"]["SkillEffect"] = effect["SkillEffect"]
+        card["SpSkill"]["SpSkillCategoryCodeList"] = effect["SpSkillCategoryCodeList"]
+
+
+def _apply_sp_with_combi(card, row, lookups):
+    card["SpSkill"]["CombiBonus"] = {
+        "Desc": format_skill_desc(row.get('SkillDescription', ''), skill_values(row, 1), lookups.characters),
+        "Value": row.get('SkillValue1'),
+    }
+
+
+def _apply_auto_level(card, row, lookups):
+    effect = lookups.auto_effects.get(row.get('AutoSkillEffectId'), {"Name": "Auto", "Desc": ""})
+    card["AutoSkill"][f"Lv{row['AutoSkillLevel']}"] = {
+        "Name": effect["Name"],
+        "Desc": format_skill_desc(effect["Desc"], skill_values(row, 3), lookups.characters),
+        "PieceCount": row.get('PieceCount'),
+    }
+
+
+def _apply_combination_level(card, row, lookups):
+    effect = lookups.combination_effects.get(row.get('CombinationEffectId'), {"Desc": ""})
+    card["Combination"][f"Lv{row['CombinationLevel']}"] = {
+        "Desc": format_skill_desc(effect["Desc"], skill_values(row), lookups.characters),
+    }
+
+
+# 顺序即合并顺序；同一卡同一等级出现多行时以后读到的为准。
+CARD_TABLES = (
+    ('mst_character_card', _apply_card),
+    ('mst_character_card_parameter', _apply_parameter),
+    ('mst_character_card_revision', _apply_revision),
+    ('mst_item_card_revision', _cost_applier("Revision", 'RevisionRank', "Rank")),
+    ('mst_character_card_leader_skill', _apply_leader_skill),
+    ('mst_character_card_sp_skill_level', _apply_sp_level),
+    ('mst_item_card_sp_skill_level_up', _cost_applier("SpSkill", 'SpSkillLevel', "Lv")),
+    ('mst_character_card_sp_skill_with_combi', _apply_sp_with_combi),
+    ('mst_character_card_auto_skill_level', _apply_auto_level),
+    ('mst_item_card_auto_skill_level_up', _cost_applier("AutoSkill", 'AutoSkillLevel', "Lv")),
+    ('mst_character_card_combination_level', _apply_combination_level),
+    ('mst_item_card_combination_level_up', _cost_applier("Combination", 'CombinationLevel', "Lv")),
+)
+
+
+def _build_cards(tables, lookups):
     cards_db = {}
+    for table_name, apply in CARD_TABLES:
+        for row in tables.require(table_name):
+            cid = row.get('CharacterCardId')
+            if cid:
+                apply(cards_db.setdefault(cid, _new_card()), row, lookups)
 
-    def get_card(cid):
-        if cid not in cards_db:
-            cards_db[cid] = {
-                "Meta": {}, "Stats": {}, "LeaderSkill": {}, "SpSkill": {},
-                "AutoSkill": {}, "Combination": {}, "Revision": {},
-                "UpgradeCosts": {"AutoSkill": {}, "SpSkill": {}, "Combination": {}, "Revision": {}},
-                "Story": [], "Assets": {}, "Voice": [], "Gacha": [],
-                "Raw": {}, "Relations": {}, "Acquisition": {},
-            }
-        return cards_db[cid]
-
-    card_rows = (
-        main_card_rows
-        + tables.require('mst_character_card_parameter')
-        + tables.require('mst_character_card_revision')
-        + tables.require('mst_item_card_revision')
-        + tables.require('mst_character_card_leader_skill')
-        + tables.require('mst_character_card_sp_skill_level')
-        + tables.require('mst_item_card_sp_skill_level_up')
-        + tables.require('mst_character_card_sp_skill_with_combi')
-        + tables.require('mst_character_card_auto_skill_level')
-        + tables.require('mst_item_card_auto_skill_level_up')
-        + tables.require('mst_character_card_combination_level')
-        + tables.require('mst_item_card_combination_level_up')
-    )
-    for obj in card_rows:
-        cid = obj.get('CharacterCardId')
-        if not cid:
-            continue
-        card = get_card(cid)
-        if 'CharacterCardName' in obj:
-            card["Raw"] = dict(obj)
-            card["Meta"].update({
-                "Name": obj.get('CharacterCardName'),
-                "CharId": obj.get('CharacterId'),
-                "CharName": character_map.get(obj.get('CharacterId'), f"Char_{obj.get('CharacterId')}"),
-                "Rarity": RARITY_MAP.get(obj.get('CardRarityCode'), obj.get('CardRarityCode')),
-                "RarityCode": obj.get('CardRarityCode'),
-                "Attribute": ATTRIBUTE_MAP.get(obj.get('CardAttributeCode'), obj.get('CardAttributeCode')),
-                "AttributeCode": obj.get('CardAttributeCode'),
-                "RouteCode": obj.get('CardRouteCode'),
-                "CombiCharName": character_map.get(obj.get('CombiCharacterId'), f"Char_{obj.get('CombiCharacterId')}"),
-                "Release": obj.get('ReleaseDateTime'),
-            })
-            card["Assets"] = {
-                "CardIcon": obj.get('CharacterCardIconFileName', ''),
-                "CardIllustration": obj.get('CharacterCardFileName', ''),
-                "LiveClip": obj.get('LiveClipFileName', ''),
-                "SpSkillEffect": obj.get('SpSkillEffectFileName', ''),
-                "VoiceCueSheet": obj.get('VoiceCueSheetName', ''),
-            }
-            card["SpSkill"]["Name"] = obj.get('SpSkillName')
-
-        if 'AuraInitialValue' in obj:
-            card["Stats"] = {
-                "Aura": {"Min": obj.get('AuraInitialValue'), "Max": obj.get('AuraMaxValue')},
-                "Visual": {"Min": obj.get('VisualInitialValue'), "Max": obj.get('VisualMaxValue')},
-                "Charisma": {"Min": obj.get('CharismaInitialValue'), "Max": obj.get('CharismaMaxValue')},
-            }
-
-        if 'RevisionRank' in obj:
-            rank = obj['RevisionRank']
-            if 'AuraAdditionalValue' in obj:
-                card["Revision"][f"Rank{rank}"] = {
-                    "Aura+": obj.get('AuraAdditionalValue', 0),
-                    "Visual+": obj.get('VisualAdditionalValue', 0),
-                    "Charisma+": obj.get('CharismaAdditionalValue', 0),
-                }
-            if 'ItemId1' in obj:
-                card["UpgradeCosts"]["Revision"][f"Rank{rank}"] = extract_costs(obj)
-
-        if 'LeaderSkillEffectId' in obj:
-            effect_id = obj.get('LeaderSkillEffectId')
-            values = skill_values(obj)
-            effect_info = skill_effect_map.get(f"Leader_{effect_id}", {"Name": f"Leader_{effect_id}", "Desc": ""})
-            card["LeaderSkill"] = {
-                "Name": effect_info["Name"],
-                "Desc": format_skill_desc(effect_info["Desc"], values, character_map),
-            }
-
-        if 'SpSkillLevel' in obj and 'SkillDescription' in obj:
-            lv = obj['SpSkillLevel']
-            values = skill_values(obj)
-            card["SpSkill"][f"Lv{lv}"] = {
-                "Desc": format_skill_desc(obj.get('SkillDescription', ''), values, character_map),
-                "Cost": obj.get('SkillCost'),
-            }
-            sp_effect_id = obj.get('SpSkillEffectId')
-            if sp_effect_id and sp_effect_id in sp_effect_def_map:
-                card["SpSkill"]["SkillEffect"] = sp_effect_def_map[sp_effect_id]["SkillEffect"]
-                card["SpSkill"]["SpSkillCategoryCodeList"] = sp_effect_def_map[sp_effect_id]["SpSkillCategoryCodeList"]
-        if 'SpSkillLevel' in obj and 'ItemId1' in obj:
-            card["UpgradeCosts"]["SpSkill"][f"Lv{obj['SpSkillLevel']}"] = extract_costs(obj)
-
-        if 'SpSkillWithCombiType' in obj:
-            card["SpSkill"]["CombiBonus"] = {
-                "Desc": format_skill_desc(obj.get('SkillDescription', ''), skill_values(obj, 1), character_map),
-                "Value": obj.get('SkillValue1'),
-            }
-
-        if 'AutoSkillLevel' in obj:
-            lv = obj['AutoSkillLevel']
-            if 'AutoSkillEffectId' in obj:
-                values = skill_values(obj, 3)
-                effect_info = skill_effect_map.get(f"Auto_{obj.get('AutoSkillEffectId')}", {"Name": "Auto", "Desc": ""})
-                card["AutoSkill"][f"Lv{lv}"] = {
-                    "Name": effect_info["Name"],
-                    "Desc": format_skill_desc(effect_info["Desc"], values, character_map),
-                    "PieceCount": obj.get('PieceCount'),
-                }
-            if 'ItemId1' in obj:
-                card["UpgradeCosts"]["AutoSkill"][f"Lv{lv}"] = extract_costs(obj)
-
-        if 'CombinationLevel' in obj:
-            lv = obj['CombinationLevel']
-            if 'CombinationEffectId' in obj:
-                values = skill_values(obj)
-                effect_info = skill_effect_map.get(f"Combo_{obj.get('CombinationEffectId')}", {"Desc": ""})
-                card["Combination"][f"Lv{lv}"] = {
-                    "Desc": format_skill_desc(effect_info["Desc"], values, character_map),
-                }
-            if 'ItemId1' in obj:
-                card["UpgradeCosts"]["Combination"][f"Lv{lv}"] = extract_costs(obj)
-
-    for obj in tables.rows('mst_character_card_story_section', active_only=True):
-        cid = obj.get('CharacterCardId')
+    for row in tables.rows('mst_character_card_story_section', active_only=True):
+        cid = row.get('CharacterCardId')
         if cid in cards_db:
-            cards_db[cid]["Story"].append(dict(obj))
+            cards_db[cid]["Story"].append(dict(row))
 
-    # ============ 独立扫描：卡池关联（gacha 对象没有 CharacterCardId，需单独 walk）============
-    for obj in tables.require('mst_gacha'):
-        if 'GachaName' in obj and 'CostumeIntroductionCharacterCardIds' in obj:
-            for target_cid in obj['CostumeIntroductionCharacterCardIds']:
-                get_card(target_cid)["Gacha"].append(obj['GachaName'])
+    # 旧卡池字段：CostumeIntroductionCharacterCardIds 只作为卡池名回退。
+    for row in tables.require('mst_gacha'):
+        if 'GachaName' in row and 'CostumeIntroductionCharacterCardIds' in row:
+            for target_cid in row['CostumeIntroductionCharacterCardIds']:
+                cards_db.setdefault(target_cid, _new_card())["Gacha"].append(row['GachaName'])
+    return cards_db
 
-    # ============ 后处理 ============
-    def apply_percentage_fix(desc, rarity):
-        if not desc:
-            return desc
-        desc = desc.replace("超特大アップ", "20%UP").replace("特大アップ", "14%UP")
-        desc = desc.replace("大アップ", "12%UP").replace("中アップ", "10%UP").replace("小アップ", "8%UP")
-        desc = desc.replace("大ダウン", "4%DOWN").replace("中ダウン", "2%DOWN").replace("小ダウン", "1%DOWN")
+
+# ============ 后处理 ============
+
+def _apply_percentage_fix(desc):
+    if not desc:
         return desc
+    desc = desc.replace("超特大アップ", "20%UP").replace("特大アップ", "14%UP")
+    desc = desc.replace("大アップ", "12%UP").replace("中アップ", "10%UP").replace("小アップ", "8%UP")
+    desc = desc.replace("大ダウン", "4%DOWN").replace("中ダウン", "2%DOWN").replace("小ダウン", "1%DOWN")
+    return desc
 
+
+def _notice_event(cid, card, notices):
+    if str(cid) in ["160", "161"]:
+        return "2025 HAPPY NEW YEAR!"
+    name = card["Meta"].get("Name", "")
+    for title, desc in notices:
+        if name and name in desc:
+            return re.sub(r'^【.*?】', '', title).strip()
+    return ""
+
+
+def _sp_piece_color(card):
+    for level, sp in card["SpSkill"].items():
+        if level.startswith("Lv") and "Desc" in sp:
+            match = PIECE_COLOR_RE.search(sp["Desc"])
+            if match:
+                return match.group(1)
+    return ATTRIBUTE_PIECE_COLOR.get(card["Meta"].get("Attribute", ""), "ピース")
+
+
+def _polish_skill_text(card):
+    def polish(desc, color, strip_more=False):
+        if strip_more:
+            desc = re.sub(r'^さらに\s*', '', desc)
+        if color:
+            desc = re.sub(r'piece_value\d+', color, desc)
+        return _apply_percentage_fix(desc)
+
+    color = _sp_piece_color(card)
+    for level, sp in card["SpSkill"].items():
+        if level.startswith("Lv") and "Desc" in sp:
+            sp["Desc"] = polish(sp["Desc"], None)
+    combi_bonus = card["SpSkill"].get("CombiBonus", {})
+    if "Desc" in combi_bonus:
+        combi_bonus["Desc"] = polish(combi_bonus["Desc"], color, strip_more=True)
+    for level, auto in card["AutoSkill"].items():
+        if level.startswith("Lv") and "Desc" in auto:
+            auto["Desc"] = polish(auto["Desc"], color)
+    for level, combo in card["Combination"].items():
+        if level.startswith("Lv") and "Desc" in combo:
+            combo["Desc"] = polish(combo["Desc"], color, strip_more=True)
+    if "Desc" in card["LeaderSkill"]:
+        card["LeaderSkill"]["Desc"] = polish(card["LeaderSkill"]["Desc"], None)
+
+
+def _post_process(cards_db, lookups):
     for cid, card in cards_db.items():
         card["Gacha"] = list(dict.fromkeys(card["Gacha"]))
-        rarity = card["Meta"].get("Rarity", "")
+        if str(cid) in ["160", "161"] or card["Meta"].get("Rarity", "") in ["XR", "101", 101]:
+            card["Meta"]["NoticeEvent"] = _notice_event(cid, card, lookups.notices)
+        _polish_skill_text(card)
 
-        # 活动名溯源
-        if str(cid) in ["160", "161"]:
-            card["Meta"]["NoticeEvent"] = "2025 HAPPY NEW YEAR!"
-        elif rarity in ["XR", "101", 101]:
-            c_name = card["Meta"].get("Name", "")
-            found = ""
-            for title, desc in notice_list:
-                if c_name and c_name in desc:
-                    found = re.sub(r'^【.*?】', '', title).strip()
-                    break
-            card["Meta"]["NoticeEvent"] = found
 
-        # 颜色提取
-        card_sp_color = None
-        for lv, sp_data in card.get("SpSkill", {}).items():
-            if lv.startswith("Lv") and "Desc" in sp_data:
-                match = PIECE_COLOR_RE.search(sp_data["Desc"])
-                if match:
-                    card_sp_color = match.group(1)
-                    break
-        if not card_sp_color:
-            attr = card["Meta"].get("Attribute", "")
-            card_sp_color = {"日": "サンピース（赤色）", "月": "ムーンピース（空色）", "星": "スターピース（黄色）"}.get(attr, "ピース")
+# ============ 语音 ============
 
-        # 技能精修
-        for lv, sp in card.get("SpSkill", {}).items():
-            if lv.startswith("Lv") and "Desc" in sp:
-                sp["Desc"] = apply_percentage_fix(sp["Desc"], rarity)
-        cb = card.get("SpSkill", {}).get("CombiBonus", {})
-        if "Desc" in cb:
-            desc = re.sub(r'^さらに\s*', '', cb["Desc"])
-            desc = re.sub(r'piece_value\d+', card_sp_color, desc)
-            cb["Desc"] = apply_percentage_fix(desc, rarity)
-        for lv, auto in card.get("AutoSkill", {}).items():
-            if lv.startswith("Lv") and "Desc" in auto:
-                desc = re.sub(r'piece_value\d+', card_sp_color, auto["Desc"])
-                auto["Desc"] = apply_percentage_fix(desc, rarity)
-        for lv, combo in card.get("Combination", {}).items():
-            if lv.startswith("Lv") and "Desc" in combo:
-                desc = re.sub(r'^さらに\s*', '', combo["Desc"])
-                desc = re.sub(r'piece_value\d+', card_sp_color, desc)
-                combo["Desc"] = apply_percentage_fix(desc, rarity)
-        if "Desc" in card.get("LeaderSkill", {}):
-            card["LeaderSkill"]["Desc"] = apply_percentage_fix(card["LeaderSkill"]["Desc"], rarity)
+def _attach_voices(cards_db, lookups, tables, audio_dir):
+    # masterdata 负责 cue、编号和解锁条件；ACB 负责标题与正文。
+    for cid, card in cards_db.items():
+        voices = lookups.home_voices.get(cid, {})
+        card["Voice"] = sorted(
+            voices.values(),
+            key=lambda item: (item.get("HomeVoiceNo") or 999, item.get("CueName") or ""),
+        )
+    if not audio_dir:
+        return
 
-    # ============ 关系证据与获取方式 ============
+    audio_cards, audio_warnings = scan_card_voices(audio_dir)
+    linked_count = 0
+    for cid_text, audio_card in audio_cards.items():
+        card = cards_db.get(int(cid_text))
+        if not card:
+            continue
+        voices = {item.get("CueName"): item for item in card.get("Voice", [])}
+        for audio_entry in audio_card["Entries"]:
+            cue_name = audio_entry["CueName"]
+            merged = dict(voices.get(cue_name, {}))
+            merged.update(audio_entry)
+            merged["AcbFile"] = audio_card["AcbFile"]
+            voices[cue_name] = merged
+            if audio_entry.get("HasText"):
+                linked_count += 1
+        card["Voice"] = sorted(
+            voices.values(),
+            key=lambda item: (
+                CARD_CUE_ORDER.get(item.get("CueName"), 100),
+                item.get("HomeVoiceNo") or 999,
+            ),
+        )
+
+    print(f"[+] 关联卡面 ACB {len(audio_cards)} 包，填入 {linked_count} 条非空语音文本")
+    if audio_warnings:
+        print(f"[!] ACB 扫描警告 {len(audio_warnings)} 条")
+        record_warning(f"卡牌 ACB 扫描警告 {len(audio_warnings)} 条")
+    card_voice_review.run(audio_dir, tables, lambda cid: lookups.characters.get(cid, '/'))
+
+
+# ============ 入口 ============
+
+def extract(audio_dir=None, session=None):
+    tables = session.tables if session else TableCatalog(load_json(INPUT_JSON))
+    lookups = _build_lookups(tables)
+    cards_db = _build_cards(tables, lookups)
+    _post_process(cards_db, lookups)
+
     relation_audit = {}
-    acquisition_warnings = enrich_card_relations(cards_db, tables, character_map, relation_audit=relation_audit)
+    acquisition_warnings = enrich_card_relations(
+        cards_db, tables, lookups.characters, relation_audit=relation_audit
+    )
     save_json(relation_audit, audit_path('card_serial_present.json'))
     if relation_audit.get('Issues'):
         record_warning(f"序列码礼物有 {len(relation_audit['Issues'])} 条关系缺项；详见 card_serial_present.json")
-    for cid, card in cards_db.items():
+    for card in cards_db.values():
         card["Meta"]["AdditionalCharacters"] = card["Relations"].get("AdditionalCharacters", [])
     if acquisition_warnings:
         print(f"[!] {len(acquisition_warnings)} 条卡牌获取关系尚未完整解析")
         record_warning(f"{len(acquisition_warnings)} 条卡牌获取关系尚未完整解析；详见卡牌审计")
 
-    # ============ 语音关联 ============
-    # masterdata 负责 cue、编号和解锁条件；ACB 负责标题与正文。
-    for cid, card in cards_db.items():
-        voices = card_home_voice_map.get(cid, {})
-        card["Voice"] = sorted(
-            voices.values(),
-            key=lambda item: (item.get("HomeVoiceNo") or 999, item.get("CueName") or ""),
-        )
-
-    if audio_dir:
-        audio_cards, audio_warnings = scan_card_voices(audio_dir)
-        linked_count = 0
-        for cid_text, audio_card in audio_cards.items():
-            cid = int(cid_text)
-            card = cards_db.get(cid)
-            if not card:
-                continue
-
-            voices = {item.get("CueName"): item for item in card.get("Voice", [])}
-            for audio_entry in audio_card["Entries"]:
-                cue_name = audio_entry["CueName"]
-                merged = dict(voices.get(cue_name, {}))
-                merged.update(audio_entry)
-                merged["AcbFile"] = audio_card["AcbFile"]
-                voices[cue_name] = merged
-                if audio_entry.get("HasText"):
-                    linked_count += 1
-            card["Voice"] = sorted(
-                voices.values(),
-                key=lambda item: (
-                    CARD_CUE_ORDER.get(item.get("CueName"), 100),
-                    item.get("HomeVoiceNo") or 999,
-                ),
-            )
-
-        print(f"[+] 关联卡面 ACB {len(audio_cards)} 包，填入 {linked_count} 条非空语音文本")
-        if audio_warnings:
-            print(f"[!] ACB 扫描警告 {len(audio_warnings)} 条")
-            record_warning(f"卡牌 ACB 扫描警告 {len(audio_warnings)} 条")
-        card_voice_review.run(audio_dir, tables, lambda cid: character_map.get(cid, '/'))
+    _attach_voices(cards_db, lookups, tables, audio_dir)
 
     out = json_path('All_Cards_Database.json')
     save_json(cards_db, out)
