@@ -35,7 +35,7 @@ try {
         if ($LASTEXITCODE -ne 0) {
             throw "EXE list failed with exit code $LASTEXITCODE`n$listText"
         }
-        foreach ($marker in @("cards", "home_voices", "update cards")) {
+        foreach ($marker in @("cards", "home_voices", "card_update")) {
             if ($listText -notmatch [regex]::Escape($marker)) {
                 throw "EXE list output is missing '$marker'."
             }
@@ -83,7 +83,7 @@ try {
             executable = $executablePath
             doctor = $doctor
             gui_construction = $gui
-            list_markers = @("cards", "home_voices", "update cards")
+            list_markers = @("cards", "home_voices", "card_update")
             website_cli = 'PASS: help and offline missing-cache rejection'
             masterdata_decrypt = [ordered]@{
                 status = "PASS"

@@ -44,5 +44,21 @@ class ReleaseConfigTests(unittest.TestCase):
         self.assertIn("github.event.pull_request.head.sha || github.sha", workflow)
 
 
+class SmokeMarkerTests(unittest.TestCase):
+    def test_smoke_list_markers_are_printed_by_the_list_command(self):
+        import contextlib
+        import io
+
+        from toolkit.cli import cmd_list
+
+        script = (ROOT / "scripts" / "smoke_release.ps1").read_text(encoding="utf-8")
+        markers = re.search(r'foreach \(\$marker in @\(([^)]*)\)\)', script).group(1)
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            cmd_list()
+        for marker in re.findall(r'"([^"]+)"', markers):
+            self.assertIn(marker, output.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
