@@ -9,6 +9,8 @@ import hashlib
 import json
 import os
 import tempfile
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import zlib
@@ -16,6 +18,12 @@ import zlib
 import msgpack
 
 PRODUCTION_URL = 'https://s2b-assets-prod.s2b-coly.com/'
+RETRIES = 3
+RETRY_DELAY = 1.0
+
+
+class IncompleteDownload(ValueError):
+    pass
 CATEGORY_PATHS = {0: 'Files/Android/', 1: 'Scripts/', 2: 'Tables/',
                   3: 'LightingSets/', 4: 'Movies/', 5: 'Musics/', 6: 'Jukebox/', 7: 'Chart/'}
 MANIFEST_KEY = 'Tables/FileAssetList.s2bcoly'
@@ -100,7 +108,7 @@ def parse_manifest(raw):
 
 
 class ProdManifestProvider:
-    def __init__(self, cache, *, base_url=PRODUCTION_URL, opener=None, timeout=30):
+    def __init__(self, cache, *, base_url=PRODUCTION_URL, opener=None, timeout=30, retry_delay=RETRY_DELAY):
         parsed = urllib.parse.urlsplit(base_url)
         if parsed.scheme != 'https' or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
             raise ValueError('provider requires an HTTPS base URL without credentials or query')
@@ -109,11 +117,27 @@ class ProdManifestProvider:
         self.root = Path(cache).resolve() / ('production-' + sha256(self.base_url.encode())[:12])
         self.opener = opener or urllib.request.urlopen
         self.timeout = timeout
+        self.retry_delay = retry_delay
         self.resources = {}
         self.unknown = []
         self.manifest_sha256 = None
 
     def _get(self, key, limit, cancelled=None):
+        # Connections drop mid-handshake now and then; retry those, not HTTP 4xx answers.
+        for attempt in range(RETRIES + 1):
+            try:
+                return self._get_once(key, limit, cancelled)
+            except urllib.error.HTTPError as error:
+                if error.code < 500 or attempt == RETRIES:
+                    raise
+            except (OSError, IncompleteDownload):
+                if attempt == RETRIES:
+                    raise
+            if cancelled and cancelled():
+                raise InterruptedError('download cancelled')
+            time.sleep(self.retry_delay * 2 ** attempt)
+
+    def _get_once(self, key, limit, cancelled=None):
         if cancelled and cancelled():
             raise InterruptedError('download cancelled')
         validate_key(key)
@@ -140,7 +164,7 @@ class ProdManifestProvider:
                 if size > limit:
                     raise ValueError('resource exceeds size limit')
             if expected is not None and size != expected:
-                raise ValueError('incomplete resource download')
+                raise IncompleteDownload('incomplete resource download')
             headers = {key: response.headers.get(key) for key in ['ETag', 'Last-Modified', 'Content-Length']}
         return b''.join(chunks), headers
 

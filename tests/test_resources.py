@@ -33,6 +33,26 @@ class Response(io.BytesIO):
 
 
 class ResourcesTests(unittest.TestCase):
+    def test_dropped_connections_are_retried_but_http_404_is_not(self):
+        import ssl
+        import urllib.error
+        attempts = []
+        def opener(request, timeout):
+            attempts.append(request.full_url)
+            if request.full_url.endswith('missing.acb'):
+                raise urllib.error.HTTPError(request.full_url, 404, 'Not Found', {}, None)
+            if len(attempts) < 3:
+                raise urllib.error.URLError(ssl.SSLEOFError('EOF occurred in violation of protocol'))
+            return Response(manifest([['a.acb', 1, 5, 0, 1], ['missing.acb', 1, 5, 0, 1]]), request.full_url)
+        with tempfile.TemporaryDirectory() as directory:
+            provider = ProdManifestProvider(directory, opener=opener, retry_delay=0)
+            provider.refresh()
+            self.assertEqual(3, len(attempts))
+            attempts.clear()
+            with self.assertRaises(urllib.error.HTTPError):
+                provider.download('Musics/missing.acb')
+            self.assertEqual(1, len(attempts))
+
     def test_empty_offline_cache_explains_recovery_without_network(self):
         with tempfile.TemporaryDirectory() as directory:
             def no_network(*args, **kwargs):
@@ -74,7 +94,7 @@ class ResourcesTests(unittest.TestCase):
             return Response(body, request.full_url,
                             None if request.full_url.endswith(MANIFEST_KEY) else current['length'])
         with tempfile.TemporaryDirectory() as directory:
-            provider = ProdManifestProvider(directory, opener=opener)
+            provider = ProdManifestProvider(directory, opener=opener, retry_delay=0)
             provider.refresh()
             first = provider.download('Musics/a.acb')
             self.assertFalse(first['cache_hit'])
@@ -107,7 +127,7 @@ class ResourcesTests(unittest.TestCase):
         def opener(request, timeout):
             return Response(state['body'], request.full_url)
         with tempfile.TemporaryDirectory() as directory:
-            provider = ProdManifestProvider(directory, opener=opener)
+            provider = ProdManifestProvider(directory, opener=opener, retry_delay=0)
             provider.refresh()
             state['body'] = b'not-deflate'
             with self.assertRaises((ValueError, zlib.error)):
@@ -122,7 +142,7 @@ class ResourcesTests(unittest.TestCase):
             return Response(raw if request.full_url.endswith(MANIFEST_KEY) else request.full_url.encode(),
                             request.full_url)
         with tempfile.TemporaryDirectory() as directory:
-            provider = ProdManifestProvider(directory, opener=opener)
+            provider = ProdManifestProvider(directory, opener=opener, retry_delay=0)
             catalog = provider.refresh()
             self.assertEqual(1, len(catalog['case_collisions']))
             a = provider.download('Musics/Name.acb')

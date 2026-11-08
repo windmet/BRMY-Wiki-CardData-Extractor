@@ -54,7 +54,7 @@ def provider_for(root, payloads):
         if isinstance(value, Exception):
             raise value
         return Response(value, request.full_url)
-    return ProdManifestProvider(root, opener=opener)
+    return ProdManifestProvider(root, opener=opener, retry_delay=0)
 
 
 class ResolverTests(unittest.TestCase):
