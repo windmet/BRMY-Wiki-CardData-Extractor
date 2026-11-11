@@ -20,23 +20,23 @@ from .audio import CARD_FILE_RE, _read_stable_bytes, _walk_source_files
 TEXT_RE = re.compile(r'title:\{(.*?)\}text:\{(.*)\}', re.DOTALL)
 GACHA_CUE = 'card_vo_gacha'
 
-HEADERS = ['卡牌ID', '卡牌名', '卡牌角色', '发布时间', 'Cue', '问题类型', 'ACB文本',
-           '同文本卡牌', '原始元数据', '核对后台词J（人工）', '说明']
+HEADERS = ['卡牌ID', '卡牌名', '卡牌角色', '发布时间', '语音条目', '问题类型', 'ACB文本',
+           '同文本卡牌', 'ACB原始信息', '核对后台词J（人工）', '说明']
 
 KIND_LABELS = {
     'reused_copy': '跨卡重复（较晚出现）',
     'reused_first': '跨卡重复（最早出现）',
-    'same_card_duplicate': '同卡不同Cue重复',
+    'same_card_duplicate': '同卡两条语音重复',
     'empty_text': '文本为空',
-    'malformed_metadata': '元数据格式损坏',
+    'malformed_metadata': 'ACB信息格式损坏',
 }
 
 NOTES = {
-    'reused_copy': '同一句话出现在更早的卡上，较可能是复制粘贴的元数据，请优先试听核对。',
+    'reused_copy': '同一句话出现在更早的卡上，较可能是 ACB 里复制粘贴的文本，请优先试听核对。',
     'reused_first': '这一句也出现在其他卡上；按发布时间推测此处较可能是原句，仍需核对。',
     'same_card_duplicate': '同一张卡的两条语音文本相同，可能有一条写错。',
-    'empty_text': 'ACB 有这条 Cue，但文本为空。',
-    'malformed_metadata': '元数据不符合 title:{}text:{} 格式，卡牌表中此条为空；原始内容见“原始元数据”。',
+    'empty_text': 'ACB 有这条语音，但文本为空。',
+    'malformed_metadata': 'ACB 里这条语音的信息不符合 title:{}text:{} 格式，卡牌表中此条为空；原始内容见“ACB原始信息”。',
 }
 
 

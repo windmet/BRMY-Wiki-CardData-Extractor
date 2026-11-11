@@ -35,7 +35,8 @@ class GenerateTests(unittest.TestCase):
             self.assertIsNone(current_output())
             for index, report in enumerate(reports):
                 self.assertEqual('PASS', report['status'])
-                self.assertEqual(2, len(report['artifacts']))
+                # song.s2blyrics.json, song.lrc and the review summary.
+                self.assertEqual(3, len(report['artifacts']))
                 self.assertEqual([sources[index]], list(sources[index].parent.iterdir()))
                 self.assertIn(f'Line {index}', (root / f'out{index}/wiki_output/song.lrc').read_text(encoding='utf-8-sig'))
                 for artifact in report['artifacts']:

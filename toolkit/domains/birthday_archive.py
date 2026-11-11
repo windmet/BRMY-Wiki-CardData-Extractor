@@ -8,6 +8,7 @@ from ..core.exporter import audit_path, xlsx_path, save_workbook_safely
 from ..core.scanner import save_json
 from ..core.rewards import RewardResolver
 from ..core.output import record_warning
+from ..core.review import status_of
 
 
 def extract(session, *, as_of=None):
@@ -91,8 +92,8 @@ def export(data):
     overview.append(['角色ID', '角色名', '年份', '开始', '结束', '日期状态', '登录奖励阶段数', '小游戏配置数'])
     login = wb.create_sheet('LoginRewards'); login.append(['角色ID', '角色名', '年份', '阶段', '奖励'])
     tap = wb.create_sheet('TapRewards'); tap.append(['角色ID', '角色名', '年份', '奖励位置', '奖励'])
-    texts = wb.create_sheet('Texts'); texts.append(['角色ID', '角色名', '年份', '台词编号', '目标值', '台词', '播放时长原值'])
-    costumes = wb.create_sheet('DisplayCostumes'); costumes.append(['角色ID', '角色名', '年份', '展示阶段', '服装ID', '服装名', '关联状态'])
+    texts = wb.create_sheet('Texts'); texts.append(['角色ID', '角色名', '年份', '台词编号', '目标值', '台词', '播放时长'])
+    costumes = wb.create_sheet('DisplayCostumes'); costumes.append(['角色ID', '角色名', '年份', '展示阶段', '服装ID', '服装名', '关联状态', '说明'])
     def reward_text(rows):
         return ' / '.join(f"{r['RewardName']} x{r['RewardCount']}" for r in rows)
     for entry in data['Birthdays']:
@@ -107,7 +108,7 @@ def export(data):
         for row in entry['Texts']:
             texts.append(prefix + [row.get(k) for k in ('CharacterBirthdayTextNo', 'KeyTargetValue', 'Text', 'TextPlayTime')])
         for row in entry.get('Costumes', []):
-            costumes.append(prefix + ['首日' if row['Phase'] == 'FirstDay' else '生日后', row['CostumeModelId'], row['Name'], row['Status']])
+            costumes.append(prefix + ['首日' if row['Phase'] == 'FirstDay' else '生日后', row['CostumeModelId'], row['Name'], *status_of(row['Status'])])
     notes = wb.create_sheet('Notes'); notes.append(['核对时刻 UTC', data['AsOf']])
     notes.append(['收录范围', '全部活跃角色年份记录，未按日期过滤；不替代原生日周期台词表'])
     notes.append(['日期状态', '日期区间内不代表账号已解锁'])

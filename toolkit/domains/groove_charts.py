@@ -107,7 +107,7 @@ def export(data):
                      chart.get('Division'), chart.get('Density'), gimmicks.get('Bush', ''), gimmicks.get('SeekBar', ''),
                      item['MusicId'], item['File']])
     notes = [['面', 'GrooveMusicStageType：A/B/C'],
-             ['难度', 'GrooveMusicStageDifficulty 原值'],
+             ['难度', '游戏数据里的难度数值（GrooveMusicStageDifficulty），未换算'],
              ['长按', '带 DurationMs 的音符；ヒラメキ 音符同时计入长按'],
              ['分段', '带 DivisionCount 的音符（伴随 ComboPieces）'],
              ['谱面未发布', '曲目尚未上线时 CDN 没有谱面文件'],

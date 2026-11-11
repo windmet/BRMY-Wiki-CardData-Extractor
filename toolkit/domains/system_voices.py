@@ -5,6 +5,7 @@ from .audio import extract_text_metadata
 from ..core.scanner import save_json
 from ..core.exporter import write_xlsx
 from ..core.output import record_warning
+from ..core.review import status_of
 
 PACKAGE_BY_TARGET = {24: 'voice_rare_general.acb'}
 
@@ -46,10 +47,10 @@ def run(tables, root, json_dir, xlsx_dir):
     if not data['Records']:
         return None
     save_json(data, str(Path(json_dir) / 'system_voices.json'))
-    rows = [[r['CharacterName'], r['Raw'].get('VoiceCueName'), r['Text'].replace('\\n', '\n'), '', r['Status']]
+    rows = [[r['CharacterName'], r['Raw'].get('VoiceCueName'), r['Text'].replace('\\n', '\n'), '', *status_of(r['Status'])]
             for r in data['Records']]
     path = write_xlsx(rows, str(Path(xlsx_dir) / 'system_voices.xlsx'),
-                      headers=['角色', '语音标识', '日文', '中文翻译', '核对状态'])
+                      headers=['角色', '语音标识', '日文', '中文翻译', '核对状态', '说明'])
     if data['Issues']:
         record_warning(f"系统语音有 {len(data['Issues'])} 条缺项，详见 system_voices.json")
     return path

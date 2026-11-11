@@ -258,7 +258,7 @@ def export(data):
     sheets.append({'title': '说明', 'headers': ['项目', '说明'], 'col_widths': {'A': 16, 'B': 90}, 'rows': [
         ['面', 'PuzzleType：A/B/C 为常规三面，D/E/F 为少数特殊关卡'],
         ['通关目标', '关卡文件 targetInfoList；为空时以分数结算，写作“分数”'],
-        ['SS分数线 / 平均连击', 'masterdata 的 SSRankScore / AverageCombo 原值；关卡文件自带的分数线与平均连击保留在 JSON'],
+        ['SS分数线 / 平均连击', '取自游戏数据（SSRankScore / AverageCombo）；关卡文件自带的分数线与平均连击保留在 JSON'],
         ['步数上限', 'rule.moveLimitCount；-1 或缺省表示不限，留空'],
         ['盘面初始机关', '盘面各层（map、fixGimmickMap 1–3、墙、主棋子上层）中非空格的棋子/机关计数'],
         ['开放日期', '关卡自身 ReleaseDateTime；为 2001 占位时取所属活动/CP 开始时间，常驻留空；按日本时间'],
