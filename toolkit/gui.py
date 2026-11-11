@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from queue import Queue, Empty
 from threading import Thread, Event
+from datetime import date
 import json
 import os
 import tkinter as tk
@@ -157,7 +158,7 @@ def execute_job(request, plan_only, cancelled, progress):
 
 
 class ToolkitApp:
-    def __init__(self, root, *, backend=execute_job, settings_path=None):
+    def __init__(self, root, *, backend=execute_job, settings_path=None, choice_loader=None):
         self.root = root
         self.backend = backend
         self.settings_path = Path(settings_path) if settings_path else app_directory() / 'settings.json'
@@ -181,8 +182,27 @@ class ToolkitApp:
         self.selected = {name: tk.BooleanVar(value=name == 'cards') for name in TASKS}
         self.include_card_audio = tk.BooleanVar(value=True)
         self.inputs = []
+        self.idle_states = {}
+        if choice_loader is None:
+            from .choices import load_choices as choice_loader
+        self.choice_loader = choice_loader
+        self.choice_cache = None
+        self.choice_hint = tk.StringVar()
+        self.choice_text = {name: tk.StringVar() for name in ('cycle', 'subject')}
+        self.choice_maps = {name: {} for name in self.choice_text}
+        self.choice_boxes = {}
+        for name, variable in self.choice_text.items():
+            variable.trace_add('write', lambda *args, name=name: self._choice_changed(name))
+        self.recent_enabled = tk.BooleanVar(value=False)
+        self.recent_parts = {key: tk.StringVar() for key in ('year', 'month', 'day')}
+        self.recent_boxes = []
         self._build()
         self._restore()
+        for name in self.choice_text:
+            self.choice_text[name].set(self.paths[name].get())
+        self._restore_recent()
+        self.paths['cache'].trace_add('write', lambda *args: self.root.after(800, self.refresh_choices))
+        self.refresh_choices()
         self.root.update_idletasks()
         width = max(980, self.root.winfo_reqwidth())
         height = max(860, self.root.winfo_reqheight())
@@ -297,13 +317,15 @@ class ToolkitApp:
         self._path_row(advanced, '歌词 / 脚本 / OJT Chart', 'source', allow_folder=True)
         self._path_row(advanced, '旧卡牌工作簿', 'old_workbook')
         self._path_row(advanced, '资源缓存', 'cache', directory=True)
-        for label, name in [('生日轮次（空=全部轮次）', 'cycle'), ('单个语音主体另出表（可空）', 'subject'),
-                            ('近一年语音截止日（可空）', 'recent_year'), ('指定线上资源（分号分隔）', 'resource_keys')]:
-            self._path_row(advanced, label, name, picker=False)
+        self._choice_row(advanced, '生日轮次', 'cycle')
+        self._choice_row(advanced, '单个语音主体另出表', 'subject')
+        self._date_row(advanced, '近一年语音', 'recent_year')
+        self._path_row(advanced, '指定线上资源（分号分隔）', 'resource_keys', picker=False)
+        ttk.Label(advanced, textvariable=self.choice_hint, style='Hint.TLabel', wraplength=1200).pack(anchor='w')
         ttk.Label(advanced, text='改用本地文件时不联网；“只用已下载缓存”只读取已校验的缓存，缺失资源会明确报错。\n'
                   '联网时“先检查资源”可能下载 masterdata，用于判断卡牌所需的语音包。\n'
-                  '单个语音主体：填主体名或 CueName，另出一张该主体的主页 / 生日祝福表。\n'
-                  '近一年语音截止日：额外汇总该日期前 365 天的主页与生日语音。',
+                  '单个语音主体：另出一张该主体的主页 / 生日祝福表。\n'
+                  '近一年语音：额外汇总截止日前 365 天的主页与生日语音。',
                   style='Hint.TLabel', wraplength=1200).pack(anchor='w', pady=12)
         self.details = tk.Text(details, wrap='word', state='disabled', font=('Microsoft YaHei UI', 10))
         self.details.pack(fill='both', expand=True)
@@ -323,6 +345,105 @@ class ToolkitApp:
                 button = ttk.Button(row, text='文件夹…', width=8, command=lambda: self.pick(name, True))
                 button.pack(side='left', padx=(5, 0))
                 self.inputs.append(button)
+
+    def _choice_row(self, parent, label, name):
+        row = ttk.Frame(parent)
+        row.pack(fill='x', pady=5)
+        ttk.Label(row, text=label, width=25).pack(side='left')
+        box = ttk.Combobox(row, textvariable=self.choice_text[name], height=20)
+        box.pack(side='left', fill='x', expand=True)
+        self.choice_boxes[name] = box
+        self.inputs.append(box)
+
+    def _date_row(self, parent, label, name):
+        row = ttk.Frame(parent)
+        row.pack(fill='x', pady=5)
+        ttk.Label(row, text=label, width=25).pack(side='left')
+        check = ttk.Checkbutton(row, text='额外汇总，截止日', variable=self.recent_enabled,
+                                command=self._sync_recent)
+        check.pack(side='left')
+        self.inputs.append(check)
+        today = date.today()
+        for key, start, end, width, value in [('year', 2023, today.year + 2, 6, today.year),
+                                              ('month', 1, 12, 4, today.month), ('day', 1, 31, 4, today.day)]:
+            self.recent_parts[key].set(f'{value:02d}')
+            box = ttk.Spinbox(row, from_=start, to=end, width=width, format='%02.0f', wrap=key != 'year',
+                              textvariable=self.recent_parts[key], command=self._sync_recent)
+            box.pack(side='left', padx=(8 if key == 'year' else 2, 0))
+            box.bind('<KeyRelease>', lambda event: self._sync_recent())
+            ttk.Label(row, text={'year': '年', 'month': '月', 'day': '日'}[key]).pack(side='left')
+            self.recent_boxes.append(box)
+            self.inputs.append(box)
+
+    def _sync_recent(self):
+        enabled = self.recent_enabled.get()
+        busy = bool(self.worker and self.worker.is_alive())
+        for box in self.recent_boxes:
+            self.idle_states[box] = 'normal' if enabled else 'disabled'
+            if not busy:
+                box.configure(state=self.idle_states[box])
+        parts = [self.recent_parts[key].get().strip() for key in ('year', 'month', 'day')]
+        self.paths['recent_year'].set('-'.join(part.zfill(2) for part in parts) if enabled else '')
+
+    def _restore_recent(self):
+        try:
+            chosen = date.fromisoformat(self.paths['recent_year'].get().strip())
+        except ValueError:
+            chosen = None
+        self.recent_enabled.set(chosen is not None)
+        if chosen:
+            for key, part in zip(('year', 'month', 'day'), (chosen.year, chosen.month, chosen.day)):
+                self.recent_parts[key].set(f'{part:02d}')
+        self._sync_recent()
+
+    def _choice_changed(self, name):
+        text = self.choice_text[name].get().strip()
+        self.paths[name].set(self.choice_maps[name].get(text, text))
+
+    def refresh_choices(self):
+        """Read option lists from the cached masterdata off the UI thread (decoding takes seconds)."""
+        cache = self.paths['cache'].get().strip()
+        if cache == self.choice_cache:
+            return
+        self.choice_cache = cache
+        self.choice_hint.set('正在从已下载的游戏数据读取可选项…')
+
+        def work():
+            try:
+                choices = self.choice_loader(cache)
+            except Exception as error:
+                choices = {'error': f'{type(error).__name__}: {error}'}
+            self.queue.put(('choices', (cache, choices)))
+        Thread(target=work, name='wiki-choices', daemon=True).start()
+
+    def _apply_choices(self, cache, choices):
+        if cache != self.choice_cache:
+            return  # An older cache path finished after the user changed it.
+        lists = None
+        if choices and 'error' not in choices:
+            lists = {'cycle': [('', '全部轮次')] + choices['cycles'],
+                     'subject': [('', '不另出表')] + choices['subjects']}
+            self.choice_hint.set(f"生日轮次 {len(choices['cycles'])} 轮、语音主体 {len(choices['subjects'])} 个，"
+                                 '取自最近一次下载的游戏数据。')
+        elif not choices:
+            self.choice_hint.set('还没有下载过游戏数据，轮次和主体暂时只能手填：先联网更新一次，之后会变成下拉框。')
+        else:
+            self.choice_hint.set(f"读取游戏数据失败，轮次和主体暂时只能手填：{choices['error']}")
+        busy = bool(self.worker and self.worker.is_alive())
+        for name, box in self.choice_boxes.items():
+            current = self.paths[name].get().strip()
+            options = lists[name] if lists else []
+            self.choice_maps[name] = {label: value for value, label in options}
+            box.configure(values=[label for _, label in options])
+            self.idle_states[box] = 'readonly' if lists else 'normal'
+            if not busy:
+                box.configure(state=self.idle_states[box])
+            label = next((label for value, label in options if value == current), None)
+            if lists and label is None:
+                label = options[0][1]
+                if current:
+                    self.choice_hint.set(self.choice_hint.get() + f'上次填写的“{current}”已不在列表中，已改回默认。')
+            self.choice_text[name].set(label if lists else current)
 
     def pick(self, name, directory=False):
         path = filedialog.askdirectory(parent=self.root) if directory else filedialog.askopenfilename(parent=self.root)
@@ -430,7 +551,8 @@ class ToolkitApp:
 
     def _busy(self, busy):
         for widget in self.inputs:
-            widget.configure(state='disabled' if busy else ('readonly' if widget is self.mode_box else 'normal'))
+            widget.configure(state='disabled' if busy else ('readonly' if widget is self.mode_box
+                                                            else self.idle_states.get(widget, 'normal')))
         self.plan_button.configure(state='disabled' if busy else 'normal')
         self.start_button.configure(state='disabled' if busy else 'normal')
         self.cancel_button.configure(state='normal' if busy else 'disabled')
@@ -459,6 +581,8 @@ class ToolkitApp:
                     elif value.get('domain'):
                         label += '：' + TASKS.get(value['domain'], value['domain'])
                     self.status.set(label)
+                elif kind == 'choices':
+                    self._apply_choices(*value)
                 else:
                     self._complete(value)
                     if self.closing:
@@ -595,7 +719,7 @@ def self_test():
         root = tk.Tk()
         root.withdraw()
         try:
-            app = ToolkitApp(root, settings_path=Path(directory) / 'settings.json')
+            app = ToolkitApp(root, settings_path=Path(directory) / 'settings.json', choice_loader=lambda cache: None)
             root.update_idletasks()
             if len(app.tabs.tabs()) != 3 or not app.start_button.winfo_exists():
                 raise RuntimeError('GUI widget construction failed')

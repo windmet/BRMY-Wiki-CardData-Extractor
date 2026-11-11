@@ -526,6 +526,40 @@ def _purpose(record):
     return "节日与话题"
 
 
+SUBJECT_FIELDS = ("SubjectKey", "SubjectType", "SubjectDisplayName", "SubjectCharacterId",
+                  "ServiceYear", "HomeVoiceNo", "CueName")
+
+
+def subject_options(tables, saved=()):
+    """(SubjectKey, label) for every subject, grouped like the catalog sheets.
+
+    Masterdata alone lacks ACB-only subjects and ACB titles, so subjects saved by
+    the last full home voice run (``saved``) are merged in and take precedence.
+    """
+    scanned = [{"CueName": row["VoiceCueName"], "SpeakerCharacterId": row.get("HomeVoiceTargetId"),
+                "MetadataMatchStatus": "matched_by_acb_utf"}
+               for row in _active_rows(tables, "mst_home_voice")
+               if row.get("HomeVoiceTypeCode") == 1 and row.get("VoiceCueName")
+               and row.get("HomeVoiceCategory") != 11]  # duo lines have their own task
+    subjects = {}
+    for record in build_home_voice_catalog(tables, scanned)["Records"]:
+        limited = str(record.get("GlobalLimitedName") or "")
+        title = record.get("ProductDisplayName") or ("" if limited.isdigit() else limited)
+        if record["SubjectType"] in ("birthday", "user_birthday") or not title:
+            title = record["SubjectDisplayName"]
+        subjects.setdefault(record["SubjectKey"], {**{k: record.get(k) for k in SUBJECT_FIELDS},
+                                                   "SubjectDisplayName": title})
+    for subject in saved:
+        subjects[subject["SubjectKey"]] = subject
+    ordered = sorted(subjects.values(), key=lambda s: (
+        PURPOSE_SHEETS.index(_purpose(s)), s.get("ServiceYear") or 0, s.get("SubjectCharacterId") or 0,
+        s.get("HomeVoiceNo") or 0, s["SubjectKey"]))
+    labels = [f"{_purpose(s)}｜{s['SubjectDisplayName']}" for s in ordered]
+    repeated = {label for label, count in Counter(labels).items() if count > 1}
+    return [(s["SubjectKey"], f"{label}（{s.get('HomeVoiceNo') or s['CueName']}号）" if label in repeated else label)
+            for s, label in zip(ordered, labels)]
+
+
 def _release_start(record):
     rows = record.get("GlobalLimitedRecords") or []
     start = (rows[0].get("StartTime") if len(rows) == 1 else None) or record.get("StartTime") or ""

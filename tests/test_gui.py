@@ -2,6 +2,7 @@ import json
 import tempfile
 import time
 import unittest
+from datetime import date
 from pathlib import Path
 from threading import Event
 from unittest.mock import patch
@@ -38,7 +39,8 @@ class GuiWidgetTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.root = tk.Tk()
         self.root.withdraw()
-        self.app = ToolkitApp(self.root, settings_path=Path(self.directory.name) / 'settings.json')
+        self.app = ToolkitApp(self.root, settings_path=Path(self.directory.name) / 'settings.json',
+                              choice_loader=lambda cache: None)
 
     def tearDown(self):
         self.app.cancel_event.set()
@@ -159,7 +161,7 @@ class GuiWidgetTests(unittest.TestCase):
         for saved, mode, local in [('正式服离线缓存', '只用已下载缓存', False), ('用本地缓存', '只用已下载缓存', False),
                                    ('使用本地资源', '联网更新', True)]:
             settings.write_text(json.dumps({'mode': saved}, ensure_ascii=False), encoding='utf-8')
-            app = ToolkitApp(tk.Toplevel(self.root), settings_path=settings)
+            app = ToolkitApp(tk.Toplevel(self.root), settings_path=settings, choice_loader=lambda cache: None)
             self.assertEqual(mode, app.mode.get())
             self.assertEqual(local, app.use_local.get())
 
@@ -169,6 +171,42 @@ class GuiWidgetTests(unittest.TestCase):
         self.assertEqual(0, self.app.tabs.index('current'))
         self.app._complete({'status': 'FAIL', 'artifacts': [], 'errors': ['boom']})
         self.assertEqual(2, self.app.tabs.index('current'))
+
+    def test_without_cached_masterdata_cycle_and_subject_stay_free_text(self):
+        self.pump(lambda: '先联网更新一次' in self.app.choice_hint.get())
+        box = self.app.choice_boxes['subject']
+        self.assertEqual('normal', str(box.cget('state')))
+        self.app.choice_text['subject'].set('vo_home_58')
+        self.assertEqual('vo_home_58', self.app.request().subject)
+
+    def test_cached_masterdata_turns_cycle_and_subject_into_dropdowns(self):
+        settings = Path(self.directory.name) / 'saved.json'
+        settings.write_text(json.dumps({'paths': {'cycle': '2', 'subject': 'gone:subject'}}), encoding='utf-8')
+        choices = {'cycles': [('1', '第1轮（2024–25）'), ('2', '第2轮（2025–26）')],
+                   'subjects': [('limited:home_voice_no=58', '节日与话题｜クリスマス [1年目]')]}
+        app = ToolkitApp(tk.Toplevel(self.root), settings_path=settings, choice_loader=lambda cache: choices)
+        self.pump(lambda: '2 轮' in app.choice_hint.get())
+        self.assertEqual('readonly', str(app.choice_boxes['cycle'].cget('state')))
+        self.assertEqual('第2轮（2025–26）', app.choice_text['cycle'].get())
+        # A saved subject that no longer exists falls back to the default and says so.
+        self.assertEqual('不另出表', app.choice_text['subject'].get())
+        self.assertIn('gone:subject', app.choice_hint.get())
+        app.choice_text['subject'].set('节日与话题｜クリスマス [1年目]')
+        app.choice_text['cycle'].set('全部轮次')
+        request = app.request()
+        self.assertEqual(('', 'limited:home_voice_no=58'), (request.cycle, request.subject))
+
+    def test_recent_year_is_a_date_that_is_off_until_ticked(self):
+        self.assertEqual('', self.app.request().recent_year)
+        self.assertEqual('disabled', str(self.app.recent_boxes[0].cget('state')))
+        self.app.recent_enabled.set(True)
+        self.app._sync_recent()
+        self.assertEqual(date.today().isoformat(), self.app.request().recent_year)
+        self.app.recent_parts['month'].set('2')
+        self.app.recent_parts['day'].set('30')
+        self.app._sync_recent()
+        with self.assertRaises(ValueError):
+            self.app.request()
 
 
 if __name__ == '__main__':
