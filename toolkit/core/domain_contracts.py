@@ -48,7 +48,7 @@ CONTRACTS = {
         name: ('CharacterId', 'Year') for name in (
             'mst_character_birthday', 'mst_character_birthday_campaign_page',
             'mst_character_birthday_login_bonus_page', 'mst_character_birthday_login_bonus_sequence',
-            'mst_character_birthday_mini_game', 'mst_character_birthday_mini_game_text')
+            'mst_character_birthday_mini_game_text')
     },
     'home_voice_duo': {
         'mst_character_home_voice_duo': ('CharacterId', 'HomeVoiceNo', 'PartnerCharacterId', 'PartnerHomeVoiceNo'),

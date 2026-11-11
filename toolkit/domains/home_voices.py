@@ -505,6 +505,91 @@ def _wiki_sheet(records, title="Wiki长表"):
     }
 
 
+PURPOSE_SHEETS = ("节日与话题", "周年纪念", "季节", "角色生日祝福", "玩家生日", "常驻与问候")
+# Global windows starting here are "always open" placeholders, not release dates.
+PLACEHOLDER_START = "2001-01-01"
+CUE_NUMBER_RE = re.compile(r"(\d+)$")
+
+
+def _purpose(record):
+    kind, name = record["SubjectType"], record["SubjectDisplayName"]
+    if kind == "birthday":
+        return "角色生日祝福"
+    if kind == "user_birthday":
+        return "玩家生日"
+    if "Anniv" in name:
+        return "周年纪念"
+    if kind == "season" or name.startswith("季節のホームボイス"):
+        return "季节"
+    if kind in ("standard", "time") or kind.startswith("category_"):
+        return "常驻与问候"
+    return "节日与话题"
+
+
+def _release_start(record):
+    rows = record.get("GlobalLimitedRecords") or []
+    start = (rows[0].get("StartTime") if len(rows) == 1 else None) or record.get("StartTime") or ""
+    return "" if start.startswith(PLACEHOLDER_START) else start[:10]
+
+
+def _subject_order(record, purpose, birthdays):
+    match = CUE_NUMBER_RE.search(record["CueName"])
+    cue = int(match.group(1)) if match else 0
+    year = record.get("ServiceYear") or 0
+    if purpose == "角色生日祝福":
+        month, day = birthdays.get(record.get("SubjectCharacterId"), (12, 31))
+        # Service years begin in mid-May, so January to mid-May birthdays close the year.
+        return (year, (month, day) < (5, 14), month, day)
+    if purpose == "节日与话题":
+        start = _release_start(record)
+        return (0, start, cue) if start else (1, "", cue)
+    if purpose == "玩家生日":
+        return (year, cue)
+    return (cue,)
+
+
+def _purpose_sheets(records, birthdays=None):
+    """Split the long table by use, each sheet in release order; columns A-E stay Wiki-compatible."""
+    birthdays = birthdays or {}
+    grouped = defaultdict(list)
+    for record in records:
+        grouped[_purpose(record)].append(record)
+    sheets = []
+    for title in PURPOSE_SHEETS:
+        items = grouped.get(title)
+        if not items:
+            continue
+        first = {}
+        for record in items:
+            first.setdefault(record["SubjectKey"], record)
+        ordered = sorted(first.values(), key=lambda record: _subject_order(record, title, birthdays))
+        rank = {key: index for index, key in enumerate(record["SubjectKey"] for record in ordered)}
+        seen_names = defaultdict(list)
+        for record in ordered:
+            seen_names[record["SubjectDisplayName"]].append(record["SubjectKey"])
+        rows = []
+        for record in sorted(items, key=lambda r: (rank[r["SubjectKey"]], r["SpeakerCharacterId"])):
+            notes = []
+            same = seen_names[record["SubjectDisplayName"]]
+            if len(same) > 1:
+                notes.append(f"同名第{same.index(record['SubjectKey']) + 1}套")
+            if record["SubjectType"] == "acb_only":
+                notes.append("masterdata 未登记，可能尚未开放")
+            rows.append([
+                record["SubjectDisplayName"], record["SpeakerCharacterId"],
+                record["SpeakerCharacterName"], record["TextWiki"].replace("<br>", "\n"), "",
+                _release_start(record), "；".join(notes),
+            ])
+        sheets.append({
+            "title": title,
+            "headers": ["主体", "角色序号", "角色名", "日文台词", "中文翻译", "开始时间", "备注"],
+            "rows": rows,
+            "col_widths": {"A": 36, "B": 12, "C": 18, "D": 72, "E": 72, "F": 14, "G": 28},
+            "wrap_cols": [1, 4, 5],
+        })
+    return sheets
+
+
 def _anomaly_sheet(catalog):
     headers = ["级别", "异常类型", "主体Key", "主体", "角色序号", "角色名", "CueName", "ACB文件", "详情"]
     rows = []
@@ -852,13 +937,13 @@ def recent_year_audit(collection):
     }
 
 
-def export_home_voice_catalog(catalog, output_dir, selected_subject=None):
+def export_home_voice_catalog(catalog, output_dir, selected_subject=None, birthdays=None):
     """Export the Wiki workbook and an optional single-subject workbook."""
     output_dir = os.path.abspath(output_dir)
     os.makedirs(output_dir, exist_ok=True)
     workbook_path = os.path.join(output_dir, "home_voice_catalog.xlsx")
     workbook_path = write_workbook(workbook_path, [
-        _wiki_sheet(catalog["Records"]),
+        *_purpose_sheets(catalog["Records"], birthdays),
         _conditions_sheet(catalog['Records']),
     ]) or workbook_path
     paths = {"catalog": workbook_path}
@@ -954,7 +1039,11 @@ def run(
     with open(audit_path, "w", encoding="utf-8", newline="\n") as stream:
         stream.write(render_audit_markdown(catalog))
     record_output(audit_path)
-    paths = export_home_voice_catalog(catalog, xlsx_dir, selected_subject=selected_subject)
+    birthdays = {row["CharacterId"]: (row.get("BirthMonth"), row.get("BirthDay"))
+                 for row in _active_rows(tables, "mst_character")
+                 if isinstance(row.get("BirthMonth"), int) and isinstance(row.get("BirthDay"), int)}
+    paths = export_home_voice_catalog(catalog, xlsx_dir, selected_subject=selected_subject,
+                                      birthdays=birthdays)
     from .system_voices import run as export_system_voices
     system_path = export_system_voices(tables, acb_root, json_dir, xlsx_dir)
     if system_path:

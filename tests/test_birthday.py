@@ -150,6 +150,30 @@ class BirthdayCycleTests(unittest.TestCase):
         self.assertEqual("庆典台词⑤C", sheet["A13"].value)
         self.assertIsNone(sheet["B13"].value)
 
+    def test_export_writes_one_sheet_per_cycle_in_date_order(self):
+        cycles = [
+            {"TargetCycle": number, "CycleStartYear": 2023 + number,
+             "BirthdayTexts": {"1": {"1": f"cycle-{number}"}}}
+            for number in (1, 2)
+        ]
+        data = {"CycleBoundary": {"Month": 5, "Day": 14}, "Cycles": cycles,
+                "Characters": {"1": {"Name": "Character", "Month": 4, "Day": 15}}}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "json_output").mkdir()
+            (root / "json_output" / "birthday_extract.json").write_text(json.dumps(data), encoding="utf-8")
+            previous = os.getcwd()
+            os.chdir(root)
+            try:
+                export()
+            finally:
+                os.chdir(previous)
+            workbook = load_workbook(root / "xlsx_output" / "birthday_lines.xlsx")
+
+        self.assertEqual(["第1轮 2024-25", "第2轮 2025-26"], workbook.sheetnames)
+        self.assertEqual("2025/04/15", workbook["第1轮 2024-25"]["B2"].value)
+        self.assertEqual("cycle-2", workbook["第2轮 2025-26"]["B4"].value)
+
 
 if __name__ == "__main__":
     unittest.main()

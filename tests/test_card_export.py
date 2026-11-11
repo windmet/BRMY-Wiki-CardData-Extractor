@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from toolkit.domains.card_export import build_card_record
-from toolkit.domains.cards import format_skill_desc, scan_card_voices, skill_values
+from toolkit.domains.cards import scan_card_voices
 
 
 CONTRACTS = json.loads(
@@ -17,15 +17,6 @@ def export_contract(name):
 
 
 class CardExportTests(unittest.TestCase):
-    def test_sparse_skill_values_keep_their_original_placeholder_indexes(self):
-        values = skill_values({"SkillValue2": 5, "SkillValue3": 30}, 3)
-
-        result = format_skill_desc(
-            "skill_value1 / skill_value2 / skill_value3", values
-        )
-
-        self.assertEqual("skill_value1 / 5 / 30", result)
-
     def test_cards_uses_package_relative_audio_module(self):
         self.assertEqual("toolkit.domains.audio", scan_card_voices.__module__)
 

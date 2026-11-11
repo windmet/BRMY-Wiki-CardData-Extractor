@@ -16,7 +16,7 @@ from .core.scanner import save_json
 from .core.s2b_parser import parse_s2b_file
 from .domains import DOMAINS
 from .domains.home_voices import CHARACTER_PACKAGE_RE, STEM_TO_CHARACTER_ID
-from .generate import generate, MASTERDATA
+from .generate import generate, NEEDS_MASTERDATA
 
 MASTER_KEY = 'Tables/master_data.s2b'
 SUFFIXES = {'scripts': '.s2bscript', 'lyrics': '.s2blyrics', 'charts': '.s2bchart'}
@@ -39,7 +39,7 @@ def build_plan(domains, resources, tables=None, *, include_card_audio=True, reso
         item['required'] |= required
 
     for domain in domains:
-        if domain in MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update'}:
+        if domain in NEEDS_MASTERDATA:
             add(MASTER_KEY, domain, True, 'masterdata')
         if (domain in {'cards', 'card_update'} and include_card_audio) or domain == 'card_combi_voices':
             if tables is None:
@@ -63,6 +63,10 @@ def build_plan(domains, resources, tables=None, *, include_card_audio=True, reso
                            if row.get('HomeVoiceTypeCode') == 3}
                 for target in sorted(targets & PACKAGE_BY_TARGET.keys()):
                     add('Musics/' + PACKAGE_BY_TARGET[target], domain, True, 'audio')
+        if domain == 'ojt':
+            # Coordinates are optional: an OJT archive without charts is still useful.
+            for key in sorted(key for key in resources if key.endswith('.s2bchart')):
+                add(key, domain, False, 'charts')
         if domain == 'audio':
             keys = [key for key in resources if key.startswith('Musics/') and key.endswith('.acb')]
             if not keys:
@@ -113,12 +117,16 @@ def materialize(download, destination, kind):
     envelope = 'none'
     data = raw
     if kind in SUFFIXES:
-        if raw.startswith(b'\x5d'):
+        # At least one shipped script (main_2_1_1_after) is wrapped twice.
+        layers = 0
+        while data.startswith(b'\x5d') and layers < 2:
             decoder = lzma.LZMADecompressor(format=lzma.FORMAT_ALONE, memlimit=256 * 1024 * 1024)
-            data = decoder.decompress(raw, max_length=64 * 1024 * 1024 + 1)
+            data = decoder.decompress(data, max_length=64 * 1024 * 1024 + 1)
             if len(data) > 64 * 1024 * 1024 or not decoder.eof or decoder.unused_data:
                 raise ValueError('独立 S2B 的 LZMA 外层损坏或过大')
-            envelope = 'lzma-alone'
+            layers += 1
+        if layers:
+            envelope = 'lzma-alone' if layers == 1 else 'lzma-alone-x2'
         with tempfile.NamedTemporaryFile(dir=destination.parent, suffix='.validation', delete=False) as stream:
             temporary = Path(stream.name)
             stream.write(data)
@@ -175,7 +183,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
         stage = provider.root / 'jobs' / uuid.uuid4().hex
         tables = None
         masterdata = None
-        if set(domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update'}):
+        if set(domains) & NEEDS_MASTERDATA:
             notify('masterdata')
             downloaded = provider.download(MASTER_KEY, offline=offline, cancelled=cancelled)
             prepared = prepare_production_masterdata(downloaded, stage / 'master_data.s2b')
@@ -227,7 +235,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
             except Exception as error:
                 if item['required']:
                     raise ValueError(f"{item['key']}: {error}") from error
-                return None, f"可选卡牌语音不可用: {item['key']}: {error}"
+                return None, f"可选资源不可用: {item['key']}: {error}"
 
         notify('download', index=0, total=len(pending))
         with ThreadPoolExecutor(max_workers=4) as pool:
@@ -248,7 +256,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
         notify('generate')
         sources = {domain: [entry['prepared_path'] for entry in audit['downloads']
                             if domain in entry.get('domains', [])]
-                   for domain in SUFFIXES if domain in domains}
+                   for domain in [*SUFFIXES, 'ojt'] if domain in domains}
         audio_dir = stage / 'audio'
         if (set(domains) & {'cards', 'card_update'} and include_card_audio) or 'card_combi_voices' in domains:
             audio_dir.mkdir(parents=True, exist_ok=True)

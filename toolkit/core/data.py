@@ -17,16 +17,12 @@ NAME_MAP = {
     "麻波麗": "麗",
 }
 
-# Code 102 was added after the available dump.cs enum. It is the CR rarity used
-# by the first Vignette multi-character cards; the raw code is retained in Meta.
+# Matches Coly.S2BShared.Enums.CardRarityCode in the 2.1.0 dump.cs (CR = 102 is
+# the multi-character Vignette rarity). scripts/dump_schema.py flags new codes.
 RARITY_MAP = {1: "R", 2: "SR", 3: "SSR", 101: "XR", 102: "CR"}
 ATTRIBUTE_MAP = {1: "日", 2: "月", 3: "星"}
 
-DEPT_MAP = {
-    1: "本部", 2: "交際部", 3: "管理部",
-    4: "強行部", 5: "交渉部", 6: "特務部",
-}
-
+# Wiki wording for piece_value labels; the client's own text is mst_piece_info.Name.
 PIECE_MAP = {
     1: "サンピース（赤色）", 2: "サンピース（桃色）",
     3: "ムーンピース（空色）", 4: "ムーンピース（青色）",
@@ -43,9 +39,6 @@ CHAR_PIECE_MAP = {
     12: "スターピース（緑色）", 14: "スターピース（緑色）", 15: "スターピース（緑色）",
     18: "スターピース（緑色）",
 }
-
-MAGNITUDE_MAP = {1: "小", 2: "中", 3: "大", 4: "特大", 5: "超特大"}
-
 
 def translate_scene(raw_scene):
     """场景名汉化。"""

@@ -1,3 +1,4 @@
+import json
 import tempfile
 import time
 import unittest
@@ -15,9 +16,8 @@ class GuiRequestTests(unittest.TestCase):
         result = self_test()
         self.assertEqual('PASS', result['status'])
         self.assertEqual('hidden-widget-construction', result['scope'])
-    def test_online_chart_and_missing_update_workbook_are_rejected_before_download(self):
-        with self.assertRaisesRegex(ValueError, 'OJT Chart'):
-            JobRequest('online', ['charts'], 'output', 'cache').validate()
+    def test_online_chart_is_allowed_and_missing_update_workbook_is_rejected_before_download(self):
+        JobRequest('online', ['charts'], 'output', 'cache').validate()
         with self.assertRaisesRegex(ValueError, '旧 Excel'):
             JobRequest('online', ['card_update'], 'output', 'cache').validate()
 
@@ -132,6 +132,43 @@ class GuiWidgetTests(unittest.TestCase):
         self.assertIn('内容与数据需要核对（1 项）', content)
         self.assertIn('资源与运行提示（1 项）', content)
         self.assertEqual(report, self.app.last_result)
+
+    def test_every_task_is_in_exactly_one_group_and_presets_select_known_tasks(self):
+        from toolkit.gui import PRESETS, TASK_GROUPS, TASKS
+        grouped = [name for _, names, _ in TASK_GROUPS for name in names]
+        self.assertEqual(sorted(TASKS), sorted(grouped))
+        self.app.apply_preset(PRESETS['只更新语音'])
+        self.assertEqual(set(PRESETS['只更新语音']),
+                         {name for name, value in self.app.selected.items() if value.get()})
+        self.app.apply_preset(())
+        self.assertFalse(any(value.get() for value in self.app.selected.values()))
+
+    def test_local_files_switch_overrides_mode_and_disables_mode_box(self):
+        self.app.use_local.set(True)
+        self.app._mode_changed()
+        self.assertEqual('local', self.app.mode_code())
+        self.assertEqual('disabled', str(self.app.mode_box['state']))
+        self.app.use_local.set(False)
+        self.app.mode.set('只用已下载缓存')
+        self.app._mode_changed()
+        self.assertEqual('offline', self.app.mode_code())
+        self.assertEqual('readonly', str(self.app.mode_box['state']))
+
+    def test_settings_saved_by_earlier_versions_map_to_new_modes(self):
+        settings = Path(self.directory.name) / 'old.json'
+        for saved, mode, local in [('正式服离线缓存', '只用已下载缓存', False), ('用本地缓存', '只用已下载缓存', False),
+                                   ('使用本地资源', '联网更新', True)]:
+            settings.write_text(json.dumps({'mode': saved}, ensure_ascii=False), encoding='utf-8')
+            app = ToolkitApp(tk.Toplevel(self.root), settings_path=settings)
+            self.assertEqual(mode, app.mode.get())
+            self.assertEqual(local, app.use_local.get())
+
+    def test_failed_run_opens_details_tab(self):
+        self.app.active_request = self.app.request()
+        self.app._complete({'status': 'PASS', 'artifacts': []})
+        self.assertEqual(0, self.app.tabs.index('current'))
+        self.app._complete({'status': 'FAIL', 'artifacts': [], 'errors': ['boom']})
+        self.assertEqual(2, self.app.tabs.index('current'))
 
 
 if __name__ == '__main__':

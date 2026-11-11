@@ -11,6 +11,8 @@ from .core.domain_contracts import validate_domain_input
 
 MASTERDATA = {'cards', 'music', 'snap', 'birthday', 'birthday_archive', 'recipes', 'missions', 'items', 'events', 'ojt'}
 MASTERDATA.update({'story_catalog', 'collections', 'groove', 'jukebox'})
+# Domains that read masterdata alongside other inputs (ACB, old workbook).
+NEEDS_MASTERDATA = MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update'}
 
 
 def generate(domains, output, *, masterdata=None, audio=None, source=None,
@@ -35,7 +37,7 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
             unknown = set(domains) - set(DOMAINS)
             if unknown:
                 raise ValueError(f'未知任务: {sorted(unknown)}')
-            if set(domains) & (MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update'}):
+            if set(domains) & NEEDS_MASTERDATA:
                 if not masterdata:
                     raise ValueError('此任务需要 masterdata 文件')
                 path = Path(masterdata).resolve()
@@ -101,7 +103,7 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                             if domain in {'scripts', 'charts', 'lyrics'} and Path(input_path).is_file():
                                 expected = {'scripts': '.s2bscript', 'charts': '.s2bchart',
                                             'lyrics': '.s2blyrics'}[domain]
-                                if Path(input_path).suffix.lower() != expected:
+                                if not Path(input_path).name.lower().endswith(expected):
                                     raise ValueError(f'{domain} 需要 {expected} 文件')
                             module.run(str(Path(input_path).resolve()))
                     if cancelled and cancelled():

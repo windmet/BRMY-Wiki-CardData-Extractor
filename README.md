@@ -51,25 +51,18 @@ python -m toolkit generate birthday --masterdata "E:\path\to\master_data.json" -
 ./scripts/verify.ps1
 ```
 
-以下为保留兼容的旧命令；其工作目录和输出路径与 GUI / `sync` / `generate` 不同，旧 XLSX 默认位于 `xlsx_output`：
+旧的 `run` / `all` / `update` / `decrypt` 命令和 `--interactive` 菜单已停用，对应写法如下（`--masterdata` 可直接给 `.s2b`）：
 
 ```powershell
-python -m toolkit run birthday                 # 自动选择最新生日轮次
-python -m toolkit run birthday --cycle 1       # 第一轮；也支持 2/3
-python -m toolkit run birthday --year 2026     # 按轮次起始年覆盖
-python -m toolkit update cards "E:\path\to\old_cards_data.xlsx"
-python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json"
-# 可选第三参数：按 SubjectKey、CueName 或主体名另导出单个主体
-python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" --subject vo_home_13_126
-# 可选：提供旧 ACB 目录，在当前元数据跨 Cue 重复时尝试恢复旧版正确文本
-python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" --reference-acb "E:\path\to\old\Sound"
-
-# 导出指定日期向前 365 天的主页/季节与生日祝福双分表
-python -m toolkit run home_voices "E:\path\to\Musics" "E:\path\to\master_data.json" --recent-year 2026-08-15
-./scripts/verify.ps1
+python -m toolkit generate birthday --masterdata "E:\path\to\master_data.s2b" --output "E:\WikiResults"            # 自动选择最新生日轮次
+python -m toolkit generate birthday --masterdata "E:\path\to\master_data.s2b" --output "E:\WikiResults" --cycle 1  # 也支持 --year 2026
+python -m toolkit generate card_update --masterdata "E:\path\to\master_data.s2b" --audio "E:\path\to\Musics" --old-workbook "E:\path\to\old_cards_data.xlsx" --output "E:\WikiResults"
+python -m toolkit generate home_voices --masterdata "E:\path\to\master_data.s2b" --audio "E:\path\to\Musics" --output "E:\WikiResults"
+# 可选：--subject vo_home_13_126（单独导出一个主体）、--reference-acb "E:\path\to\old\Sound"（旧 ACB 恢复重复文本）、
+#       --recent-year 2026-08-15（指定日期向前 365 天的双分表）
 ```
 
-交互模式生成的 `master_data.json` 使用 `.bmc_toolkit/master_data_cache.json` 校验源 S2B 与输出哈希；同目录替换新版 S2B 后会自动重新解码，损坏或未知格式会停止导出。
+`.s2b` 解码结果缓存在输出目录的 `.bmc_toolkit/`，并按源文件哈希校验；替换新版 S2B 后会自动重新解码，损坏或未知格式会停止导出。
 
 Masterdata 域在一次运行中共享同一个 `MasterDataSession`，不会为每个域重复解析大型 JSON。每次运行还会生成：
 
