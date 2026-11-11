@@ -6,6 +6,7 @@ from .core.session import MasterDataSession, utc_now
 from .core.masterdata import ensure_masterdata_json
 from .core.scanner import save_json
 from .core.exporter import audit_path
+from .core.review import write_summary
 from .domains import DOMAINS
 from .core.domain_contracts import validate_domain_input
 
@@ -131,6 +132,14 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                 try:
                     from .groove_receipt import write_receipt
                     write_receipt(context, session, resource_manifest)
+                except Exception as error:
+                    record_error(error)
+            if any(artifact['kind'] == 'wiki' for artifact in context.artifacts.values()):
+                context.domain = 'review'
+                try:
+                    write_summary({'errors': context.errors, 'warnings': context.warnings,
+                                   'artifacts': list(context.artifacts.values())},
+                                  output_directory('wiki', context.root / 'wiki_output'))
                 except Exception as error:
                     record_error(error)
     return context.finish()

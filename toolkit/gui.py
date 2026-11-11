@@ -19,6 +19,8 @@ TASKS = {
     'home_voice_duo': '双人主页台词', 'card_combi_voices': '多段协作语音（例外表）', 'story_catalog': '剧情目录', 'collections': '收藏档案',
     'puzzle_stages': '消消乐关卡', 'groove_charts': 'GROOVE 谱面', 'spin_memos': 'Spin 备忘录检索',
 }
+# Not a selectable task: written after every run that produced Wiki tables.
+ARTIFACT_LABELS = {'review': '待核对汇总'}
 TASK_GROUPS = [
     ('卡牌', ('cards', 'card_update', 'collections', 'items'),
      '更新已有卡表会保留人工列。收藏档案区分卡牌关联、奖励引用与已确认获取入口。'),
@@ -499,7 +501,7 @@ class ToolkitApp:
                 row = str(index)
                 self.artifacts[row] = artifact
                 self.results.insert('', 'end', iid=row, values=(Path(artifact['path']).name,
-                                    TASKS.get(artifact['domain'], artifact['domain']),
+                                    TASKS.get(artifact['domain'], ARTIFACT_LABELS.get(artifact['domain'], artifact['domain'])),
                                     '不完整' if artifact.get('domain_status') == 'FAIL' else
                                     '已生成，请核对' if artifact_needs_review(artifact, feedback) else '已生成'))
         if result.get('warnings') or result.get('errors'):

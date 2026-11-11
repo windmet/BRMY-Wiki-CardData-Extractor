@@ -14,7 +14,7 @@ python -m toolkit generate lyrics --source "E:\data\song.s2blyrics" --output "E:
 
 输出目录中：
 
-- `wiki_output/`：Wiki XLSX 和可使用的 LRC。
+- `wiki_output/`：Wiki XLSX 和可使用的 LRC。只要本次写出了 Wiki 文件，就另附 `待核对汇总.xlsx`，见下文。
 - `audit_output/`：中间 JSON、原始证据、schema、运行和产物清单；独立脚本/OJT Chart的 JSON 也在此处。
 - `.bmc_toolkit/`：本地解码缓存和 schema 基线。
 
@@ -25,5 +25,11 @@ python -m toolkit generate lyrics --source "E:\data\song.s2blyrics" --output "E:
 Python 调用使用 `toolkit.generate.generate()`，返回相同字典。输出上下文按调用线程隔离；并发调用使用不同输出根目录。当前不支持多个任务同时写同一输出目录。
 
 旧 `run/all/update` 及控制台交互入口暂保留原路径，便于已有脚本继续工作。新 GUI 将消费 `generate`；本批不宣称 GUI 已实现。旧目录不会自动搬迁或删除。
+
+## 状态列与待核对汇总
+
+表里的数据状态列（名称状态、关联状态、文本状态、核对状态）只有三种值：`正常`、`待核对`、`缺失`。不是“正常”时，同一行末尾的“说明”列写明原因。内部代码与文字的对应在 `toolkit/core/review.py` 的 `REASONS` 里，遇到未登记的代码按“待核对”处理。`日期状态` 表示活动所处时段（未开始 / 日期区间内 / 已结束等），不算数据问题，不进汇总。
+
+`待核对汇总.xlsx` 一行一个问题：运行失败和内容提示、各表里状态为待核对或缺失的行，以及标题含“待核对”的工作表（如卡牌语音待核对）的每一行。同一张表里超过 10 行、原因相同时，合并成一行并写明行数。没有问题时，表里只有一行“本次没有需要核对的内容”。
 
 活动日期状态支持 `--as-of 2026-09-09T00:00:00+00:00`；省略则使用运行开始时刻。详见 [日期状态契约](DATE_WINDOW_STATUS.md)。
