@@ -976,8 +976,8 @@ def _conditions_sheet(records):
                      record.get('GlobalLimitedName', ''), record.get('StartTime'), record.get('EndTime'),
                      global_row.get('StartTime'), global_row.get('EndTime'),
                      time.get('TimeDivisionName', ''), clock(time, 'Start'), clock(time, 'End')])
-    return {'title': '开放条件', 'headers': ['主体', '角色', '全局限定名称原值', '角色限定开始', '角色限定结束',
-             '全局限定开始', '全局限定结束', '时段名称', '时段开始原值', '时段结束原值'], 'rows': rows}
+    return {'title': '开放条件', 'headers': ['主体', '角色', '全局限定名称', '角色限定开始', '角色限定结束',
+             '全局限定开始', '全局限定结束', '时段名称', '时段开始', '时段结束'], 'rows': rows}
 
 
 def run(

@@ -95,11 +95,11 @@ def export(data):
     headers = {
         'Charts': ['活动ID', '活动名', '题面', '左', '右', '下', '上', '坐标资源名'],
         'Shifts': ['活动ID', '轮次ID', '角色ID', '开始', '结束', '日期状态', '训练开始脚本', '训练结束脚本'],
-        'Stages': ['活动ID', '轮次ID', 'Phase原值', '关卡序号', '地图ID', 'BREAK最低分', 'BREAK最高分', '租借卡牌ID'],
-        'TerminalTexts': ['活动ID', '轮次ID', '文本类型原值', '文本', '播放时长原值'],
-        'TrainingRewards': ['活动ID', '轮次ID', 'Phase原值', '奖励'],
-        'PrizeBoxes': ['活动ID', '轮次ID', '箱号', '消耗奖牌', '固定池权重原值', '随机池权重原值'],
-        'BoxRewards': ['活动ID', '轮次ID', '箱号', '奖励池', '奖励', '数量', '库存', '重点奖励', '池内权重原值'],
+        'Stages': ['活动ID', '轮次ID', '阶段', '关卡序号', '地图ID', 'BREAK最低分', 'BREAK最高分', '租借卡牌ID'],
+        'TerminalTexts': ['活动ID', '轮次ID', '文本类型', '文本', '播放时长'],
+        'TrainingRewards': ['活动ID', '轮次ID', '阶段', '奖励'],
+        'PrizeBoxes': ['活动ID', '轮次ID', '箱号', '消耗奖牌', '固定池抽取权重', '随机池抽取权重'],
+        'BoxRewards': ['活动ID', '轮次ID', '箱号', '奖励池', '奖励', '数量', '库存', '重点奖励', '抽取权重'],
     }
     sheets = {name: wb.create_sheet(name) for name in headers}
     for name, cols in headers.items():
@@ -126,11 +126,11 @@ def export(data):
                         rr = reward['RawReward']
                         sheets['BoxRewards'].append(bp + [label, reward['RewardName'], reward['RewardCount'], rr.get('PrizeStock'), rr.get('IsPickUp'), rr.get('LotteryRate')])
     bonus = wb.create_sheet('BreakBonus')
-    bonus.append(['BREAK次数', '奖牌增幅原值'])
+    bonus.append(['BREAK次数', '奖牌增幅'])
     for row in sorted(data.get('BreakBonus', []), key=lambda r: r.get('OjtPuzzleBreakCount', 0)):
         bonus.append([row.get('OjtPuzzleBreakCount'), row.get('PrizeMedalIncreaseRate')])
     constants = wb.create_sheet('GlobalRules')
-    constants.append(['常量组', '规则字段', '原值 / 奖励'])
+    constants.append(['常量组', '规则字段', '取值 / 奖励'])
     for entry in data.get('Constants', []):
         raw = entry['Raw']
         for key, value in raw.items():
@@ -139,7 +139,7 @@ def export(data):
         constants.append([raw.get('ConstantKey'), 'ChartStamp 转换奖励',
                           ' / '.join(f"{r['RewardName']} x{r['RewardCount']}" for r in entry['ChartStampConversionRewards'])])
     coordinates = wb.create_sheet('Coordinates')
-    coordinates.append(['活动ID', '题面', '角色ID', '角色名', 'X原值', 'Y原值', '显示顺序原值'])
+    coordinates.append(['活动ID', '题面', '角色ID', '角色名', 'X坐标', 'Y坐标', '显示顺序'])
     chart_titles = {(e['EventId'], c.get('ChartFileName')): c.get('ChartTitle', '')
                     for e in data['Events'] for c in e['Charts']}
     for chart in data['CoordinateLayouts']['Charts']:
@@ -151,8 +151,8 @@ def export(data):
     notes.append(['日期状态', '日期区间内不代表账号已解锁'])
     notes.append(['坐标', {'not_loaded': '未加载有效坐标', 'partial': '部分坐标已加载，缺项见审计',
                           'loaded': '坐标已加载'}[data['ChartCoordinates']]])
-    notes.append(['坐标单位', '未确认；保留文件原值，不推断像素或归一化单位'])
-    notes.append(['权重', '保留原值，未推算最终概率'])
+    notes.append(['坐标单位', '单位未确认；X/Y 坐标是文件里的数值，没有换算成像素'])
+    notes.append(['抽取权重', '表中是游戏数据里的权重，没有换算成概率'])
     for sheet in wb:
         sheet.freeze_panes = 'A2'
         for column in sheet.columns:

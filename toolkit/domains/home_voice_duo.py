@@ -4,6 +4,7 @@ from collections import defaultdict
 from ..core.exporter import audit_path, xlsx_path, write_workbook
 from ..core.scanner import save_json
 from ..core.output import record_warning
+from ..core.review import status_of
 from .home_voices import scan_character_home_voice_packages
 
 
@@ -72,8 +73,7 @@ def build_sheets(pairs, name):
         conversations.append({
             'Group': group_no, 'Pair': pair['PairKey'], 'Batch': batches[key], 'KeyTargetValue': key,
             'First': first, 'Second': second, 'Start': pair['Raw'].get('PartnerVoiceStart'),
-            'Status': '正常' if first['Status'] == second['Status'] == 'resolved'
-            else f"{first['Status']} / {second['Status']}",
+            'Status': status_of(first['Status'], second['Status']),
         })
 
     def lines(item):
@@ -81,7 +81,7 @@ def build_sheets(pairs, name):
                 name(item['Second']['CharacterId']), item['Second']['Text']]
 
     by_pair = [[c['Group'], name(c['Pair'][0]), name(c['Pair'][1]), f"第{c['Batch']}批", c['KeyTargetValue'],
-                *lines(c), c['Start'], c['Status']] for c in conversations]
+                *lines(c), c['Start'], *c['Status']] for c in conversations]
     by_character = []
     characters = sorted({cid for c in conversations for cid in c['Pair']})
     for cid in characters:
@@ -89,7 +89,7 @@ def build_sheets(pairs, name):
         own.sort(key=lambda c: (c['Pair'][1] if c['Pair'][0] == cid else c['Pair'][0], c['Batch']))
         for c in own:
             partner = c['Pair'][1] if c['Pair'][0] == cid else c['Pair'][0]
-            by_character.append([name(cid), name(partner), f"第{c['Batch']}批", *lines(c), c['Group'], c['Status']])
+            by_character.append([name(cid), name(partner), f"第{c['Batch']}批", *lines(c), c['Group'], *c['Status']])
     summary = []
     for cid in characters:
         own = [c for c in conversations if cid in c['Pair']]
@@ -102,10 +102,10 @@ def build_sheets(pairs, name):
     talk = ['先说角色', '先说台词', '接话角色', '接话台词']
     return [
         {'title': '按组合登记', 'rows': by_pair,
-         'headers': ['组号', '角色A', '角色B', '批次', 'KeyTargetValue原值', *talk, '接话开始秒（原值）', '文本状态'],
+         'headers': ['组号', '角色A', '角色B', '批次', '触发参数（含义未确认）', *talk, '接话开始秒', '文本状态', '说明'],
          'col_widths': {'B': 12, 'C': 12, 'F': 12, 'G': 46, 'H': 12, 'I': 46}, 'wrap_cols': [7, 9]},
         {'title': '按角色查看', 'rows': by_character,
-         'headers': ['角色', '对话对象', '批次', *talk, '组号', '文本状态'],
+         'headers': ['角色', '对话对象', '批次', *talk, '组号', '文本状态', '说明'],
          'col_widths': {'A': 12, 'B': 12, 'D': 12, 'E': 46, 'F': 12, 'G': 46}, 'wrap_cols': [5, 7]},
         {'title': '统计', 'rows': summary,
          'headers': ['角色', '对话对象数', '对话总数', *[f'第{rank}批' for rank in sorted(set(batches.values()))],

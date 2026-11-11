@@ -2,7 +2,8 @@
 from openpyxl import Workbook
 
 from ..core.rewards import REWARD_TARGETS, reward_reference_index
-from ..core.availability import assessment_time, date_window
+from ..core.availability import assessment_time, date_window, STATUS_LABELS
+from ..core.review import status_of
 from ..core.exporter import audit_path, xlsx_path, save_workbook_safely
 from ..core.scanner import save_json
 from ..core.output import record_warning
@@ -48,14 +49,15 @@ def export(data):
     for code in COLLECTION_TYPES:
         kind, label, *_ = REWARD_TARGETS[code]
         sheet = wb.create_sheet(kind)
-        sheet.append(['编号', '名称', '名称状态', '角色ID', '关联卡牌', '奖励引用数', '日期状态', '已确认入口数', '未连接入口的奖励引用数'])
+        sheet.append(['编号', '名称', '名称状态', '角色ID', '关联卡牌', '奖励引用数', '日期状态', '已确认入口数', '未连接入口的奖励引用数', '说明'])
         for entry in data['Collections']:
             if entry['Kind'] != kind:
                 continue
-            sheet.append([entry['Id'], entry['Name'], entry['NameStatus'], entry['Raw'].get('CharacterId'),
+            status, reason = status_of(entry['NameStatus'])
+            sheet.append([entry['Id'], entry['Name'], status, entry['Raw'].get('CharacterId'),
                           ' / '.join(f"{c['CharacterCardId']}: {c.get('CharacterCardName', '')}" for c in entry['Cards']),
-                          len(entry['RewardReferences']), entry['Availability']['Status'],
-                          len(entry['AcquisitionEntries']), len(entry['UnresolvedRewardReferences'])])
+                          len(entry['RewardReferences']), STATUS_LABELS[entry['Availability']['Status']],
+                          len(entry['AcquisitionEntries']), len(entry['UnresolvedRewardReferences']), reason])
     acquisition = wb.create_sheet('AcquisitionEntries')
     acquisition.append(['收藏类别', '编号', '名称', '入口类别', '入口编号', '入口说明', '奖励数量'])
     for entry in data['Collections']:

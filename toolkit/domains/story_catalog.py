@@ -4,7 +4,8 @@ import json
 
 from openpyxl import Workbook
 
-from ..core.availability import assessment_time, date_window
+from ..core.availability import assessment_time, date_window, STATUS_LABELS
+from ..core.review import status_of
 from ..core.rewards import RewardResolver
 from ..core.scanner import save_json
 from ..core.exporter import audit_path, xlsx_path, save_workbook_safely
@@ -98,16 +99,16 @@ def extract(session, *, as_of=None):
 def export(data):
     wb = Workbook(); ws = wb.active; ws.title = 'StoryCatalog'
     ws.append(['类别', '复合编号', '章节标题', '上级标题', '有语音标志', '发布日期/开始', '结束',
-               '日期状态', '阅读奖励', '明确脚本名', '脚本关联状态'])
+               '日期状态', '阅读奖励', '明确脚本名'])
     labels = {'main': '主线', 'character': '角色', 'card': '卡牌', 'event': '活动', 'login': '登录', 'puzzle': '剧情内Puzzle'}
     for entry in data['Sections']:
         raw = entry['Raw']
         ws.append([labels[entry['Kind']], entry['SourceTable'] + ':' + '/'.join(map(str, entry['Key'])),
                    entry['Title'], ' / '.join(p.get('TitleName', '') for p in entry['Parents']),
                    raw.get('HasVoiceFile'), entry['Availability']['RawStart'], raw.get('EndTime'),
-                   entry['Availability']['Status'], ' / '.join(f"{r['RewardName']} x{r['RewardCount']}" for r in entry['ReadRewards']),
-                   ' / '.join(entry['ExplicitScripts'].values()), entry['ScriptResolution']])
-    conditions = wb.create_sheet('Requirements'); conditions.append(['类别', '复合编号', '门槛字段', '原值'])
+                   STATUS_LABELS[entry['Availability']['Status']], ' / '.join(f"{r['RewardName']} x{r['RewardCount']}" for r in entry['ReadRewards']),
+                   ' / '.join(entry['ExplicitScripts'].values())])
+    conditions = wb.create_sheet('Requirements'); conditions.append(['类别', '复合编号', '门槛字段', '门槛值'])
     for entry in data['Sections']:
         for key, value in entry['Raw'].items():
             if key.startswith('Key'):
@@ -116,17 +117,17 @@ def export(data):
     notes.append(['用途', '剧情元数据索引；不等于正文已解析或账号已解锁'])
     notes.append(['文件名', '仅列原表明确声明的脚本，不按编号拼造'])
     links = wb.create_sheet('CrossStoryLinks')
-    links.append(['来源表', '来源复合编号', '目标表', '目标复合编号', '关联状态'])
+    links.append(['来源表', '来源复合编号', '目标表', '目标复合编号', '关联状态', '说明'])
     for link in data.get('CrossStoryLinks', []):
         links.append([link['SourceTable'], '/'.join(map(str, link['SourceKey'])), link['TargetTable'],
-                      '/'.join(map(str, link['TargetKey'] or [])), link['Status']])
+                      '/'.join(map(str, link['TargetKey'] or [])), *status_of(link['Status'])])
     windows = wb.create_sheet('EventFreeWindows')
     windows.append(['活动ID', '免费组ID', '开始', '结束', '日期状态'])
     for entry in data.get('EventFreeWindows', []):
         row = entry['Raw']
-        windows.append([row.get('EventId'), row.get('EventStoryFreeGroupId'), row.get('StartTime'), row.get('EndTime'), entry['Availability']['Status']])
+        windows.append([row.get('EventId'), row.get('EventStoryFreeGroupId'), row.get('StartTime'), row.get('EndTime'), STATUS_LABELS[entry['Availability']['Status']]])
     unlock = wb.create_sheet('CrossStoryUnlock')
-    unlock.append(['来源复合编号', '条件码原值', 'Value1', 'Value2', 'Value3'])
+    unlock.append(['来源复合编号', '条件码', '参数1', '参数2', '参数3'])
     seen = set()
     for entry in data['Sections']:
         for row in entry.get('UnlockConditions', []):
