@@ -1,6 +1,21 @@
 """Required identities for new archives; empty tables remain valid input."""
 
 CONTRACTS = {
+    'puzzle_stages': {
+        'mst_puzzle_stage': ('PuzzleMapId', 'PuzzleStageNo', 'PuzzleType', 'PuzzleStageType'),
+        'mst_puzzle_map': ('PuzzleMapId',),
+        'mst_puzzle_story_stage': ('StoryTypeCode', 'StoryTargetBaseId', 'StoryTargetChapterId', 'StoryTargetSectionNo'),
+        'mst_piece_info': ('PieceInfoId',),
+    },
+    'spin_memos': {
+        'mst_spin_snapshot': ('SnapshotId', 'SpinSetId', 'SnapshotRarityCode', 'SnapshotCharacterIds'),
+        'mst_spin_set': ('SpinSetId', 'SpinBaseCode'),
+        'mst_spin_sticky_note': ('StickyNoteId', 'CharacterId'),
+    },
+    'groove_charts': {
+        'mst_groove_music_stage': ('MusicId', 'GrooveMusicStageType', 'StageFileName'),
+        'mst_music': ('MusicId', 'DisplayName'),
+    },
     'jukebox': {
         'mst_music': ('MusicId', 'DisplayName'),
         'mst_music_out_game': ('MusicId', 'AudioFileName', 'JacketFileName'),

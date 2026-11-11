@@ -20,6 +20,8 @@ from .generate import generate, NEEDS_MASTERDATA
 
 MASTER_KEY = 'Tables/master_data.s2b'
 SUFFIXES = {'scripts': '.s2bscript', 'lyrics': '.s2blyrics', 'charts': '.s2bchart'}
+# Domains fed by one small standalone file per masterdata row.
+TABLE_FILE_DOMAINS = {'puzzle_stages': 'stages', 'groove_charts': 'scores'}
 
 
 def build_plan(domains, resources, tables=None, *, include_card_audio=True, resource_keys=None):
@@ -30,11 +32,12 @@ def build_plan(domains, resources, tables=None, *, include_card_audio=True, reso
     warnings = []
     errors = []
 
-    def add(key, domain, required, kind):
-        if key not in resources:
+    def add(key, domain, required, kind, derived=False):
+        if key not in resources and not derived:
             (errors if required else warnings).append(f'{domain}: 正式清单未收录 {key}')
             return
-        item = selected.setdefault(key, {'key': key, 'domains': [], 'required': False, 'kind': kind})
+        item = selected.setdefault(key, {'key': key, 'domains': [], 'required': False, 'kind': kind,
+                                         **({'derived': True} if derived else {})})
         item['domains'].append(domain)
         item['required'] |= required
 
@@ -67,6 +70,14 @@ def build_plan(domains, resources, tables=None, *, include_card_audio=True, reso
             # Coordinates are optional: an OJT archive without charts is still useful.
             for key in sorted(key for key in resources if key.endswith('.s2bchart')):
                 add(key, domain, False, 'charts')
+        if domain in TABLE_FILE_DOMAINS:
+            if tables is None:
+                raise ValueError(f'{domain} 资源规划需要 masterdata 表')
+            # Missing files belong to unreleased content; the domain reports them per row.
+            derived = domain == 'puzzle_stages'
+            for key in DOMAINS[domain].resource_keys(tables):
+                if derived or key in resources:
+                    add(key, domain, False, TABLE_FILE_DOMAINS[domain], derived=derived)
         if domain == 'audio':
             keys = [key for key in resources if key.startswith('Musics/') and key.endswith('.acb')]
             if not keys:
@@ -116,7 +127,7 @@ def materialize(download, destination, kind):
     destination.parent.mkdir(parents=True, exist_ok=True)
     envelope = 'none'
     data = raw
-    if kind in SUFFIXES:
+    if kind in SUFFIXES or kind in TABLE_FILE_DOMAINS.values():
         # At least one shipped script (main_2_1_1_after) is wrapped twice.
         layers = 0
         while data.startswith(b'\x5d') and layers < 2:
@@ -189,7 +200,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
             prepared = prepare_production_masterdata(downloaded, stage / 'master_data.s2b')
             audit['downloads'].append({**downloaded, **prepared})
             masterdata = prepared['decoded_path']
-            if ('home_voices' in domains or 'card_combi_voices' in domains
+            if ('home_voices' in domains or 'card_combi_voices' in domains or set(domains) & set(TABLE_FILE_DOMAINS)
                     or (set(domains) & {'cards', 'card_update'} and include_card_audio)):
                 tables = TableCatalog(decode_masterdata(masterdata))
         plan = build_plan(domains, provider.resources, tables, include_card_audio=include_card_audio,
@@ -204,7 +215,8 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
             for item in plan['resources']:
                 check()
                 try:
-                    cached = provider.download(item['key'], offline=True, cancelled=cancelled)
+                    get = provider.download_derived if item.get('derived') else provider.download
+                    cached = get(item['key'], offline=True, cancelled=cancelled)
                     cache_entries.append({'key': item['key'], 'status': 'verified',
                                           'sha256': cached['sha256'], 'size': cached['size']})
                 except ValueError as error:
@@ -224,7 +236,8 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
         def fetch(item):
             stop = lambda: abort.is_set() or bool(cancelled and cancelled())
             try:
-                downloaded = provider.download(item['key'], offline=offline, cancelled=stop)
+                get = provider.download_derived if item.get('derived') else provider.download
+                downloaded = get(item['key'], offline=offline, cancelled=stop)
                 # Hash subdirectories preserve case-sensitive keys and prevent collisions.
                 # Audio parsers recurse; standalone parsers receive one file below.
                 target = stage / item['kind'] / sha256(item['key'].encode()) / Path(item['key']).name
@@ -238,25 +251,30 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
                 return None, f"可选资源不可用: {item['key']}: {error}"
 
         notify('download', index=0, total=len(pending))
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            futures = {pool.submit(fetch, item): item for item in pending}
-            try:
-                for index, future in enumerate(as_completed(futures), start=1):
-                    result, warning = future.result()
-                    if result:
-                        audit['downloads'].append(result)
-                    if warning:
-                        audit['warnings'].append(warning)
-                    notify('download', key=futures[future]['key'], index=index, total=len(pending))
-            finally:
-                abort.set()
-                for future in futures:
-                    future.cancel()
+        # Derived stage files are a few hundred bytes each, so round trips dominate;
+        # they get a wider pool than manifest resources such as ACB packages.
+        regular = ThreadPoolExecutor(max_workers=4)
+        small = ThreadPoolExecutor(max_workers=16)
+        futures = {(small if item.get('derived') else regular).submit(fetch, item): item for item in pending}
+        try:
+            for index, future in enumerate(as_completed(futures), start=1):
+                result, warning = future.result()
+                if result:
+                    audit['downloads'].append(result)
+                if warning:
+                    audit['warnings'].append(warning)
+                notify('download', key=futures[future]['key'], index=index, total=len(pending))
+        finally:
+            abort.set()
+            for future in futures:
+                future.cancel()
+            regular.shutdown(wait=True)
+            small.shutdown(wait=True)
         audit['downloads'].sort(key=lambda item: item['key'])
         notify('generate')
         sources = {domain: [entry['prepared_path'] for entry in audit['downloads']
                             if domain in entry.get('domains', [])]
-                   for domain in [*SUFFIXES, 'ojt'] if domain in domains}
+                   for domain in [*SUFFIXES, 'ojt', *TABLE_FILE_DOMAINS] if domain in domains}
         audio_dir = stage / 'audio'
         if (set(domains) & {'cards', 'card_update'} and include_card_audio) or 'card_combi_voices' in domains:
             audio_dir.mkdir(parents=True, exist_ok=True)

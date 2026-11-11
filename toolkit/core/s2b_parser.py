@@ -1,4 +1,5 @@
-"""s2b 文件解析公共逻辑 —— 处理 MsgPack + LZ4 压缩（ext type 99）。"""
+"""s2b 文件解析公共逻辑 —— 处理 MsgPack + LZ4 压缩（ext type 99 与 98）。"""
+import io
 import json
 from .output import record_output
 import lz4.block
@@ -36,16 +37,58 @@ def decode_ext99(data):
         raise S2BDecodeError("ext99 payload is not valid MsgPack") from exc
 
 
+class _Lz4BlockArrayHeader:
+    """ext98 header of MessagePack-CSharp Lz4BlockArray: the uncompressed size of each block."""
+
+    def __init__(self, sizes):
+        self.sizes = sizes
+
+
+def decode_ext98_header(data):
+    try:
+        sizes = list(msgpack.Unpacker(io.BytesIO(data), raw=False))
+    except Exception as exc:
+        raise S2BDecodeError("ext98 size header is invalid") from exc
+    if not sizes or not all(isinstance(size, int) and size >= 0 for size in sizes):
+        raise S2BDecodeError(f"ext98 sizes are invalid: {sizes!r}")
+    return _Lz4BlockArrayHeader(sizes)
+
+
+def decode_lz4_block_array(value, hook):
+    """Inflate [ext98(sizes), bin, bin, ...] (stage files) into the MsgPack value it wraps."""
+    if not (isinstance(value, list) and value and isinstance(value[0], _Lz4BlockArrayHeader)):
+        return value
+    sizes, blocks = value[0].sizes, value[1:]
+    if len(sizes) != len(blocks) or not all(isinstance(block, bytes) for block in blocks):
+        raise S2BDecodeError("ext98 block count does not match its header")
+    try:
+        payload = b"".join(
+            lz4.block.decompress(block, uncompressed_size=size) for size, block in zip(sizes, blocks)
+        )
+    except Exception as exc:
+        raise S2BDecodeError("ext98 LZ4 decompression failed") from exc
+    if len(payload) != sum(sizes):
+        raise S2BDecodeError("ext98 size mismatch")
+    try:
+        return msgpack.unpackb(payload, raw=False, ext_hook=hook, strict_map_key=False)
+    except Exception as exc:
+        raise S2BDecodeError("ext98 payload is not valid MsgPack") from exc
+
+
 def ext_hook(code, data):
-    """MsgPack 扩展类型 99 (LZ4 压缩块)。"""
+    """MsgPack 扩展类型 99 (LZ4 压缩块) 与 98 (LZ4 分块数组头)。"""
     if code == 99:
         return decode_ext99(data)
+    if code == 98:
+        return decode_ext98_header(data)
     return msgpack.ExtType(code, data)
 
 
 def strict_ext_hook(code, data):
     if code == 99:
         return decode_ext99(data)
+    if code == 98:
+        return decode_ext98_header(data)
     raise S2BDecodeError(f"unsupported MsgPack extension type: {code}")
 
 
@@ -74,7 +117,7 @@ def parse_s2b_file(file_path, *, strict_extensions=False):
     hook = strict_ext_hook if strict_extensions else ext_hook
     with open(file_path, "rb") as f:
         unpacker = msgpack.Unpacker(f, raw=False, ext_hook=hook, strict_map_key=False)
-        raw = [i for i in unpacker]
+        raw = [decode_lz4_block_array(i, hook) for i in unpacker]
     return clean_data(raw)
 
 

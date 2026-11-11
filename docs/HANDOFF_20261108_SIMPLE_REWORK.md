@@ -48,7 +48,7 @@
 
 ## 待办
 
-1. **Score/ 与 Stages/ 研究**：Score 是音游谱面（Bpm、Notes 的 TimeMs/Type、A/B/C 难度）；Stages 是 `.s2bStage`，内部嵌套压缩，疑似 GROOVE 新模式，`Stage6_500_1` 引用了卡 500。
+1. ~~**Score/ 与 Stages/ 研究**~~（2026-11-11 完成）：Score 是 GROOVE 谱面，Stages 是消消乐关卡（不是新模式）；`Stage6_500_1` 是地图 6 第 500 关的 2023 年测试文件，与卡 500 无关。已做成 `puzzle_stages` / `groove_charts` 任务，见 `docs/PUZZLE_STAGES.md`。
 2. 可选：把声纹结果作为一列并入 `card_combi_voices`。
 3. 等站长新方案：CR 卡、多人协作。
 4. 上一份交接遗留：表格人性化（仅内部表）、masterdata 驱动的下拉框、文档压缩、exe 重新打包。

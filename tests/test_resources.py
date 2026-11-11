@@ -63,10 +63,10 @@ class ResourcesTests(unittest.TestCase):
 
     def test_manifest_keeps_unknown_categories_and_raw_metadata(self):
         row = ['master_data.s2b', 4597, 2, 0, 2.0, None, False]
-        resources, unknown = parse_manifest(manifest([row, ['new.s2bscore', 1, 8, 0, 0.2]]))
+        resources, unknown = parse_manifest(manifest([row, ['new.s2bthing', 1, 99, 0, 0.2]]))
         self.assertEqual('Tables/master_data.s2b', resources[0].key)
         self.assertEqual(row, resources[0].metadata)
-        self.assertEqual(8, unknown[0]['record'][2])
+        self.assertEqual(99, unknown[0]['record'][2])
 
     def test_untrusted_paths_and_duplicate_keys_are_rejected(self):
         for key in ['../x', '/absolute', 'a/../b', 'a\\b', 'file:stream', 'x?query',

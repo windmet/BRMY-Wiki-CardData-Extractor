@@ -21,6 +21,8 @@
 - 导出 Wiki 可直接继续加工的 XLSX/JSON
 - 解析独立的歌词、脚本和OJT Chart S2B 文件
 - GROOVE 曲目、Bonus Runner、Runner 位次、Relation、SIDE 原始数据（`generate groove` / `sync groove`）；角色对照用 `HasStaffCard` 区分有 Staff Card 的角色
+- 消消乐关卡目录（目标、生命、步数、盘面机关）与 GROOVE 谱面统计（`puzzle_stages` / `groove_charts`），见 [`docs/PUZZLE_STAGES.md`](docs/PUZZLE_STAGES.md)
+- Spin 相片备忘录检索表（R/SR/SSR 三联去重、话题对照、评论检索；`spin_memos`），见 [`docs/SPIN_MEMOS.md`](docs/SPIN_MEMOS.md)
 - 使用 ACB 元数据补充卡面语音字段；一条 Cue 含多段音频的卡（如三轮生日部门协作）另出[例外表](docs/CARD_COMBI_VOICES.md)，不写入卡牌全表
 - 卡牌语音元数据存在跨卡复制、空文本等问题，同时输出[待核对清单](docs/CARD_VOICE_REVIEW.md)，卡牌表不自动改写
 - 从 21 人角色 ACB 包提取主页、季节和生日语音，按 Wiki 主体生成长表与审计表
