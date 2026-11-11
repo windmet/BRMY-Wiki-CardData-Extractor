@@ -17,6 +17,7 @@ TASKS = {
     'lyrics': '歌词', 'scripts': '剧情脚本', 'charts': 'OJT Chart（本地）', 'audio': '通用语音文本',
     'ojt': 'OJT 活动档案', 'birthday_archive': '年度生日档案',
     'home_voice_duo': '双人主页台词', 'card_combi_voices': '多段协作语音（例外表）', 'story_catalog': '剧情目录', 'collections': '收藏档案',
+    'puzzle_stages': '消消乐关卡', 'groove_charts': 'GROOVE 谱面', 'spin_memos': 'Spin 备忘录检索',
 }
 TASK_GROUPS = [
     ('卡牌', ('cards', 'card_update', 'collections', 'items'),
@@ -24,10 +25,11 @@ TASK_GROUPS = [
     ('语音', ('home_voices', 'home_voice_duo', 'card_combi_voices', 'audio'),
      '主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对。多段协作语音是卡牌表之外的例外表。缺少资源时会保留缺项说明。'),
     ('活动与剧情', ('events', 'ojt', 'missions', 'recipes', 'birthday', 'birthday_archive',
-                'story_catalog', 'scripts', 'charts', 'snap'),
+                'story_catalog', 'scripts', 'charts', 'snap', 'spin_memos'),
      'OJT 档案包含轮次、题面和奖励；单独的 OJT Chart 任务仅解析本地文件。生日庆典台词按轮次整理，'
      '年度生日档案按角色和年份汇总。剧情目录是 masterdata 索引，剧情脚本解析独立正文。'),
-    ('音乐', ('music', 'lyrics'), '音乐主表及可关联资源；歌词需要指定资源。'),
+    ('音乐', ('music', 'lyrics', 'groove_charts'), '音乐主表及可关联资源；歌词需要指定资源。GROOVE 谱面统计每首曲 A/B/C 面的音符。'),
+    ('关卡', ('puzzle_stages',), '消消乐每关的通关目标、生命、步数和机关，按用途分表。'),
     ('网站数据', ('groove',), '供计算器网站使用的源数据。'),
 ]
 PRESETS = {
@@ -58,6 +60,9 @@ TASK_HELP = {
     'birthday': '生日庆典小游戏台词，按轮次整理；不是 ACB 生日祝福。',
     'birthday_archive': '按角色和年份整理年度生日的登录、点击奖励、服装和台词。',
     'story_catalog': '剧情索引、门槛与奖励；不包含独立脚本正文，不猜脚本文件名。',
+    'spin_memos': 'Spin 相片备忘录按 R/SR/SSR 三联合并去重，附话题对照、评论检索和角色统计；不替换 Snap 文案旧表。',
+    'puzzle_stages': '消消乐关卡：每关 A–F 面的目标、SS 分数线、生命、步数、盘面机关与新机关提示。联网时按 masterdata 下载约两千个小文件。',
+    'groove_charts': 'GROOVE（音游）每首曲 A/B/C 面的 BPM、时长、音符数与机关；未上线曲目没有谱面。',
     'scripts': '解析独立剧情脚本正文；联网时需在“指定线上资源”填写资源键，改用本地文件时选文件或目录。',
     'lyrics': '解析歌词与时间信息；联网时需在“指定线上资源”填写资源键，改用本地文件时选文件或目录。',
     'music': '音乐主表及可关联资源；无音频关联的音乐仍保留。',
@@ -119,6 +124,9 @@ class JobRequest:
                 path = Path(self.source)
                 if not (path.is_dir() or (path.is_file() and path.suffix.lower() == '.s2bchart')):
                     raise ValueError('OJT 坐标输入需要 .s2bchart 文件或目录')
+            if set(self.domains) & {'puzzle_stages', 'groove_charts'}:
+                if not self.source or not Path(self.source).exists():
+                    raise ValueError('关卡 / 谱面任务需要选择 .s2bStage / .s2bscore 文件夹')
             if set(self.domains) & {'scripts', 'lyrics', 'charts'}:
                 if not self.source or not Path(self.source).exists():
                     raise ValueError('请选择独立歌词、脚本或OJT Chart文件 / 文件夹')

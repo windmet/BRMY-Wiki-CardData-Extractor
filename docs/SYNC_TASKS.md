@@ -30,8 +30,9 @@ python -m toolkit sync lyrics --resource Jukebox/personal_song_lyrics_14.s2blyri
 - masterdata 域只需要一份 masterdata。卡牌可选语音按实际卡牌 ID 查找 `Musics/voice_<ID>.acb`，不下载无关卡包。
 - home_voices 选择当前 parser 支持的 21 个角色名与 general/1/2/3 包；缺少某角色全部包或任意选中包下载失败，明确停止，避免输出假完整表。
 - audio 是通用音频文本任务，选择 Musics 下 ACB；文本解析不需要 AWB 音频负载。
-- scripts/lyrics/charts 按清单中已识别的后缀选择，`--resource` 可以重复传入以限制范围。目前实际 chart 位于尚未确认路径的类别，因此在线 charts 明确报错；本地 charts 仍可用。
-- 不根据 staging 或猜测 URL 补资源。清单中仅大小写不同的对象隔离存储；独立文件导出遇到同名冲突则要求缩小选择，不静默覆盖。
+- scripts/lyrics/charts 按清单中已识别的后缀选择，`--resource` 可以重复传入以限制范围。OJT chart 是清单类别 7（`Chart/`）。
+- `puzzle_stages` 的关卡文件不在正式清单里，按 masterdata 与客户端格式串推导 `Stages/` 路径，从正式 CDN 下载并按 ETag 复验，单独用 16 线程的小文件池；`groove_charts` 只取清单类别 8（`Score/`）里有的谱面。见 [PUZZLE_STAGES.md](PUZZLE_STAGES.md)。
+- 除上述有客户端依据的推导路径外，不根据 staging 或猜测 URL 补资源。清单中仅大小写不同的对象隔离存储；独立文件导出遇到同名冲突则要求缩小选择，不静默覆盖。
 
 ## 下载和生成边界
 
