@@ -10,6 +10,7 @@ from threading import Event
 from .resources import (ProdManifestProvider, atomic_bytes, atomic_json, sha256,
                         prepare_production_masterdata)
 from .core.masterdata import decode_masterdata
+from .choices import save_subjects
 from .core.tables import TableCatalog
 from .core.output import OutputContext
 from .core.scanner import save_json
@@ -284,6 +285,13 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
                           cancelled=cancelled, progress=progress, **generation_options)
         if report['status'] != 'FAIL':
             discard_staged_resources(stage)
+        catalog = next((a['path'] for a in report['artifacts'] if a['domain'] == 'home_voices'
+                        and a.get('domain_status') == 'PASS' and a['path'].endswith('Home_Voice_Catalog.json')), None)
+        if catalog:
+            try:  # Only feeds the GUI subject list; a failed save must not fail the run.
+                save_subjects(provider.root, catalog)
+            except (OSError, ValueError, KeyError):
+                pass
         return report
     except Exception as error:
         audit['errors'].append(str(error))

@@ -126,19 +126,24 @@ def _select_character_texts(raw_rows, character_id, target_year):
     }, metadata
 
 
+def _staff_birthdays(tables):
+    return {
+        obj['CharacterId']: {"Name": obj['CharacterNameJpn'], "Month": obj['BirthMonth'], "Day": obj['BirthDay']}
+        for obj in tables.require('mst_character') if 1 <= obj['CharacterId'] <= 21
+    }
+
+
+def cycle_options(tables):
+    """(cycle number, first calendar year) for every cycle the masterdata already has."""
+    inferred = _infer_cycle(_staff_birthdays(tables), tables.require('mst_character_birthday_mini_game_text'))
+    return [(number, inferred['BaseYear'] + number - 1) for number in range(1, inferred['Cycle'] + 1)]
+
+
 def extract(session=None, target_year=None, target_cycle=None):
     tables = session.tables if session else TableCatalog(load_json(INPUT_JSON))
-    characters = {}
+    characters = _staff_birthdays(tables)
     raw_text_rows = {}
 
-    for obj in tables.require('mst_character'):
-        cid = obj['CharacterId']
-        if 1 <= cid <= 21:
-            characters[cid] = {
-                "Name": obj['CharacterNameJpn'],
-                "Month": obj['BirthMonth'],
-                "Day": obj['BirthDay'],
-            }
     text_rows = tables.require('mst_character_birthday_mini_game_text')
     for obj in text_rows:
         cid = obj.get('CharacterId')
