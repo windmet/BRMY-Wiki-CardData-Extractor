@@ -25,7 +25,11 @@ RETRY_DELAY = 1.0
 class IncompleteDownload(ValueError):
     pass
 CATEGORY_PATHS = {0: 'Files/Android/', 1: 'Scripts/', 2: 'Tables/',
-                  3: 'LightingSets/', 4: 'Movies/', 5: 'Musics/', 6: 'Jukebox/', 7: 'Chart/'}
+                  3: 'LightingSets/', 4: 'Movies/', 5: 'Musics/', 6: 'Jukebox/', 7: 'Chart/',
+                  8: 'Score/'}
+# Served by the CDN but absent from the manifest; keys come from masterdata plus
+# client format strings (see toolkit/domains/puzzle_stages.py).
+DERIVED_PREFIXES = ('Stages/',)
 MANIFEST_KEY = 'Tables/FileAssetList.s2bcoly'
 
 
@@ -122,11 +126,11 @@ class ProdManifestProvider:
         self.unknown = []
         self.manifest_sha256 = None
 
-    def _get(self, key, limit, cancelled=None):
+    def _get(self, key, limit, cancelled=None, headers=None):
         # Connections drop mid-handshake now and then; retry those, not HTTP 4xx answers.
         for attempt in range(RETRIES + 1):
             try:
-                return self._get_once(key, limit, cancelled)
+                return self._get_once(key, limit, cancelled, headers)
             except urllib.error.HTTPError as error:
                 if error.code < 500 or attempt == RETRIES:
                     raise
@@ -137,12 +141,13 @@ class ProdManifestProvider:
                 raise InterruptedError('download cancelled')
             time.sleep(self.retry_delay * 2 ** attempt)
 
-    def _get_once(self, key, limit, cancelled=None):
+    def _get_once(self, key, limit, cancelled=None, headers=None):
         if cancelled and cancelled():
             raise InterruptedError('download cancelled')
         validate_key(key)
         url = urllib.parse.urljoin(self.base_url, urllib.parse.quote(key, safe='/'))
-        request = urllib.request.Request(url, headers={'Accept-Encoding': 'identity', 'User-Agent': 'BRMY-Wiki-Toolkit'})
+        request = urllib.request.Request(url, headers={'Accept-Encoding': 'identity', 'User-Agent': 'BRMY-Wiki-Toolkit',
+                                                       **(headers or {})})
         chunks, size = [], 0
         with self.opener(request, timeout=self.timeout) as response:
             if response.status != 200:
@@ -222,6 +227,39 @@ class ProdManifestProvider:
         raw, headers = self._get(key, limit, cancelled)
         metadata = {'key': key, 'provider': 'production', 'base_url': self.base_url,
                     'fingerprint': resource.fingerprint, 'manifest_sha256': self.manifest_sha256,
+                    'size': len(raw), 'sha256': sha256(raw), 'http': headers,
+                    'retrieved_at': datetime.now(timezone.utc).isoformat()}
+        atomic_bytes(path, raw)
+        atomic_json(metadata_path, metadata)
+        return {**metadata, 'path': str(path), 'cache_hit': False, 'offline': False}
+
+    def download_derived(self, key, *, offline=False, cancelled=None, limit=16 * 1024 * 1024):
+        """Fetch a CDN object the manifest does not list; revalidate the cache by ETag."""
+        if not key.startswith(DERIVED_PREFIXES):
+            raise ValueError(f'resource is not a known derived path: {key}')
+        path = self.root / 'raw' / sha256(key.encode('utf-8')) / Path(validate_key(key)).name
+        if not path.resolve().is_relative_to(self.root):
+            raise ValueError('cache path escapes provider directory')
+        metadata_path = path.with_name(path.name + '.metadata.json')
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding='utf-8'))
+            cached = (metadata.get('derived') and path.is_file() and path.stat().st_size == metadata['size']
+                      and sha256(path.read_bytes()) == metadata['sha256'])
+        except (OSError, ValueError, KeyError, TypeError):
+            metadata, cached = None, False
+        if offline:
+            if not cached:
+                raise ValueError(f'离线缓存缺失或未通过校验：{key}。请切换到“联网更新”重新同步此任务后再离线使用。')
+            return {**metadata, 'path': str(path), 'cache_hit': True, 'offline': True}
+        etag = (metadata or {}).get('http', {}).get('ETag') if cached else None
+        try:
+            raw, headers = self._get(key, limit, cancelled, {'If-None-Match': etag} if etag else None)
+        except urllib.error.HTTPError as error:
+            if error.code == 304 and cached:
+                error.close()
+                return {**metadata, 'path': str(path), 'cache_hit': True, 'offline': False}
+            raise
+        metadata = {'key': key, 'provider': 'production', 'base_url': self.base_url, 'derived': True,
                     'size': len(raw), 'sha256': sha256(raw), 'http': headers,
                     'retrieved_at': datetime.now(timezone.utc).isoformat()}
         atomic_bytes(path, raw)
