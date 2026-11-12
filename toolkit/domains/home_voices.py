@@ -301,6 +301,17 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
         if row.get("HomeVoiceTypeCode") == 1:
             home_index[(row.get("HomeVoiceTargetId"), row.get("VoiceCueName"))].append(row)
 
+    campaigns = tables.by_id('mst_campaign', 'CampaignId', required=False)
+    campaign_index = defaultdict(list)
+    for row in _active_rows(tables, 'mst_campaign_character_voice'):
+        if row.get('VoiceCueName'):
+            campaign = campaigns.get(row.get('CampaignId'), {})
+            campaign_index[(row.get('CharacterId'), row['VoiceCueName'])].append({
+                'CampaignId': row.get('CampaignId'), 'Title': campaign.get('CampaignTitle', ''),
+                'StartTime': campaign.get('StartTime'), 'EndTime': campaign.get('EndTime'),
+                'Raw': row,
+            })
+
     season_names = {
         row.get("SeasonId"): row.get("SeasonName", "")
         for row in _active_rows(tables, "mst_season")
@@ -329,6 +340,7 @@ def build_home_voice_catalog(tables, scanned_records, expected_character_ids=EXP
         speaker_id = record["SpeakerCharacterId"]
         record["SpeakerCharacterName"] = character_names.get(speaker_id, f"角色{speaker_id}")
         matches = home_index.get((speaker_id, record["CueName"]), [])
+        record['CampaignReferences'] = campaign_index.get((speaker_id, record['CueName']), [])
         flags = []
         info_flags = []
         if len(matches) == 1:
@@ -607,8 +619,12 @@ def _purpose_sheets(records, birthdays=None):
             same = seen_names[record["SubjectDisplayName"]]
             if len(same) > 1:
                 notes.append(f"同名第{same.index(record['SubjectKey']) + 1}套")
-            if record["SubjectType"] == "acb_only":
-                notes.append("masterdata 未登记，可能尚未开放")
+            references = record.get('CampaignReferences', [])
+            if references:
+                notes.append('活动页引用：' + ' / '.join(
+                    r['Title'] or f"活动({r['CampaignId']})" for r in references))
+            elif record["SubjectType"] == "acb_only":
+                notes.append("主页表未登记；开放情况需结合其他入口核对")
             rows.append([
                 record["SubjectDisplayName"], record["SpeakerCharacterId"],
                 record["SpeakerCharacterName"], record["TextWiki"].replace("<br>", "\n"), "",
@@ -979,6 +995,8 @@ def export_home_voice_catalog(catalog, output_dir, selected_subject=None, birthd
     workbook_path = write_workbook(workbook_path, [
         *_purpose_sheets(catalog["Records"], birthdays),
         _conditions_sheet(catalog['Records']),
+        *([_campaign_reference_sheet(catalog['Records'])]
+          if any(r.get('CampaignReferences') for r in catalog['Records']) else []),
     ]) or workbook_path
     paths = {"catalog": workbook_path}
 
@@ -992,6 +1010,15 @@ def export_home_voice_catalog(catalog, output_dir, selected_subject=None, birthd
         ) or subject_path
         paths["subject"] = subject_path
     return paths
+
+
+def _campaign_reference_sheet(records):
+    return {'title': '活动页引用',
+            'headers': ['活动ID', '活动名', '角色', '语音标识', '开始', '结束', '日文台词'],
+            'rows': [[ref['CampaignId'], ref['Title'], r['SpeakerCharacterName'], r['CueName'],
+                      ref['StartTime'], ref['EndTime'], r['TextWiki'].replace('<br>', '\n')]
+                     for r in records for ref in r.get('CampaignReferences', [])],
+            'col_widths': {'B': 36, 'C': 18, 'D': 24, 'E': 28, 'F': 28, 'G': 72}, 'wrap_cols': [7]}
 
 
 def _conditions_sheet(records):

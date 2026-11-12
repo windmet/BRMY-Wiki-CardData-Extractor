@@ -53,7 +53,7 @@
 - 菜单解锁条件来自 `mst_event_menu_unlock_condition`，客户端枚举 `MenuUnlockConditionCode` 1 MenuCount / 2 IngredientCount / 3 Sales；现有数据只用 1，对应游戏内「1つ上のレシピを{0}回作って解放」，{0} 为 Value2。
 - 活动地图关卡没有 ShiftId；与网站模块 `toolkit/website/bartending.py` 相同，按「同一活动内关卡 ReleaseDateTime / EndTime 与轮班起止完全相同」归入轮班，归不进去的记入审计 `bar_events.json` 的 Issues。现有 13 期 210 关全部唯一匹配。第 1 期（幽界からの招待状）的 16 关游戏数据没有配置材料掉落，表中写明。
 - 活动期间角色地图等普通关卡也有材料掉落（`mst_event_puzzle_stage_ingredient` 中不属于活动地图的 8203 条），总览只给关卡数和重点材料。
-- 配方奖励来自 `mst_event_recipe.DirectRewardGroupId`，发放时机未在游戏内文字中确认。
+- 配方奖励来自 `mst_event_recipe.DirectRewardGroupId`。用户于 2026-11-12 游戏内确认：解锁配方并制作之后，点开对应菜单领取奖励。
 - 旧任务 `recipes`（`bar_data_complete.xlsx`）仍可从命令行运行，但不再出现在 GUI；旧设置里勾选过「配方」的，打开 GUI 时会改勾「营业（摇酒）活动」。
 
 ## Vignette 活动档案 `Vignette活动档案.xlsx`（任务 `vignette_events`）
