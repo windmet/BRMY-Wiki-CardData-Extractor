@@ -7,7 +7,7 @@ from datetime import date
 import json
 import os
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, font as tkfont
 from .core.feedback import feedback_groups, issue_text, artifact_needs_review
 
 TASKS = {
@@ -24,13 +24,13 @@ TASKS = {
 ARTIFACT_LABELS = {'review': '待核对汇总'}
 TASK_GROUPS = [
     ('卡牌', ('cards', 'card_update', 'collections', 'items'),
-     '更新已有卡表会保留人工列。收藏档案区分卡牌关联、奖励引用与已确认获取入口。'),
+     '更新已有卡表会保留人工列。收藏档案列出卡牌关联、奖励来源和已确认的获取入口。'),
     ('语音', ('home_voices', 'home_voice_duo', 'card_combi_voices', 'audio'),
-     '主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对。多段协作语音是卡牌表之外的例外表。缺少资源时会保留缺项说明。'),
+     '主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对；多段协作语音单独成表。缺资源时会写明缺哪一项。'),
     ('活动与剧情', ('events', 'ojt', 'missions', 'recipes', 'birthday', 'birthday_archive',
                 'story_catalog', 'scripts', 'charts', 'snap', 'spin_memos'),
-     'OJT 档案包含轮次、题面和奖励；单独的 OJT Chart 任务仅解析本地文件。生日庆典台词按轮次整理，'
-     '年度生日档案按角色和年份汇总。剧情目录是 masterdata 索引，剧情脚本解析独立正文。'),
+     'OJT 活动档案包含轮次、关卡、奖箱和站位坐标。生日庆典台词按轮次整理，年度生日档案按角色和年份汇总。'
+     '剧情目录列出标题、解锁条件和奖励，剧情脚本解析正文。'),
     ('音乐', ('music', 'lyrics', 'groove_charts'), '音乐主表及可关联资源；歌词需要指定资源。GROOVE 谱面统计每首曲 A/B/C 面的音符。'),
     ('关卡', ('puzzle_stages',), '消消乐每关的通关目标、生命、步数和机关，按用途分表。'),
     ('网站数据', ('groove',), '供计算器网站使用的源数据。'),
@@ -46,30 +46,30 @@ MODES = {'联网更新': 'online', '只用已下载缓存': 'offline'}
 LEGACY_MODES = {'正式服在线': '联网更新', '正式服离线缓存': '只用已下载缓存', '用本地缓存': '只用已下载缓存'}
 TASK_HINT = '鼠标移到任务上可查看它生成什么。'
 TASK_HELP = {
-    'groove': '曲目加成、Runner 位次、Relation 与 SIDE；导出源数据，不推算掉落期望。',
-    'cards': '生成卡牌资料；联网或只用缓存时可同时填入卡面语音台词（在“输入与高级设置”开关）。',
-    'card_update': '以旧工作簿为输入更新卡牌，保留人工填写列。请在高级设置选择旧表。',
-    'collections': '服装、Mini、称号、徽章、背景和道具；已确认入口不代表全部获取方式。',
-    'items': '整理道具名称和说明；缺名称保留缺项。',
-    'events': '活动分类、任务档位和奖励；日期区间内不代表账号已解锁。',
-    'ojt': 'OJT 题面、轮次与奖励。改用本地文件时可补充 Chart 文件以关联角色站位坐标。',
-    'charts': '仅解析本地 OJT 站位文件；不是音乐谱面。要与题面关联，请选 OJT 活动档案。',
-    'missions': '隐藏任务资料；每期活动任务请使用活动资料。',
-    'recipes': '整理配方与相关奖励资料。',
-    'home_voices': '从角色 ACB 提取主页及生日祝福文本；资源缺失时会保留告警。',
-    'home_voice_duo': '按两位角色配对双人主页台词，需要 masterdata 和角色 ACB。',
-    'card_combi_voices': '列出一条 Cue 含多段音频的卡牌（如三轮生日部门协作），逐段导出音频供人工听写；不写入卡牌全表。',
-    'audio': '提取本地 ACB 的通用文本，不按文件名猜测说话角色。',
-    'birthday': '生日庆典小游戏台词，按轮次整理；不是 ACB 生日祝福。',
+    'groove': '曲目加成、Runner 位次、Relation 与 SIDE 的源数据，供计算器网站使用。',
+    'cards': '卡牌资料；联网或只用缓存时可同时填入卡面语音台词（开关在“输入与高级设置”）。',
+    'card_update': '在旧卡牌工作簿上更新，人工填写的列原样保留。旧表在“输入与高级设置”里选择。',
+    'collections': '服装、Mini、称号、徽章、背景和道具；获取入口列收录已确认的途径。',
+    'items': '道具名称和说明；游戏数据里没有名称的道具会列入待核对汇总。',
+    'events': '每期活动的分类、任务档位和奖励，附开放与结束时间。',
+    'ojt': 'OJT 活动的轮次与带教台词、关卡、奖箱、规则，以及题面上的角色站位坐标。',
+    'charts': '单独解析 .s2bchart 站位文件。OJT 活动档案已包含这部分，平时选它即可。',
+    'missions': '常驻隐藏任务。每期活动的任务在“活动资料”里。',
+    'recipes': '配方与相关奖励。',
+    'home_voices': '从角色 ACB 提取主页语音和生日祝福文本。',
+    'home_voice_duo': '两位角色配对的双人主页台词，需要 masterdata 和角色 ACB。',
+    'card_combi_voices': '一条语音含多段音频的卡牌（如三周年生日部门协作），逐段导出音频供人工听写。',
+    'audio': '提取本地 ACB 里的通用文本；说话角色需人工标注。',
+    'birthday': '生日庆典小游戏台词，按轮次分表。角色 ACB 里的生日祝福在“主页 / 生日祝福”。',
     'birthday_archive': '按角色和年份整理年度生日的登录、点击奖励、服装和台词。',
-    'story_catalog': '剧情索引、门槛与奖励；不包含独立脚本正文，不猜脚本文件名。',
-    'spin_memos': 'Spin 相片备忘录按 R/SR/SSR 三联合并去重，附话题对照、评论检索和角色统计；不替换 Snap 文案旧表。',
-    'puzzle_stages': '消消乐关卡：每关 A–F 面的目标、SS 分数线、生命、步数、盘面机关与新机关提示。联网时按 masterdata 下载约两千个小文件。',
-    'groove_charts': 'GROOVE（音游）每首曲 A/B/C 面的 BPM、时长、音符数与机关；未上线曲目没有谱面。',
-    'scripts': '解析独立剧情脚本正文；联网时需在“指定线上资源”填写资源键，改用本地文件时选文件或目录。',
-    'lyrics': '解析歌词与时间信息；联网时需在“指定线上资源”填写资源键，改用本地文件时选文件或目录。',
-    'music': '音乐主表及可关联资源；无音频关联的音乐仍保留。',
-    'snap': '整理去重后的 Snap 文案，原始关联留在审计资料。',
+    'story_catalog': '剧情目录：标题、解锁条件和奖励。剧情正文由“剧情脚本”解析。',
+    'spin_memos': 'Spin 相片备忘录：R/SR/SSR 三联合并去重，附话题对照、评论检索和角色统计。',
+    'puzzle_stages': '消消乐每关 A–F 面的目标、SS 分数线、生命、步数和盘面机关。联网时会下载约两千个小文件。',
+    'groove_charts': 'GROOVE（音游）已上线曲目 A/B/C 面的 BPM、时长、音符数与机关。',
+    'scripts': '剧情脚本正文。联网时在“指定线上资源”填资源键；用本地文件时选文件或目录。',
+    'lyrics': '歌词与时间轴。联网时在“指定线上资源”填资源键；用本地文件时选文件或目录。',
+    'music': '音乐主表，附可关联的音频等资源。',
+    'snap': '去重后的 Snap 文案，原始关联在审计资料里。',
 }
 
 
@@ -204,8 +204,8 @@ class ToolkitApp:
         self.paths['cache'].trace_add('write', lambda *args: self.root.after(800, self.refresh_choices))
         self.refresh_choices()
         self.root.update_idletasks()
-        width = max(980, self.root.winfo_reqwidth())
-        height = max(860, self.root.winfo_reqheight())
+        width = min(max(980, self.root.winfo_reqwidth()), self.root.winfo_screenwidth() - 40)
+        height = min(max(860, self.root.winfo_reqheight()), self.root.winfo_screenheight() - 80)
         self.root.geometry(f'{width}x{height}')
         self.root.minsize(min(width, 860), min(height, 800))
         self._mode_changed()
@@ -218,6 +218,9 @@ class ToolkitApp:
         style.configure('Title.TLabel', font=('Microsoft YaHei UI', 19, 'bold'))
         style.configure('Hint.TLabel', foreground='#526070')
         style.configure('Group.TLabel', font=('Microsoft YaHei UI', 10, 'bold'))
+        # ttk keeps a fixed pixel row height; at 150-200% scaling the text would be clipped.
+        self.line_height = tkfont.nametofont('TkDefaultFont').metrics('linespace')
+        style.configure('Treeview', rowheight=int(self.line_height * 1.5))
         outer = ttk.Frame(self.root, padding=16)
         outer.pack(fill='both', expand=True)
         ttk.Label(outer, text='BRMY Wiki Toolkit', style='Title.TLabel').pack(anchor='w')
@@ -265,7 +268,11 @@ class ToolkitApp:
             row += (len(names) + 3) // 4
             ttk.Separator(grid).grid(row=row, column=0, columnspan=5, sticky='ew', pady=1)
             row += 1
-        ttk.Label(tasks, textvariable=self.task_hint, style='Hint.TLabel', wraplength=860).pack(anchor='w', pady=(4, 0))
+        # Fixed two-line box: a hint that wrapped to a new height would shift the checkboxes under the mouse.
+        hint_box = ttk.Frame(tasks, height=self.line_height * 2 + 6)
+        hint_box.pack(fill='x', pady=(4, 0))
+        hint_box.pack_propagate(False)
+        self._wrapping_label(hint_box, textvariable=self.task_hint, style='Hint.TLabel').pack(fill='both', expand=True)
         self._path_row(main, '输出到', 'output', directory=True)
         controls = ttk.Frame(main)
         controls.pack(fill='x', pady=(8, 8))
@@ -279,13 +286,13 @@ class ToolkitApp:
         self.cancel_button.pack(side='left')
         self.progress = ttk.Progressbar(main, mode='determinate')
         self.progress.pack(fill='x')
-        ttk.Label(main, textvariable=self.status, wraplength=820).pack(anchor='w', pady=(5, 7))
+        self._wrapping_label(main, textvariable=self.status).pack(fill='x', pady=(5, 7))
         result = ttk.Frame(main)
         result.pack(fill='both', expand=True)
-        self.results = ttk.Treeview(result, columns=('name', 'task', 'status'), show='headings', height=4)
-        for name, label, width in [('name', '本次文件', 430), ('task', '资料', 180), ('status', '状态', 100)]:
-            self.results.heading(name, text=label)
-            self.results.column(name, width=width, minwidth=70)
+        self.results = ttk.Treeview(result, columns=('name', 'task', 'status'), show='headings', height=6)
+        for name, label, width in [('name', '本次文件', 430), ('task', '资料', 180), ('status', '状态', 140)]:
+            self.results.heading(name, text=label, anchor='w')
+            self.results.column(name, width=width, minwidth=70, anchor='w')
         self.results.pack(side='left', fill='both', expand=True)
         scroll = ttk.Scrollbar(result, orient='vertical', command=self.results.yview)
         scroll.pack(side='right', fill='y')
@@ -329,6 +336,11 @@ class ToolkitApp:
                   style='Hint.TLabel', wraplength=1200).pack(anchor='w', pady=12)
         self.details = tk.Text(details, wrap='word', state='disabled', font=('Microsoft YaHei UI', 10))
         self.details.pack(fill='both', expand=True)
+
+    def _wrapping_label(self, parent, **options):
+        label = ttk.Label(parent, anchor='nw', justify='left', **options)
+        label.bind('<Configure>', lambda event: label.configure(wraplength=max(event.width - 4, 100)))
+        return label
 
     def _path_row(self, parent, label, name, *, directory=False, allow_folder=False, picker=True):
         row = ttk.Frame(parent)
@@ -636,7 +648,7 @@ class ToolkitApp:
                     for issue in feedback[key]:
                         self._log('• ' + issue_text(issue))
             if feedback['review']:
-                self._log('\n源资料缺项不会自动补成完整数据。\n')
+                self._log('\n以上需要核对的内容已汇总到 待核对汇总.xlsx。\n')
         self._log('本次产物与详细记录：\n' + json.dumps(result, ensure_ascii=False, indent=2))
 
     def _log(self, text, clear=False):

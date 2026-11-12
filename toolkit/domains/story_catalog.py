@@ -114,7 +114,7 @@ def export(data):
             if key.startswith('Key'):
                 conditions.append([labels[entry['Kind']], '/'.join(map(str, entry['Key'])), key, json.dumps(value, ensure_ascii=False)])
     notes = wb.create_sheet('Notes'); notes.append(['核对时刻 UTC', data['AsOf']])
-    notes.append(['用途', '剧情元数据索引；不等于正文已解析或账号已解锁'])
+    notes.append(['用途', '剧情标题、解锁条件和奖励的索引；正文由“剧情脚本”任务解析'])
     notes.append(['文件名', '仅列原表明确声明的脚本，不按编号拼造'])
     links = wb.create_sheet('CrossStoryLinks')
     links.append(['来源表', '来源复合编号', '目标表', '目标复合编号', '关联状态', '说明'])

@@ -111,7 +111,7 @@ def export(data):
             costumes.append(prefix + ['首日' if row['Phase'] == 'FirstDay' else '生日后', row['CostumeModelId'], row['Name'], *status_of(row['Status'])])
     notes = wb.create_sheet('Notes'); notes.append(['核对时刻 UTC', data['AsOf']])
     notes.append(['收录范围', '全部活跃角色年份记录，未按日期过滤；不替代原生日周期台词表'])
-    notes.append(['日期状态', '日期区间内不代表账号已解锁'])
+    notes.append(['日期状态', '按核对时刻与起止时间判断：未开始 / 日期区间内 / 已结束'])
     for sheet in wb:
         sheet.freeze_panes = 'A2'
         for column in sheet.columns:

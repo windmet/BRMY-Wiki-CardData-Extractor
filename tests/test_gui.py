@@ -84,7 +84,7 @@ class GuiWidgetTests(unittest.TestCase):
         dialog = next(child for child in self.root.winfo_children() if isinstance(child, tk.Toplevel))
         self.assertTrue(dialog.bind('<Escape>'))
         content = next(child for child in dialog.winfo_children() if isinstance(child, tk.Text)).get('1.0', 'end')
-        self.assertIn('不是 ACB 生日祝福', content)
+        self.assertIn('生日祝福在“主页 / 生日祝福”', content)
         dialog.destroy()
 
     def test_cancel_keeps_ui_responsive_and_prevents_a_second_worker(self):

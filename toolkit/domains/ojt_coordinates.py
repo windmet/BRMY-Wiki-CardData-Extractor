@@ -77,6 +77,7 @@ def load_coordinates(events, tables, source=None):
                                 'Matched': path in used})
         if path not in used:
             result['Issues'].append({'Status': 'unmatched_file', 'Path': str(path)})
+    # Extra chart files in the folder are listed in Issues but do not make the archive partial.
     loaded = sum(c['Status'] == 'loaded' for c in result['Charts'])
-    result['Status'] = ('loaded' if loaded and not result['Issues'] else 'partial' if loaded else 'not_loaded')
+    result['Status'] = ('loaded' if loaded and loaded == len(result['Charts']) else 'partial' if loaded else 'not_loaded')
     return result

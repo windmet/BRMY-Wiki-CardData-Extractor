@@ -371,9 +371,9 @@ def export():
     timing.append(['项目', '说明'])
     timing.append(['核对时刻', data.get('TimeAssessment', {}).get('AsOf', '')])
     timing.append(['时区', 'UTC；原始起止时间保留各自偏移'])
-    timing.append(['区间边界', '包含开始，不包含结束'])
-    timing.append(['含义', '日期区间内不代表账号已解锁；事件使用开放时间至结束时间，并非排名期'])
-    timing.append(['收录', '不按日期筛除历史、未来或占位记录'])
+    timing.append(['区间边界', '开始时刻起计入；到达结束时刻即算已结束'])
+    timing.append(['含义', '日期状态按活动开放时间至结束时间判断'])
+    timing.append(['收录', '历史、未来和占位日期的记录全部收录'])
 
     for ws in wb.worksheets:
         ws.freeze_panes = "A2"
