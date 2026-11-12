@@ -18,7 +18,7 @@ class EventClassificationTests(unittest.TestCase):
             result = classify_event({'EventFormat': 2, 'EventTitle': title}, {'EventAType': 2})
             self.assertEqual(expected, result['Subtype'])
         result = classify_event({'EventFormat': 2, 'EventTitle': 'Prequel Example'}, {'EventAType': 5})
-        self.assertEqual('anniversary', result['Subtype'])
+        self.assertEqual('step_mission', result['Subtype'])
         self.assertNotIn('EventTitle prefix', result['Basis'])
 
     def test_unknown_discriminators_remain_explicit(self):
@@ -26,7 +26,7 @@ class EventClassificationTests(unittest.TestCase):
                                  ({'EventFormat': 2}, {'EventAType': 99}),
                                  ({'EventFormat': 2}, None)]:
             self.assertEqual('unknown', classify_event(event, extension)['Status'])
-        self.assertEqual('special', classify_event({'EventFormat': 2}, {'EventAType': 4})['Subtype'])
+        self.assertEqual('no_ranking', classify_event({'EventFormat': 2}, {'EventAType': 4})['Subtype'])
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ from openpyxl import load_workbook
 from toolkit.core.rewards import RewardResolver, REWARD_TARGETS
 from toolkit.core.tables import TableCatalog
 from toolkit.core.output import OutputContext
-from toolkit.domains import events
+from toolkit.domains import events, exchange_events
 
 
 def catalog(**tables):
@@ -76,10 +76,10 @@ class RewardResolverTests(unittest.TestCase):
         self.assertFalse(result['TargetActive'])
         self.assertNotIn('available', result)
 
-    def test_event_export_consumes_honor_and_voice_rewards_and_records_missing_group(self):
+    def test_event_exports_consume_honor_and_voice_rewards_and_record_missing_group(self):
         tables = catalog(
             mst_event=[{'EventId': 1, 'EventTitle': 'event', 'EventFormat': 1}],
-            mst_event_ranking_reward=[{'EventId': 1, 'PresentId': 8}],
+            mst_event_ranking_reward=[{'EventId': 1, 'RankingType': 1, 'StartRank': 1, 'PresentId': 8}],
             mst_event_story_section=[{'EventId': 1, 'ReadDirectRewardGroupId': 999}],
             mst_present=[
                 {'PresentId': 8, 'PresentSequenceNo': 1, 'RewardTypeCode': 6, 'RewardTargetId': 1, 'RewardCount': 1},
@@ -93,13 +93,14 @@ class RewardResolverTests(unittest.TestCase):
             context = OutputContext(Path(directory), domain='events')
             with context.activate():
                 events.run(session=SimpleNamespace(tables=tables))
+                exchange_events.run(session=SimpleNamespace(tables=tables))
             receipt = context.finish()
             self.assertEqual('PASS_WITH_WARNINGS', receipt['status'])
             audit = json.loads((Path(directory) / 'audit_output/event_reward_resolution.json').read_text(encoding='utf-8'))
             self.assertEqual('missing_reward_group', audit['Issues'][0]['Resolution'])
-            book = load_workbook(Path(directory) / 'wiki_output/event_archive.xlsx')
+            book = load_workbook(Path(directory) / 'wiki_output/交换所与剧情活动.xlsx')
             try:
-                text = ' '.join(str(c.value) for row in book['RewardSummary'] for c in row)
+                text = ' '.join(str(c.value) for row in book['排名奖励'] for c in row)
                 self.assertIn('actual honor', text)
                 self.assertIn('actual voice', text)
                 self.assertNotIn('wrong title', text)

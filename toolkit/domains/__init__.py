@@ -1,6 +1,7 @@
 from . import cards, card_update, music, snap, birthday, recipes, missions, items, events, audio, home_voices
 from . import lyrics, scripts, charts, ojt, birthday_archive, home_voice_duo, card_combi_voices
 from . import story_catalog, collections, groove, jukebox, puzzle_stages, groove_charts, spin_memos
+from . import bar_events, exchange_events, vignette_events
 
 DOMAINS = {
     'groove': groove,
@@ -22,6 +23,9 @@ DOMAINS = {
     'scripts': scripts,
     'items': items,
     'events': events,
+    'bar_events': bar_events,
+    'exchange_events': exchange_events,
+    'vignette_events': vignette_events,
     'ojt': ojt,
     'charts': charts,
     'audio': audio,

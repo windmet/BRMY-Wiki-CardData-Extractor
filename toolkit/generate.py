@@ -11,7 +11,8 @@ from .domains import DOMAINS
 from .core.domain_contracts import validate_domain_input
 
 MASTERDATA = {'cards', 'music', 'snap', 'birthday', 'birthday_archive', 'recipes', 'missions', 'items', 'events', 'ojt'}
-MASTERDATA.update({'story_catalog', 'collections', 'groove', 'jukebox', 'spin_memos'})
+MASTERDATA.update({'story_catalog', 'collections', 'groove', 'jukebox', 'spin_memos',
+                   'bar_events', 'exchange_events', 'vignette_events'})
 # Domains that read masterdata alongside other inputs (ACB, old workbook).
 NEEDS_MASTERDATA = MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update',
                                  'puzzle_stages', 'groove_charts'}
@@ -95,7 +96,7 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                         if not inputs:
                             raise ValueError('此任务需要关卡 / 谱面文件或目录')
                         module.run(session=session, source=inputs)
-                    elif domain in {'events', 'birthday_archive', 'story_catalog', 'collections'}:
+                    elif domain in {'events', 'bar_events', 'exchange_events', 'vignette_events', 'birthday_archive', 'story_catalog', 'collections'}:
                         module.run(session=session, as_of=as_of or started_at)
                     elif domain in MASTERDATA:
                         module.run(session=session)

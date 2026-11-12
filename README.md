@@ -17,7 +17,7 @@
 ## 主要用途
 
 - 解密并读取 `master_data.s2b` / `master_data.json`
-- 还原卡面、技能、卡池、活动、道具、音乐、生日、配方和任务字段
+- 还原卡面、技能、卡池、活动（按交换所·剧情、营业（摇酒）、Vignette、OJT 分档）、道具、音乐、生日和任务字段
 - 导出 Wiki 可直接继续加工的 XLSX/JSON
 - 解析独立的歌词、脚本和OJT Chart S2B 文件
 - GROOVE 曲目、Bonus Runner、Runner 位次、Relation、SIDE 原始数据（`generate groove` / `sync groove`）；角色对照用 `HasStaffCard` 区分有 Staff Card 的角色
