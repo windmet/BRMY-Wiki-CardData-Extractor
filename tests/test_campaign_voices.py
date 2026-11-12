@@ -1,4 +1,6 @@
 import json
+import io
+from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
@@ -71,9 +73,10 @@ class CampaignVoiceTests(unittest.TestCase):
             md.write_text(json.dumps(masterdata()), encoding='utf-8')
             for name in ('voice_arima_3.acb', 'voice_hinomiya_campaign.acb'):
                 (root / name).write_bytes(b'fixture')
-            report = generate(['campaign_voices'], root / 'out', masterdata=md, audio=root,
-                              as_of='2026-11-12T00:00:00+00:00')
-            self.assertEqual('PASS_WITH_WARNINGS', report['status'])
+            with io.TextIOWrapper(io.BytesIO(), encoding='cp1252') as legacy, redirect_stdout(legacy):
+                report = generate(['campaign_voices'], root / 'out', masterdata=md, audio=root,
+                                  as_of='2026-11-12T00:00:00+00:00')
+            self.assertEqual('PASS_WITH_WARNINGS', report['status'], report['errors'])
             data = json.loads((root / 'out/audit_output/campaign_voices.json').read_text(encoding='utf-8'))
             self.assertEqual(1, sum(r['Placeholder'] for r in data['Records']))
             self.assertEqual(4, sum(r['Status'] == '正常' for r in data['Records']))

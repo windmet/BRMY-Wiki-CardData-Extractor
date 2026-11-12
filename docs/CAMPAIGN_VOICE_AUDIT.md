@@ -22,6 +22,8 @@ CampaignId 188 的起止：2026-11-13 18:00 UTC 至 2026-11-21 04:00 UTC，换�
 
 当前表另有 84 条历史周年活动页配置（CampaignId 53 / 88 / 124 / 157，各 21 人），VoiceCueName 为空、Text 为 `test`。这不是 84 条已经证实丢失的台词，也不能按标题猜测 Cue；需另查客户端取值逻辑才能确认其回退行为。
 
+随后使用现有 Ghidra 工程只读核查 2.1.0 客户端 `CampaignCharacterVoiceTableRepository.FindVoiceLineOrDefault`（RVA `0x7A35AEC`）：此方法在找到激活配置时直接返回 VoiceCueName、Text、TextPlayTime，仅将 null 字符串换为空字符串；没有在此层把空 Cue 映射到其他周年语音。未找到或未激活时返回 Empty。此结果不覆盖上层呈现器的全部逻辑，也不证明历史页面实际显示过 test。原始反编译、目标哈希和边界说明保存在 `E:/BRMY-QA/20261112-campaign-voices/native-findings.md`。
+
 ## 结论与后续范围
 
 截图原句无漏文，问题在入口关联和错误的开放提示，本次已修正。确实另有 12 条活动专用语音缺少结构化导出，现已通过独立任务 `campaign_voices` 补齐资源规划、角色归属、对话顺序和日期状态，输出 `活动语音与对话.xlsx`；这批不按每个主体应有 21 人的主页规则验收。
