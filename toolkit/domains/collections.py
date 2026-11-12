@@ -65,10 +65,10 @@ def export(data):
             acquisition.append([entry['Label'], entry['Id'], entry['Name'], SOURCE_LABELS.get(source['Kind'], source['Kind']), str(source['OwnerId']),
                                 source['Name'], source['RewardReference']['RawReward'].get('RewardCount')])
     notes = wb.create_sheet('Notes'); notes.append(['核对时刻 UTC', data['AsOf']])
-    notes.append(['获取关系', '仅列已确认入口；不承诺覆盖所有获取方式，原始奖励引用另存审计'])
-    notes.append(['入口缺项', '未连接入口的奖励引用不等于不可获取；已适配字段与未适配候选字段见审计 SourceCoverage'])
-    notes.append(['名称', '空称号/徽章名保留编号，不以图标文件名代替'])
-    notes.append(['日期', '日期区间不代表账号已拥有或解锁；无日期时保留未知'])
+    notes.append(['获取关系', '列出已确认的获取入口；全部奖励引用在审计资料里'])
+    notes.append(['入口缺项', '入口为空表示尚未找到对应入口，可能另有获取途径；已核对的来源字段见审计 SourceCoverage'])
+    notes.append(['名称', '游戏数据里没有名称的称号 / 徽章写作编号'])
+    notes.append(['日期', '日期为游戏数据中的开放区间；没有日期的写作未知'])
     for sheet in wb:
         sheet.freeze_panes = 'A2'
         for column in sheet.columns:
