@@ -89,6 +89,7 @@ class CampaignVoiceTests(unittest.TestCase):
                 self.assertEqual(['活动一览', '活动页台词', 'Shuffle Talk', '待核对', '说明'], book.sheetnames)
                 self.assertEqual('未开始', book['Shuffle Talk']['K2'].value)
                 self.assertEqual('否', book['Shuffle Talk']['L2'].value)
+                self.assertEqual('2026-11-13T18:00:00+00:00', book['Shuffle Talk']['I2'].value)
                 self.assertEqual(2, book['待核对'].max_row)
                 self.assertIn('\n', book['Shuffle Talk']['G2'].value)
             finally:

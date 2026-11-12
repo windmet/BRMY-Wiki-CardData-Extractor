@@ -133,7 +133,7 @@ def export(data):
         raw = r['Raw']
         groups[r['CampaignId']].append(r)
         prefix = [r['CampaignId'], r['CampaignTitle']]
-        condition = [jst(r['StartTime']), jst(r['EndTime']), STATUS_LABELS[r['Availability']['Status']]]
+        condition = [r['StartTime'], r['EndTime'], STATUS_LABELS[r['Availability']['Status']]]
         if r['Kind'] == 'page' and not r['Placeholder']:
             pages.append(prefix + [r['Character'], r['Title'], r['Text'], '', *condition,
                                    r['CueName'], r['TextSource'], r['Status'], r['Note']])
@@ -150,20 +150,20 @@ def export(data):
     overview = []
     for eid, rows in groups.items():
         r = rows[0]
-        overview.append([eid, r['CampaignTitle'], jst(r['StartTime']), jst(r['EndTime']),
+        overview.append([eid, r['CampaignTitle'], r['StartTime'], r['EndTime'],
                          STATUS_LABELS[r['Availability']['Status']],
                          sum(x['Kind'] == 'page' for x in rows), sum(x['Kind'] == 'talk' for x in rows),
                          sum(bool(x['Text']) for x in rows), sum(x['Placeholder'] for x in rows)])
     return write_workbook(xlsx_path('活动语音与对话.xlsx'), [
-        {'title': '活动一览', 'headers': ['活动ID', '活动名', '开始(JST)', '结束(JST)', '日期状态',
+        {'title': '活动一览', 'headers': ['活动ID', '活动名', '开始（原值）', '结束（原值）', '日期状态',
                                        '活动页配置数', '对话台词数', '取得文本数', '占位配置数'], 'rows': overview,
          'col_widths': {'B': 40, 'C': 22, 'D': 22}},
         {'title': '活动页台词', 'headers': ['活动ID', '活动名', '角色', '语音标题', '日文台词', '中文翻译',
-                                         '开始(JST)', '结束(JST)', '日期状态', '语音标识', '文本来源',
+                                         '开始（原值）', '结束（原值）', '日期状态', '语音标识', '文本来源',
                                          '核对状态', '说明'], 'rows': pages,
          'col_widths': {'B': 35, 'C': 16, 'D': 24, 'E': 65, 'F': 50, 'J': 32, 'M': 45}, 'wrap_cols': [5, 13]},
         {'title': 'Shuffle Talk', 'headers': ['活动ID', '活动名', '对话ID', '对话标题', '顺序', '角色',
-                                           '日文台词', '中文翻译', '开始(JST)', '结束(JST)', '日期状态',
+                                           '日文台词', '中文翻译', '开始（原值）', '结束（原值）', '日期状态',
                                            '初始解锁', '语音标识', '核对状态', '说明'], 'rows': talks,
          'col_widths': {'B': 35, 'D': 25, 'F': 16, 'G': 65, 'H': 50, 'M': 36, 'O': 45}, 'wrap_cols': [7, 15]},
         {'title': '待核对', 'headers': ['活动ID', '活动名', '入口', '对话ID', '顺序', '角色', '语音标识',
@@ -172,7 +172,8 @@ def export(data):
         {'title': '说明', 'headers': ['项目', '说明'], 'col_widths': {'A': 18, 'B': 95}, 'wrap_cols': [2], 'rows': [
             ['用途', '活动页台词与 Shuffle Talk。主页中复用的周年语音也会出现在本表；按活动入口检索，不要求每组21人。'],
             ['关联', '按角色与完整语音标识匹配 ACB；对话按 ShuffleTalkId、ShuffleTalkSequenceNo 排序。'],
-            ['日期', f"核对时刻 {jst(data['AsOf'])} JST。日期状态只按所属活动起止判断，不代表账号已解锁。"],
+            ['日期', f"核对时刻 {jst(data['AsOf'])} JST。起止列保留数据原值及偏移；日期状态按这些偏移计算，不代表已确认的游戏时区或账号解锁。"],
+            ['时间口径待核对', '截图的2.5周年截止为11月17日17:59，数据EndTime为同日18:00且带+00:00。两者语义尚未统一，不直接加9小时标作JST；原始偏移不能据此当作已确认的实际开放时刻。'],
             ['初始解锁', '来自 IsInitialUnlocked；否不等于永远不可读，具体解锁任务另行判断。'],
             ['占位配置', '没有语音标识且文本为空或 test 的配置单列待核对，不猜测 Cue，也不计作已经证实丢失的台词。'],
             ['来源与冲突', '游戏表的有效文本与 ACB 原文均保留在审计 JSON；存在不同文本时留空并标待核对。'],
