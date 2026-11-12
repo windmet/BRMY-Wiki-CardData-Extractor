@@ -67,6 +67,11 @@ def build_plan(domains, resources, tables=None, *, include_card_audio=True, reso
                            if row.get('HomeVoiceTypeCode') == 3}
                 for target in sorted(targets & PACKAGE_BY_TARGET.keys()):
                     add('Musics/' + PACKAGE_BY_TARGET[target], domain, True, 'audio')
+        if domain == 'campaign_voices':
+            if tables is None:
+                raise ValueError('活动语音资源规划需要 masterdata 表')
+            for key in DOMAINS[domain].resource_keys(tables):
+                add(key, domain, False, 'audio')
         if domain == 'ojt':
             # Coordinates are optional: an OJT archive without charts is still useful.
             for key in sorted(key for key in resources if key.endswith('.s2bchart')):
@@ -201,7 +206,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
             prepared = prepare_production_masterdata(downloaded, stage / 'master_data.s2b')
             audit['downloads'].append({**downloaded, **prepared})
             masterdata = prepared['decoded_path']
-            if ('home_voices' in domains or 'card_combi_voices' in domains or set(domains) & set(TABLE_FILE_DOMAINS)
+            if ('home_voices' in domains or 'campaign_voices' in domains or 'card_combi_voices' in domains or set(domains) & set(TABLE_FILE_DOMAINS)
                     or (set(domains) & {'cards', 'card_update'} and include_card_audio)):
                 tables = TableCatalog(decode_masterdata(masterdata))
         plan = build_plan(domains, provider.resources, tables, include_card_audio=include_card_audio,
@@ -277,7 +282,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
                             if domain in entry.get('domains', [])]
                    for domain in [*SUFFIXES, 'ojt', *TABLE_FILE_DOMAINS] if domain in domains}
         audio_dir = stage / 'audio'
-        if (set(domains) & {'cards', 'card_update'} and include_card_audio) or 'card_combi_voices' in domains:
+        if (set(domains) & {'cards', 'card_update'} and include_card_audio) or set(domains) & {'card_combi_voices', 'campaign_voices'}:
             audio_dir.mkdir(parents=True, exist_ok=True)
         report = generate(domains, output, masterdata=masterdata,
                           audio=str(audio_dir) if audio_dir.exists() else None,

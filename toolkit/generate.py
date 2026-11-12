@@ -14,7 +14,7 @@ MASTERDATA = {'cards', 'music', 'snap', 'birthday', 'birthday_archive', 'recipes
 MASTERDATA.update({'story_catalog', 'collections', 'groove', 'jukebox', 'spin_memos',
                    'bar_events', 'exchange_events', 'vignette_events'})
 # Domains that read masterdata alongside other inputs (ACB, old workbook).
-NEEDS_MASTERDATA = MASTERDATA | {'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update',
+NEEDS_MASTERDATA = MASTERDATA | {'campaign_voices', 'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update',
                                  'puzzle_stages', 'groove_charts'}
 
 
@@ -77,6 +77,10 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                         if not audio or not Path(audio).is_dir():
                             raise ValueError('多段协作语音需要卡牌 ACB 目录')
                         module.run(audio, session=session)
+                    elif domain == 'campaign_voices':
+                        if not audio or not Path(audio).is_dir():
+                            raise ValueError('活动语音需要 ACB 目录')
+                        module.run(audio, session=session, as_of=as_of or started_at)
                     elif domain == 'home_voices':
                         if not audio:
                             raise ValueError('主页语音需要 ACB 目录')

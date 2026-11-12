@@ -1,6 +1,13 @@
 """Required identities for new archives; empty tables remain valid input."""
 
 CONTRACTS = {
+    'campaign_voices': {
+        'mst_campaign': ('CampaignId',),
+        'mst_campaign_character_voice': ('CampaignId', 'CharacterId', 'VoiceCueName'),
+        'mst_shuffle_talk': ('ShuffleTalkId', 'CampaignId', 'TitleName', 'IsInitialUnlocked'),
+        'mst_shuffle_talk_sequence': ('ShuffleTalkId', 'ShuffleTalkSequenceNo', 'CharacterId', 'VoiceCueName'),
+        'mst_character': ('CharacterId',),
+    },
     'puzzle_stages': {
         'mst_puzzle_stage': ('PuzzleMapId', 'PuzzleStageNo', 'PuzzleType', 'PuzzleStageType'),
         'mst_puzzle_map': ('PuzzleMapId',),
