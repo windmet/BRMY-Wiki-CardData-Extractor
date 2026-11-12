@@ -1,5 +1,7 @@
 # 活动 family / subtype（2026-09-09）
 
+> 2026-11-12 起类型名改按客户端枚举，Format 2 子型改为 Travel / Prequel、无排名特别活动、阶段任务周年活动；各类型的玩法档案见 [EVENT_ARCHIVES.md](EVENT_ARCHIVES.md)。下文为历史记录。
+
 玩家侧 ActivityType 使用 Classification 的 DisplayLabel。原 EventFormatName、EventFormatLabel 与 SourceSubtype 保留旧审计兼容；这些旧字段不再决定普通表的活动类型。
 
 | Format | Family | Subtype 依据 |

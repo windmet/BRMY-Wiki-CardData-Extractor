@@ -1,12 +1,20 @@
-"""Player-facing families, with the raw discriminator evidence retained."""
+"""Player-facing families, with the raw discriminator evidence retained.
+
+Codes follow Coly.S2BShared.Enums.EventFormat / EventAType in the 2.1.0 client.
+"""
 
 FAMILIES = {
-    1: ('points', '常规积分活动'),
-    2: ('story_travel', '剧情 / Travel 活动'),
-    3: ('making', 'Making / 摇酒活动'),
-    4: ('making', 'Making / 摇酒活动'),
-    5: ('ojt', 'OJT'),
-    6: ('vignette', 'Vignette / 累积道具活动'),
+    1: ('exchange', '交换所活动'),         # A
+    2: ('non_medal', '无奖章活动'),        # ANonMedal
+    3: ('making', '营业（摇酒）活动'),      # B
+    4: ('making', '营业（摇酒）活动'),      # BSpecial
+    5: ('ojt', 'OJT'),                    # C
+    6: ('vignette', 'Vignette 活动'),     # AAccumulateItem
+}
+NON_MEDAL_SUBTYPES = {
+    2: ('travel_prequel', 'Travel / Prequel'),         # ExchangeAndRanking
+    4: ('no_ranking', '无排名特别活动'),                  # NoRanking: 半周年、新年、RMX FES
+    5: ('step_mission', '阶段任务周年活动'),               # SpecialStepMission: 整周年
 }
 
 
@@ -20,11 +28,7 @@ def classify_event(event, event_a=None):
         subtype, sublabel = 'standard', '常规'
     elif code == 2:
         basis.append('mst_event_a.EventAType')
-        subtype, sublabel = {
-            2: ('travel_prequel', 'Travel / Prequel'),
-            4: ('special', '特殊活动'),
-            5: ('anniversary', '周年活动'),
-        }.get(a_type, ('unknown', f'未知 EventAType ({a_type})'))
+        subtype, sublabel = NON_MEDAL_SUBTYPES.get(a_type, ('unknown', f'未知 EventAType ({a_type})'))
         # The shared type code cannot distinguish these named series on its own.
         if a_type == 2:
             title = event.get('EventTitle', '')
@@ -34,7 +38,7 @@ def classify_event(event, event_a=None):
                     basis.append('EventTitle prefix')
                     break
     elif code in (3, 4):
-        subtype, sublabel = ('standard', '常规') if code == 3 else ('special', '特殊版本')
+        subtype, sublabel = ('standard', '常规') if code == 3 else ('special', '特别版')
     elif code in (5, 6):
         subtype, sublabel = family, label
     return {

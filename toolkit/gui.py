@@ -12,11 +12,12 @@ from .core.feedback import feedback_groups, issue_text, artifact_needs_review
 
 TASKS = {
     'groove': 'GROOVE 配队数据',
-    'cards': '卡牌表', 'events': '活动资料', 'home_voices': '主页 / 生日祝福',
+    'cards': '卡牌表', 'events': '活动总表', 'home_voices': '主页 / 生日祝福',
     'birthday': '生日庆典台词', 'card_update': '更新已有卡表', 'items': '道具图鉴',
-    'music': '音乐资料', 'snap': 'Snap 文案', 'recipes': '配方', 'missions': '隐藏任务',
+    'music': '音乐资料', 'snap': 'Snap 文案', 'missions': '隐藏任务',
     'lyrics': '歌词', 'scripts': '剧情脚本', 'charts': 'OJT Chart（本地）', 'audio': '通用语音文本',
     'ojt': 'OJT 活动档案', 'birthday_archive': '年度生日档案',
+    'exchange_events': '交换所·剧情活动', 'bar_events': '营业（摇酒）活动', 'vignette_events': 'Vignette 活动',
     'home_voice_duo': '双人主页台词', 'card_combi_voices': '多段协作语音（例外表）', 'story_catalog': '剧情目录', 'collections': '收藏档案',
     'puzzle_stages': '消消乐关卡', 'groove_charts': 'GROOVE 谱面', 'spin_memos': 'Spin 备忘录检索',
 }
@@ -27,21 +28,25 @@ TASK_GROUPS = [
      '更新已有卡表会保留人工列。收藏档案列出卡牌关联、奖励来源和已确认的获取入口。'),
     ('语音', ('home_voices', 'home_voice_duo', 'card_combi_voices', 'audio'),
      '主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对；多段协作语音单独成表。缺资源时会写明缺哪一项。'),
-    ('活动与剧情', ('events', 'ojt', 'missions', 'recipes', 'birthday', 'birthday_archive',
-                'story_catalog', 'scripts', 'charts', 'snap', 'spin_memos'),
-     'OJT 活动档案包含轮次、关卡、奖箱和站位坐标。生日庆典台词按轮次整理，年度生日档案按角色和年份汇总。'
-     '剧情目录列出标题、解锁条件和奖励，剧情脚本解析正文。'),
+    ('活动', ('events', 'exchange_events', 'bar_events', 'vignette_events', 'ojt', 'charts', 'missions'),
+     '活动总表是全部活动的索引（剧情章节、任务、规则）；交换所·剧情、营业（摇酒）、Vignette、OJT 各有一份玩法档案。'
+     'OJT 活动档案包含轮次、关卡、奖箱和站位坐标。'),
+    ('剧情与台词', ('story_catalog', 'scripts', 'birthday', 'birthday_archive', 'snap', 'spin_memos'),
+     '剧情目录列出标题、解锁条件和奖励，剧情脚本解析正文。生日庆典台词按轮次整理，年度生日档案按角色和年份汇总。'),
     ('音乐', ('music', 'lyrics', 'groove_charts'), '音乐主表及可关联资源；歌词需要指定资源。GROOVE 谱面统计每首曲 A/B/C 面的音符。'),
     ('关卡', ('puzzle_stages',), '消消乐每关的通关目标、生命、步数和机关，按用途分表。'),
     ('网站数据', ('groove',), '供计算器网站使用的源数据。'),
 ]
 PRESETS = {
-    '版本更新全套': ('cards', 'collections', 'items', 'events', 'ojt', 'missions', 'story_catalog',
+    '版本更新全套': ('cards', 'collections', 'items', 'events', 'exchange_events', 'bar_events', 'vignette_events',
+                'ojt', 'missions', 'story_catalog',
                 'birthday', 'home_voices', 'home_voice_duo', 'music', 'snap'),
     '只更新语音': ('home_voices', 'home_voice_duo', 'card_combi_voices'),
-    '只出活动表': ('events', 'ojt', 'missions'),
+    '只出活动表': ('events', 'exchange_events', 'bar_events', 'vignette_events', 'ojt', 'missions'),
 }
 MODES = {'联网更新': 'online', '只用已下载缓存': 'offline'}
+# Task names saved by earlier versions.
+LEGACY_TASKS = {'recipes': 'bar_events'}
 # Names saved by earlier versions; local files are now an advanced-page switch.
 LEGACY_MODES = {'正式服在线': '联网更新', '正式服离线缓存': '只用已下载缓存', '用本地缓存': '只用已下载缓存'}
 TASK_HINT = '鼠标移到任务上可查看它生成什么。'
@@ -51,11 +56,13 @@ TASK_HELP = {
     'card_update': '在旧卡牌工作簿上更新，人工填写的列原样保留。旧表在“输入与高级设置”里选择。',
     'collections': '服装、Mini、称号、徽章、背景和道具；获取入口列收录已确认的途径。',
     'items': '道具名称和说明；游戏数据里没有名称的道具会列入待核对汇总。',
-    'events': '每期活动的分类、任务档位和奖励，附开放与结束时间。',
+    'events': '全部活动一览（类型、开放与结束时间），附剧情章节、活动任务和规则说明。',
+    'exchange_events': '交换所活动与无奖章活动（Prequel、Travelogue、周年等）：排名奖励、兑换所商品、活动加成。',
+    'bar_events': '营业（摇酒）活动：轮班、菜单与配方、材料、关卡掉落、特别营业和营业额奖励。',
+    'vignette_events': 'Vignette 累积道具活动：登场角色、卡牌和累积奖励。',
     'ojt': 'OJT 活动的轮次与带教台词、关卡、奖箱、规则，以及题面上的角色站位坐标。',
     'charts': '单独解析 .s2bchart 站位文件。OJT 活动档案已包含这部分，平时选它即可。',
     'missions': '常驻隐藏任务。每期活动的任务在“活动资料”里。',
-    'recipes': '配方与相关奖励。',
     'home_voices': '从角色 ACB 提取主页语音和生日祝福文本。',
     'home_voice_duo': '两位角色配对的双人主页台词，需要 masterdata 和角色 ACB。',
     'card_combi_voices': '一条语音含多段音频的卡牌（如三周年生日部门协作），逐段导出音频供人工听写。',
@@ -694,8 +701,9 @@ class ToolkitApp:
                 if key in self.paths and isinstance(value, str):
                     self.paths[key].set(value)
             if isinstance(data.get('tasks'), list):
+                tasks = {LEGACY_TASKS.get(name, name) for name in data['tasks']}
                 for key, variable in self.selected.items():
-                    variable.set(key in data['tasks'])
+                    variable.set(key in tasks)
             self.include_card_audio.set(bool(data.get('card_audio', True)))
         except (OSError, ValueError, TypeError, AttributeError):
             pass

@@ -37,15 +37,15 @@ class WikiOutputCleanupTests(unittest.TestCase):
                 json.dumps({'Events': [event]}), encoding='utf-8')
             book = load_workbook(events.export())
             try:
-                self.assertNotIn('Mappings', book.sheetnames)
-                self.assertEqual(18, book['Overview'].max_column)
-                self.assertEqual('日期状态', book['Overview'].cell(1, 18).value)
-                self.assertIn('TimeAssessment', book.sheetnames)
-                self.assertEqual('Story', book['Story']['E2'].value)
-                self.assertEqual('Readable rule', book['Rules']['F2'].value)
+                self.assertEqual(['活动一览', '剧情章节', '活动任务', '规则说明', '说明'], book.sheetnames)
+                self.assertEqual('详细档案', book['活动一览'].cell(1, 11).value)
+                self.assertEqual('Story', book['剧情章节']['E2'].value)
+                self.assertEqual('Readable rule', book['规则说明']['E2'].value)
                 for sheet in book:
                     self.assertFalse(any('类型码' in str(c.value) or '数据来源' in str(c.value)
                                          for c in sheet[1]))
+                    self.assertFalse(any(str(c.value or '').isascii() and c.value for c in sheet[1]
+                                         if c.value not in ('PICKUP 卡',)))
             finally:
                 book.close()
             audit = json.loads((root / 'audit_output/event_archive_audit.json').read_text(encoding='utf-8'))
@@ -102,7 +102,7 @@ class WikiOutputCleanupTests(unittest.TestCase):
 
     def test_multisheet_exports_preserve_locked_files_and_return_real_path(self):
         for module, input_name, output_name, expected_sheets in [
-            (events, 'Event_Archive.json', 'event_archive.xlsx', ['Overview', 'Story']),
+            (events, 'Event_Archive.json', 'event_archive.xlsx', ['活动一览', '剧情章节']),
             (recipes, 'bar_extract.json', 'bar_data_complete.xlsx', ['Ingredients', 'Recipes']),
         ]:
             with self.subTest(domain=module.__name__), workspace() as root:
