@@ -13,6 +13,7 @@ Important contracts:
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from toolkit.domains.event_classification import classify_event
 
 from toolkit.core.exporter import audit_path, json_path
 from toolkit.core.output import record_warning
@@ -67,6 +68,7 @@ def extract(session=None):
     maps = _by_id(tables, "mst_puzzle_map", "PuzzleMapId")
     characters = _by_id(tables, "mst_character", "CharacterId")
     events = _by_id(tables, "mst_event", "EventId")
+    event_a = _by_id(tables, "mst_event_a", "EventId")
     campaigns = _by_id(tables, "mst_campaign", "CampaignId")
     items = _by_id(tables, "mst_item", "ItemId")
     music_stages = _by_id(tables, "mst_music_puzzle_stage", "MusicPuzzleStageId")
@@ -100,6 +102,7 @@ def extract(session=None):
             event = events.get(eid, {})
             return {
                 "Kind": "event", "EventId": eid, "EventTitle": event.get("EventTitle", ""),
+                "Classification": classify_event(event, event_a.get(eid)),
                 "Availability": _window(event.get("OpenStartTime") or event.get("StartTime"), event.get("EndTime")),
             }
         if map_row.get("CampaignId"):
