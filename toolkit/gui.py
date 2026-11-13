@@ -12,6 +12,7 @@ from .core.feedback import feedback_groups, issue_text, artifact_needs_review
 
 TASKS = {
     'groove': 'GROOVE 配队数据',
+    'campaign_voices': '活动语音 / Shuffle Talk',
     'cards': '卡牌表', 'events': '活动总表', 'home_voices': '主页 / 生日祝福',
     'birthday': '生日庆典台词', 'card_update': '更新已有卡表', 'items': '道具图鉴',
     'music': '音乐资料', 'snap': 'Snap 文案', 'missions': '隐藏任务',
@@ -26,8 +27,8 @@ ARTIFACT_LABELS = {'review': '待核对汇总'}
 TASK_GROUPS = [
     ('卡牌', ('cards', 'card_update', 'collections', 'items'),
      '更新已有卡表会保留人工列。收藏档案列出卡牌关联、奖励来源和已确认的获取入口。'),
-    ('语音', ('home_voices', 'home_voice_duo', 'card_combi_voices', 'audio'),
-     '主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对；多段协作语音单独成表。缺资源时会写明缺哪一项。'),
+    ('语音', ('home_voices', 'campaign_voices', 'home_voice_duo', 'card_combi_voices', 'audio'),
+     '活动语音收录活动页台词和按顺序排列的 Shuffle Talk。主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对；多段协作语音单独成表。缺资源时会写明缺哪一项。'),
     ('活动', ('events', 'exchange_events', 'bar_events', 'vignette_events', 'ojt', 'charts', 'missions'),
      '活动总表是全部活动的索引（剧情章节、任务、规则）；交换所·剧情、营业（摇酒）、Vignette、OJT 各有一份玩法档案。'
      'OJT 活动档案包含轮次、关卡、奖箱和站位坐标。'),
@@ -40,9 +41,9 @@ TASK_GROUPS = [
 PRESETS = {
     '版本更新全套': ('cards', 'collections', 'items', 'events', 'exchange_events', 'bar_events', 'vignette_events',
                 'ojt', 'missions', 'story_catalog',
-                'birthday', 'home_voices', 'home_voice_duo', 'music', 'snap'),
-    '只更新语音': ('home_voices', 'home_voice_duo', 'card_combi_voices'),
-    '只出活动表': ('events', 'exchange_events', 'bar_events', 'vignette_events', 'ojt', 'missions'),
+                'birthday', 'home_voices', 'campaign_voices', 'home_voice_duo', 'music', 'snap'),
+    '只更新语音': ('home_voices', 'campaign_voices', 'home_voice_duo', 'card_combi_voices'),
+    '只出活动表': ('campaign_voices', 'events', 'exchange_events', 'bar_events', 'vignette_events', 'ojt', 'missions'),
 }
 MODES = {'联网更新': 'online', '只用已下载缓存': 'offline'}
 # Task names saved by earlier versions.
@@ -51,6 +52,7 @@ LEGACY_TASKS = {'recipes': 'bar_events'}
 LEGACY_MODES = {'正式服在线': '联网更新', '正式服离线缓存': '只用已下载缓存', '用本地缓存': '只用已下载缓存'}
 TASK_HINT = '鼠标移到任务上可查看它生成什么。'
 TASK_HELP = {
+    'campaign_voices': '活动页语音与 Shuffle Talk：附说话角色、对话顺序和日期状态，历史占位配置另列待核对。',
     'groove': '曲目加成、Runner 位次、Relation 与 SIDE 的源数据，供计算器网站使用。',
     'cards': '卡牌资料；联网或只用缓存时可同时填入卡面语音台词（开关在“输入与高级设置”）。',
     'card_update': '在旧卡牌工作簿上更新，人工填写的列原样保留。旧表在“输入与高级设置”里选择。',
@@ -125,7 +127,7 @@ class JobRequest:
             if set(self.domains) & NEEDS_MASTERDATA:
                 if not Path(self.masterdata).is_file():
                     raise ValueError('本地任务需要选择 masterdata 文件')
-            if set(self.domains) & {'home_voices', 'home_voice_duo', 'card_combi_voices', 'audio'}:
+            if set(self.domains) & {'home_voices', 'campaign_voices', 'home_voice_duo', 'card_combi_voices', 'audio'}:
                 if not self.audio or not Path(self.audio).is_dir():
                     raise ValueError('该任务需要选择本地 ACB 音频目录')
             if self.audio and not Path(self.audio).is_dir():

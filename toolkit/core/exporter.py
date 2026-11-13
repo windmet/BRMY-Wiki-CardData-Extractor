@@ -2,6 +2,7 @@
 import os
 import re
 from .output import output_directory, record_output
+from .console import safe_print
 from datetime import datetime
 
 try:
@@ -46,7 +47,7 @@ def save_workbook_safely(workbook, path):
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             actual_path = f"{stem}_new_{timestamp}{extension}"
         workbook.save(actual_path)
-        print(f"  [!] 原 XLSX 正被占用，已改存: {actual_path}")
+        safe_print(f"  [!] 原 XLSX 正被占用，已改存: {actual_path}")
     record_output(actual_path)
     return actual_path
 
@@ -120,7 +121,7 @@ def write_xlsx(
                     cell.alignment = Alignment(wrap_text=True, vertical='center')
 
     actual_path = save_workbook_safely(wb, path)
-    print(f"  [xlsx] {actual_path}")
+    safe_print(f"  [xlsx] {actual_path}")
     return actual_path
 
 
@@ -156,5 +157,5 @@ def write_workbook(path, sheets):
                 )
 
     actual_path = save_workbook_safely(wb, path)
-    print(f"  [xlsx] {actual_path}")
+    safe_print(f"  [xlsx] {actual_path}")
     return actual_path
