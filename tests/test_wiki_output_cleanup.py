@@ -58,16 +58,19 @@ class WikiOutputCleanupTests(unittest.TestCase):
                 b'binary\x00' + 'title:{ホームボイス①}text:{台詞}'.encode('utf-8')
                 + b'\x00title:{empty}text:{}\x00')
             audio.run(str(root))
-            for name, first_header in [('card_voice_texts.xlsx', '卡牌ID'),
-                                       ('voice_texts.xlsx', '资源文件')]:
+            for name, first_header in [('card_voice_texts.xlsx', '卡牌编号'),
+                                       ('voice_texts.xlsx', '说话人')]:
                 book = load_workbook(root / 'xlsx_output' / name)
                 try:
                     sheet = book.active
-                    self.assertEqual([first_header, '标题', '日文台词', '中文翻译'],
-                                     [c.value for c in sheet[1]])
+                    headers = [c.value for c in sheet[1]]
+                    self.assertEqual(first_header, headers[0])
+                    self.assertTrue({'卡牌名', '卡牌角色名', '说话人', '核对状态', '说明'}.issubset(headers))
                     self.assertEqual(2, sheet.max_row)
-                    self.assertEqual('台詞', sheet['C2'].value)
-                    self.assertIsNone(sheet['D2'].value)
+                    self.assertEqual('台詞', sheet.cell(2, headers.index('日文台词') + 1).value)
+                    self.assertIsNone(sheet.cell(2, headers.index('中文翻译') + 1).value)
+                    self.assertEqual('A2', sheet.freeze_panes)
+                    self.assertEqual(sheet.dimensions, sheet.auto_filter.ref)
                 finally:
                     book.close()
             audit = json.loads((root / 'audit_output/Voice_Text_Index.json').read_text(encoding='utf-8'))

@@ -101,7 +101,12 @@ class GenerateTests(unittest.TestCase):
             source = root / 'input'
             source.mkdir()
             (source / 'voice_1.acb').write_bytes(b'')
-            report = generate(['audio'], root / 'output', audio=source)
+            from toolkit.core.session import REQUIRED_SCHEMA
+            raw = {name: [{**dict.fromkeys(fields, 0), 'IsActive': False}]
+                   for name, fields in REQUIRED_SCHEMA.items()}
+            masterdata = root / 'input.json'
+            masterdata.write_text(json.dumps([dict.fromkeys(raw, [])] + list(raw.values())), encoding='utf-8')
+            report = generate(['audio'], root / 'output', audio=source, masterdata=masterdata)
             self.assertEqual('PASS_WITH_WARNINGS', report['status'])
             self.assertTrue(report['warnings'])
 
