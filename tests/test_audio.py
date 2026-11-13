@@ -2,14 +2,17 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from toolkit.domains.audio import (
     _scan_all_text_metadata,
     extract_text_metadata,
     scan_card_voices,
     text_to_html,
+    resource_keys,
 )
 from toolkit.core.cri_utf import CriUtfError, parse_utf
+from toolkit.core.tables import TableCatalog
 
 
 class AudioMetadataTests(unittest.TestCase):
@@ -67,6 +70,25 @@ class AudioMetadataTests(unittest.TestCase):
     def test_invalid_utf_is_rejected_for_safe_fallback(self):
         with self.assertRaises(CriUtfError):
             parse_utf(b"not an acb")
+
+    def test_generic_scan_skips_card_packages_and_embedded_card_cues(self):
+        with tempfile.TemporaryDirectory() as root:
+            for filename in ('voice_403.acb', 'custom_card.acb', 'voice_arima_general.acb'):
+                Path(root, filename).write_bytes(b'fixture')
+            metadata = [{'CueName': cue, 'Title': 'Title', 'Text': 'Text',
+                         'MatchStatus': 'matched_by_acb_utf'}
+                        for cue in ('card_vo_home_1', 'card_vo_gacha', 'vo_home_138')]
+            with patch('toolkit.domains.audio.extract_text_metadata', return_value=(metadata, True)) as read:
+                rows, _ = _scan_all_text_metadata(root, exclude_cards=True, card_names={'custom_card.acb'})
+            self.assertEqual(1, read.call_count)
+            self.assertEqual(['vo_home_138'], [r['CueName'] for r in rows])
+
+    def test_generic_plan_excludes_standard_and_masterdata_card_packages(self):
+        tables = TableCatalog([{'mst_character_card': 0}, [
+            {'CharacterCardId': 1, 'VoiceCueSheetName': 'custom_card'}]])
+        resources = dict.fromkeys(['Musics/voice_403.acb', 'Musics/custom_card.acb',
+                                   'Musics/voice_arima_general.acb'])
+        self.assertEqual(['Musics/voice_arima_general.acb'], resource_keys(tables, resources))
 
 
 if __name__ == "__main__":
