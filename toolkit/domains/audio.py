@@ -14,7 +14,7 @@ from datetime import datetime
 from ..core.exporter import write_workbook
 from ..core.console import safe_print
 from ..core.scanner import save_json
-from ..core.cri_utf import CriUtfError, extract_acb_cue_rows, extract_acb_cue_clips
+from ..core.cri_utf import CriUtfError, extract_acb_cue_rows
 
 
 CARD_FILE_RE = re.compile(r"^voice_(\d+)\.acb$", re.IGNORECASE)
@@ -247,11 +247,32 @@ def _build_inventory(input_path):
     }
 
 
-def _scan_all_text_metadata(input_path):
+def card_package_names(tables=None):
+    """Explicit nonstandard card package names, in addition to voice_<cardId>.acb."""
+    names = set()
+    if tables:
+        for row in tables.rows('mst_character_card'):
+            name = row.get('VoiceCueSheetName')
+            if name:
+                name = os.path.basename(name).lower()
+                names.add(name if name.endswith('.acb') else name + '.acb')
+    return names
+
+
+def resource_keys(tables, resources):
+    excluded = card_package_names(tables)
+    return sorted(key for key in resources if key.startswith('Musics/') and key.endswith('.acb')
+                  and not CARD_FILE_RE.fullmatch(os.path.basename(key))
+                  and os.path.basename(key).lower() not in excluded)
+
+
+def _scan_all_text_metadata(input_path, *, exclude_cards=False, card_names=()):
     records = []
     unstable = []
     for base, filename in _walk_source_files(input_path):
         if not filename.lower().endswith(".acb"):
+            continue
+        if exclude_cards and (CARD_FILE_RE.fullmatch(filename) or filename.lower() in card_names):
             continue
         path = os.path.join(base, filename)
         try:
@@ -264,6 +285,8 @@ def _scan_all_text_metadata(input_path):
             unstable.append(os.path.relpath(path, input_path))
         category = classify_acb(filename)
         for index, item in enumerate(metadata, start=1):
+            if exclude_cards and (item.get('CueName') or '').startswith('card_vo_'):
+                continue
             records.append({
                 "AcbFile": os.path.relpath(path, input_path),
                 "Category": category,
@@ -293,116 +316,46 @@ def run(input_path=None, *, session=None):
 
     safe_print(f"[*] 扫描 ACB 音频目录: {input_path}")
     inventory = _build_inventory(input_path)
-    cards, warnings = scan_card_voices(input_path)
-    all_text, unstable = _scan_all_text_metadata(input_path)
+    tables = session.tables if session else None
+    excluded_names = card_package_names(tables)
+    excluded_count = sum(bool(CARD_FILE_RE.fullmatch(os.path.basename(row['Path']))) or
+                         os.path.basename(row['Path']).lower() in excluded_names for row in inventory['Files'])
+    all_text, unstable = _scan_all_text_metadata(input_path, exclude_cards=True, card_names=excluded_names)
 
     from .audio_labels import AudioLabels, voice_category
-    labels = AudioLabels(session.tables if session else None)
-    clip_evidence = {}
-
-    def clips(relative):
-        if relative not in clip_evidence:
-            try:
-                data, stable = _read_stable_bytes(os.path.join(input_path, relative))
-                clip_evidence[relative] = {'Stable': stable, 'Counts': {
-                    cue['CueName']: len(cue['Clips']) for cue in extract_acb_cue_clips(data)
-                    if not cue.get('UnknownCommands')}}
-            except (OSError, CriUtfError) as error:
-                clip_evidence[relative] = {'Stable': False, 'Counts': {}, 'Error': str(error)}
-        return clip_evidence[relative]
-
-    for card_id, card in cards.items():
-        card.update(labels.card(int(card_id)))
-        card['ClipEvidence'] = clips(card['AcbFile'])
-        for entry in card['Entries']:
-            entry['ClipCount'] = card['ClipEvidence']['Counts'].get(entry['CueName'])
-            entry['Identity'] = labels.label(card['AcbFile'], entry['CueName'],
-                stable=card['StableRead'], match_status=entry['MatchStatus'],
-                clip_count=entry['ClipCount'] if card['ClipEvidence']['Stable'] else None)
-            entry['VoiceCategory'] = voice_category(entry['CueName'], 'card_voice')
+    labels = AudioLabels(tables)
     for item in all_text:
-        cue = item['CueName'] or (CARD_TITLE_TO_CUE.get(item['Title'], '')
-                                  if item['Category'] == 'card_voice' else '')
-        clip_info = clips(item['AcbFile']) if item['Category'] == 'card_voice' else None
-        item['ClipCount'] = clip_info['Counts'].get(cue) if clip_info and clip_info['Stable'] else None
+        cue = item.get('CueName') or ''
         item['Identity'] = labels.label(item['AcbFile'], cue, stable=item['StableRead'],
-                                       match_status=item['MatchStatus'], clip_count=item['ClipCount'])
+                                       match_status=item['MatchStatus'])
         item['VoiceCategory'] = voice_category(cue, item['Category'])
-
-    card_index = {
-        "SourceRoot": input_path,
-        "GeneratedAt": datetime.now().isoformat(timespec="seconds"),
-        "Summary": {
-            "CardFileCount": len(cards),
-            "MetadataCount": sum(len(card["Entries"]) for card in cards.values()),
-            "TextCount": sum(
-                entry["HasText"] for card in cards.values() for entry in card["Entries"]
-            ),
-        },
-        "Warnings": warnings,
-        "Cards": cards,
-    }
     text_index = {
-        "SourceRoot": input_path,
-        "GeneratedAt": datetime.now().isoformat(timespec="seconds"),
-        "Summary": {
-            "MetadataCount": len(all_text),
-            "TextCount": sum(item["HasText"] for item in all_text),
-            "UnstableFiles": unstable,
-        },
-        "Entries": all_text,
+        'SourceRoot': input_path, 'GeneratedAt': datetime.now().isoformat(timespec='seconds'),
+        'Scope': 'non_card_audio_only',
+        'Summary': {'MetadataCount': len(all_text), 'TextCount': sum(r['HasText'] for r in all_text),
+                    'UnstableFiles': unstable, 'ExcludedCardPackageCount': excluded_count},
+        'Entries': all_text,
     }
+    save_json(inventory, os.path.join(json_dir, 'Audio_Inventory.json'))
+    save_json(text_index, os.path.join(json_dir, 'Voice_Text_Index.json'))
 
-    save_json(inventory, os.path.join(json_dir, "Audio_Inventory.json"))
-    save_json(card_index, os.path.join(json_dir, "Card_Voice_Index.json"))
-    save_json(text_index, os.path.join(json_dir, "Voice_Text_Index.json"))
-
-    card_rows = []
-    for card in cards.values():
-        for entry in card['Entries']:
-            if not entry['HasText']:
-                continue
-            identity = entry['Identity']
-            card_rows.append([identity['CharacterCardId'], identity['CharacterCardName'],
-                identity['CardCharacterNames'], identity['Speaker'], entry['VoiceCategory'], entry['Title'],
-                text_to_html(entry['Text']).replace('<br>', '\n'), '', entry['CueName'], card['AcbFile'],
-                identity['Status'], identity['Note']])
-    write_workbook(os.path.join(xlsx_dir, 'card_voice_texts.xlsx'), [{
-        'title': '卡牌语音', 'headers': ['卡牌编号', '卡牌名', '卡牌角色名', '说话人', '语音分类', '标题',
-                                       '日文台词', '中文翻译', '语音标识', '资源文件', '核对状态', '说明'],
-        'rows': card_rows, 'col_widths': {'A': 12, 'B': 32, 'C': 26, 'D': 18, 'E': 16, 'F': 24,
-                                        'G': 65, 'H': 50, 'I': 28, 'J': 40, 'K': 12, 'L': 55},
-        'wrap_cols': [3, 7, 8, 12],
-    }])
-    text_rows = []
-    ordered_text = sorted(all_text, key=lambda item: (
-        tuple(item['Identity']['SpeakerCharacterIds']) or (999999,),
-        item['Identity']['CharacterCardId'] or 0, item['VoiceCategory'],
-        item['CueName'], item['AcbFile'], item['MetadataNo']))
-    for item in ordered_text:
-        if not item['HasText']:
-            continue
-        identity = item['Identity']
-        text_rows.append([identity['Speaker'], item['VoiceCategory'], item['Title'],
-            text_to_html(item['Text']).replace('<br>', '\n'), '', identity['CharacterCardId'],
-            identity['CharacterCardName'], identity['CardCharacterNames'], item['CueName'], item['AcbFile'],
-            identity['Status'], identity['Note']])
+    ordered = sorted(all_text, key=lambda item: (
+        tuple(item['Identity']['SpeakerCharacterIds']) or (999999,), item['VoiceCategory'],
+        item.get('CueName') or '', item['AcbFile'], item['MetadataNo']))
+    rows = [[item['Identity']['Speaker'], item['VoiceCategory'], item['Title'],
+             text_to_html(item['Text']).replace('<br>', '\n'), '', item['CueName'], item['AcbFile'],
+             item['Identity']['Status'], item['Identity']['Note']]
+            for item in ordered if item['HasText']]
     write_workbook(os.path.join(xlsx_dir, 'voice_texts.xlsx'), [{
-        'title': '语音文本', 'headers': ['说话人', '语音分类', '标题', '日文台词', '中文翻译', '卡牌编号',
-                                       '卡牌名', '卡牌角色名', '语音标识', '资源文件', '核对状态', '说明'],
-        'rows': text_rows, 'col_widths': {'A': 18, 'B': 16, 'C': 24, 'D': 65, 'E': 50, 'F': 12,
-                                        'G': 32, 'H': 26, 'I': 28, 'J': 40, 'K': 12, 'L': 55},
-        'wrap_cols': [4, 5, 8, 12],
+        'title': '语音文本', 'headers': ['说话人', '语音分类', '标题', '日文台词', '中文翻译',
+                                       '语音标识', '资源文件', '核对状态', '说明'],
+        'rows': rows, 'col_widths': {'A': 18, 'B': 16, 'C': 24, 'D': 65, 'E': 50,
+                                   'F': 28, 'G': 40, 'H': 12, 'I': 55}, 'wrap_cols': [4, 5, 9],
     }])
     unresolved = sum(item['HasText'] and item['Identity']['Status'] != '正常' for item in all_text)
     if unresolved:
-        record_warning(f'语音有 {unresolved} 条说话人或文本关联待核对，详见语音表的核对状态和说明列')
-
-    safe_print(
-        f"[+] 音频清单 {inventory['Summary']['FileCount']} 个文件；"
-        f"卡面语音 {len(cards)} 包；可读文本 {text_index['Summary']['TextCount']} 条"
-    )
-    if warnings or unstable:
-        safe_print(f"[!] 扫描警告 {len(warnings)} 条，读取期间变化文件 {len(unstable)} 个")
-        record_warning(f"扫描警告 {len(warnings)} 条，读取期间变化文件 {len(unstable)} 个")
+        record_warning(f'通用语音有 {unresolved} 条说话人或文本关联待核对，详见核对状态和说明列')
+    if unstable:
+        record_warning(f'读取期间变化文件 {len(unstable)} 个')
+    safe_print(f"[+] 排除卡牌语音包 {excluded_count} 个；通用语音文本 {text_index['Summary']['TextCount']} 条")
     return input_path

@@ -100,7 +100,7 @@ class GenerateTests(unittest.TestCase):
             root = Path(directory)
             source = root / 'input'
             source.mkdir()
-            (source / 'voice_1.acb').write_bytes(b'')
+            (source / 'voice_arima_general.acb').write_bytes('title:{話題}text:{台詞}'.encode('utf-8'))
             from toolkit.core.session import REQUIRED_SCHEMA
             raw = {name: [{**dict.fromkeys(fields, 0), 'IsActive': False}]
                    for name, fields in REQUIRED_SCHEMA.items()}
