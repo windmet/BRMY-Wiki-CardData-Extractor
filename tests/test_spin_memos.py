@@ -31,12 +31,15 @@ class SpinMemoTests(unittest.TestCase):
                 snapshot(7, 500021, 1, '2026 BirthDay'), snapshot(8, 500021, 2, '2026 BirthDay'),
                 snapshot(9, 500021, 3, '2026 BirthDay', (1, 14)),
                 snapshot(10, 200001, 1, 'duo', cast=(1, 16)), snapshot(11, 200001, 3, 'broken', cast=(1, 16)),
+                snapshot(12, 200025, 1, 'new duo', cast=(1, 16)), snapshot(13, 200025, 2, 'new duo', cast=(1, 16)),
+                snapshot(14, 200025, 3, 'new duo', cast=(1, 16)),
             ],
             mst_spin_set=[{'SpinSetId': 100001, 'SpinBaseCode': 1, 'SpinMotionIds': [1]},
                           {'SpinSetId': 400001, 'SpinBaseCode': 4, 'SpinMotionIds': []},
                           {'SpinSetId': 400002, 'SpinBaseCode': 4, 'SpinMotionIds': []},
                           {'SpinSetId': 500021, 'SpinBaseCode': 1, 'SpinMotionIds': []},
-                          {'SpinSetId': 200001, 'SpinBaseCode': 2, 'SpinMotionIds': []}],
+                          {'SpinSetId': 200001, 'SpinBaseCode': 2, 'SpinMotionIds': []},
+                          {'SpinSetId': 200025, 'SpinBaseCode': 2, 'SpinMotionIds': []}],
             mst_spin_motion=[{'SpinMotionId': 1, 'SpinCharacterMotionIds': [10]}],
             mst_spin_character_motion=[{'SpinCharacterMotionId': 10, 'SpinCharacterMotionFileName': 'Bg001/Bg001_Slot01_01'}],
             mst_spin_sticky_note=[{'StickyNoteId': 11, 'CharacterId': 21, 'Comment': 'SR note'},
@@ -44,15 +47,18 @@ class SpinMemoTests(unittest.TestCase):
                                   {'StickyNoteId': 12, 'CharacterId': 13, 'Comment': 'a'},
                                   {'StickyNoteId': 13, 'CharacterId': 10, 'Comment': 'b'},
                                   {'StickyNoteId': 14, 'CharacterId': 2, 'Comment': 'happy birthday'}],
-            mst_spin_film=[{'FilmId': 1, 'FilmRarityCode': 1, 'CharacterIds': [1], 'SpinSetIds': [100001, 400001, 400002]}],
+            mst_spin_film=[{'FilmId': 1, 'FilmRarityCode': 1, 'CharacterIds': [1], 'SpinSetIds': [100001, 400001, 400002]},
+                           {'FilmId': 49, 'FilmRarityCode': 2, 'CharacterIds': [1, 16], 'SpinSetIds': []}],
             mst_spin_film_limited_costume_mini=[{'FilmId': 1, 'SpinCostumeMiniRegulationId': 21,
-                                                 'SpinSetIds': [100001, 400001, 400002, 500021]}],
-            mst_spin_costume_mini_regulation=[{'SpinCostumeMiniRegulationId': 21, 'CostumeMiniIds': [305]}],
+                                                 'SpinSetIds': [100001, 400001, 400002, 500021]},
+                                                {'FilmId': 49, 'SpinCostumeMiniRegulationId': 22, 'SpinSetIds': [200025]}],
+            mst_spin_costume_mini_regulation=[{'SpinCostumeMiniRegulationId': 21, 'CostumeMiniIds': [305]},
+                                              {'SpinCostumeMiniRegulationId': 22, 'CostumeMiniIds': []}],
             mst_costume_mini=[{'CostumeMiniId': 305, 'CostumeMiniName': "Ai's special day",
                                'ReleaseDateTime': '2026-05-24T15:00:00+00:00'}],
         )
         data = extract(SimpleNamespace(tables=tables))
-        regular, limited = data['Cards']
+        regular, new_duo, limited = data['Cards']
         self.assertEqual([100001, 400001, 400002], regular['SpinSetIds'])
         self.assertEqual(['太空赌场', '美式餐厅'], regular['Scenes'])
         self.assertEqual(['老虎机'], regular['Positions'])
@@ -60,9 +66,14 @@ class SpinMemoTests(unittest.TestCase):
         self.assertEqual(['麻波麗'], [c['Character'] for c in regular['Memos'][1]['Comments']])
         self.assertEqual(('限定·单人', '2026-05-25'), (limited['Category'], limited['Date']))
         self.assertEqual(["Ai's special day"], limited['LimitedCostumes'])
-        self.assertEqual(['皇坂逢(N)'], limited['Films'])
+        self.assertEqual(['灰色·皇坂逢'], limited['Films'])
+        self.assertEqual(('初始', ''), (regular['Batch'], regular['Date']))
+        self.assertEqual('生日限定', limited['Batch'])
+        # Later combos come only through a costume-less limited row; they are regular, dated by the update.
+        self.assertEqual(('二周年新胶卷', '2026-05-01', '通常·双人'), (new_duo['Batch'], new_duo['Date'], new_duo['Category']))
+        self.assertEqual(['金色·皇坂逢＋祠堂恭耶'], new_duo['Films'])
         self.assertEqual('irregular_snapshot_group', data['Issues'][0]['Status'])
-        self.assertEqual(9, data['SnapshotCount'])
+        self.assertEqual(12, data['SnapshotCount'])
 
 
 if __name__ == '__main__':

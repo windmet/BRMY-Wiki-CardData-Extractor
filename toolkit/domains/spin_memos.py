@@ -16,7 +16,16 @@ JST = timezone(timedelta(hours=9))
 # SpinBaseCode (client: Casino / Factory / AmusementPark / AmericanDiner); Wiki names.
 SCENES = {1: '太空赌场', 2: '电玩城', 3: '游乐园', 4: '美式餐厅'}
 RARITIES = {1: 'R', 2: 'SR', 3: 'SSR'}
-FILM_RARITIES = {1: 'N', 2: 'R', 3: 'SR'}
+# Film rarity is the colour the reel lands on before the shot; it is what triggers the snap.
+FILM_COLOURS = {1: '灰色', 2: '金色', 3: '彩色'}
+# Masterdata has no addition date for regular sets; dates come from the in-game update banners
+# (spin_diner_info "2025.3.31 アップデート"; 2nd_anniv_update_cp_info_1 from 2026-05-01).
+# Sets outside these ranges and not limited are reported as unknown_spin_set_batch.
+BATCHES = [
+    (100001, 100999, '初始', ''), (200001, 200024, '初始', ''), (300001, 300006, '初始', ''),
+    (400001, 400070, '美式餐厅追加', '2025-03-31'),
+    (200025, 200029, '二周年新胶卷', '2026-05-01'), (300007, 300010, '二周年新胶卷', '2026-05-01'),
+]
 PARTY = {1: '单人', 2: '双人', 3: '三人', 4: '四人'}
 TOPIC = re.compile(r'^〜(.+?)〜\s*(.*)$', re.S)
 
@@ -54,6 +63,15 @@ def _trios(snapshots):
             continue
         valid.append(trio)
     return valid, issues
+
+
+def _batch(set_id):
+    return next(((label, date) for first, last, label, date in BATCHES if first <= set_id <= last), None)
+
+
+def _trigger(film):
+    names = [_name(c) for c in film.get('CharacterIds') or []]
+    return f"{FILM_COLOURS.get(film.get('FilmRarityCode'), '?')}·{'＋'.join(names)}"
 
 
 def _positions(tables):
@@ -139,7 +157,7 @@ def extract(session):
                 'Id': trio[0]['SnapshotId'], 'CharacterIds': cast, 'Cast': [_name(c) for c in cast],
                 'Topic': topic.group(1) if topic else '', 'TopicAnswer': topic.group(2) if topic else '',
                 'Memos': memos, 'SpinSetIds': [], 'SnapshotIds': [], 'Scenes': [], 'Positions': [],
-                'LimitedCostumes': [], 'Date': '', 'Films': []}
+                'LimitedCostumes': [], 'Date': '', 'Batch': '', 'Films': []}
         card['SnapshotIds'] += [row['SnapshotId'] for row in trio]
         for set_id in dict.fromkeys(row['SpinSetId'] for row in trio):
             if set_id in card['SpinSetIds']:
@@ -149,14 +167,24 @@ def extract(session):
             if scene and scene not in card['Scenes']:
                 card['Scenes'].append(scene)
             card['Positions'] = sorted(set(card['Positions']) | set(positions.get(set_id, [])))
-            if set_id in limited:
+            if set_id in limited and limited[set_id]['Costumes']:
                 card['LimitedCostumes'] += [c for c in limited[set_id]['Costumes'] if c not in card['LimitedCostumes']]
                 card['Date'] = min([d for d in [card['Date'], limited[set_id]['Date']] if d], default='')
             for film in films_by_set.get(set_id, []):
-                label = f"{'・'.join(_name(c) for c in film.get('CharacterIds') or [])}({FILM_RARITIES.get(film.get('FilmRarityCode'), '?')})"
+                label = _trigger(film)
                 if label not in card['Films']:
                     card['Films'].append(label)
-    ordered = sorted(cards.values(), key=lambda c: (bool(c['LimitedCostumes']), c['Date'], min(c['SpinSetIds']), c['Id']))
+    for card in cards.values():
+        if card['LimitedCostumes']:
+            card['Batch'] = '生日限定'
+            continue
+        # A trio shared by launch and later sets counts from its earliest batch.
+        batches = [_batch(set_id) for set_id in card['SpinSetIds']]
+        if None in batches:
+            issues.append({'Status': 'unknown_spin_set_batch', 'SnapshotId': card['Id'], 'SpinSetIds': card['SpinSetIds']})
+        card['Batch'], card['Date'] = min((b for b in batches if b), key=lambda b: b[1], default=('', ''))
+    # Release order; launch cards have no date and come first.
+    ordered = sorted(cards.values(), key=lambda c: (c['Date'], min(c['SpinSetIds']), c['Id']))
     for card in ordered:
         card['Category'] = ('限定' if card['LimitedCostumes'] else '通常') + '·' + PARTY.get(len(card['CharacterIds']), f"{len(card['CharacterIds'])}人")
     return {'Cards': ordered, 'Issues': issues, 'SnapshotCount': sum(len(c['SnapshotIds']) for c in ordered)}
@@ -171,15 +199,15 @@ def export(data):
     cards = data['Cards']
     slots = _comment_slots(cards)
     circled = '①②③④'
-    headers = ['编号', '日期(JST)', '场景', '位置', '类别', '主角', '话题']
+    headers = ['编号', '日期(JST)', '追加批次', '场景', '位置', '类别', '主角', '话题']
     for rarity in RARITIES.values():
         headers.append(f'{rarity}备忘录')
         for index in range(slots[rarity]):
             headers += [f'{rarity}评论{circled[index]}角色', f'{rarity}评论{circled[index]}']
-    headers += ['限定服装', '所属胶卷', 'SpinSetId']
+    headers += ['限定服装', '触发胶卷', 'SpinSetId']
     rows = []
     for card in cards:
-        row = [card['Id'], card['Date'], ' / '.join(card['Scenes']), ' / '.join(card['Positions']), card['Category'],
+        row = [card['Id'], card['Date'], card['Batch'], ' / '.join(card['Scenes']), ' / '.join(card['Positions']), card['Category'],
                '・'.join(card['Cast']), card['Topic']]
         for memo in card['Memos']:
             row.append(memo['Text'])
@@ -219,7 +247,7 @@ def export(data):
     memo_columns = [i + 1 for i, h in enumerate(headers) if '备忘录' in h or ('评论' in h and not h.endswith('角色'))]
     return write_workbook(xlsx_path('spin_memos.xlsx'), [
         {'title': '备忘录', 'headers': headers, 'rows': rows, 'wrap_cols': memo_columns,
-         'col_widths': {'C': 12, 'D': 18, 'E': 12, 'F': 18, 'G': 22}},
+         'col_widths': {'C': 14, 'D': 12, 'E': 18, 'F': 12, 'G': 18, 'H': 22}},
         {'title': '话题对照', 'headers': ['角色', *topic_order], 'rows': topic_rows, 'wrap_cols': list(range(2, len(topic_order) + 2)),
          'col_widths': {'A': 12}},
         {'title': '评论检索', 'headers': ['评论角色', '评论', '稀有度', '相片主角', '被评论的备忘录', '场景', '编号', '评论角色ID'],
@@ -231,7 +259,9 @@ def export(data):
             ['场景', 'SpinBaseCode 1–4（客户端 Casino / Factory / AmusementPark / AmericanDiner），沿用 Wiki 译名'],
             ['位置', '所属 SpinSet 的角色动作文件推断；一张卡出现在多个位置时全部列出'],
             ['类别', '通常 / 限定 × 人数；限定指只在限定服装胶卷中追加的 SpinSet（生日服装等）'],
-            ['日期', '仅限定卡有：解锁该卡的限定服装 ReleaseDateTime（日本时间）；通常卡按 SpinSetId 先后排列'],
+            ['日期', '限定卡：解锁该卡的限定服装 ReleaseDateTime（日本时间）；美式餐厅与二周年新胶卷：游戏内更新公告日期；初始卡留空。全表按日期排列'],
+            ['追加批次', '初始 / 美式餐厅追加（2025-03-31）/ 二周年新胶卷（2026-05-01，电玩城双人与游乐园三四人新组合）/ 生日限定'],
+            ['触发胶卷', '拍摄前胶卷滚动转到的颜色：灰色＝单人，金色＝指定双人组合（电玩城），彩色＝三四人组合（游乐园）或二周年生日 Present；“＋”连接的角色需同时编成，转到其中一人的金色/彩色胶卷即触发全员'],
             ['话题', '备忘录以“〜话题〜”开头时提取；“话题对照”表只收单人卡'],
             ['评论顺序', 'StickyNoteId1–4 = 左上、右上、左下、右下'],
             ['统计', f"{len(cards)} 张备忘录卡，来自 {data['SnapshotCount']} 张相片"],
