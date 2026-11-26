@@ -13,7 +13,7 @@ from .core.feedback import feedback_groups, issue_text, artifact_needs_review
 TASKS = {
     'groove': 'GROOVE 配队数据',
     'campaign_voices': '活动语音 / Shuffle Talk',
-    'cards': '卡牌表', 'events': '活动总表', 'home_voices': '主页 / 生日祝福',
+    'cards': '卡牌表', 'skills': '技能分类与索引', 'events': '活动总表', 'home_voices': '主页 / 生日祝福',
     'birthday': '生日庆典台词', 'card_update': '更新已有卡表', 'items': '道具图鉴',
     'music': '音乐资料', 'snap': 'Snap 文案', 'missions': '隐藏任务',
     'lyrics': '歌词', 'scripts': '剧情脚本', 'charts': 'OJT Chart（本地）', 'audio': '通用语音文本',
@@ -25,8 +25,8 @@ TASKS = {
 # Not a selectable task: written after every run that produced Wiki tables.
 ARTIFACT_LABELS = {'review': '待核对汇总'}
 TASK_GROUPS = [
-    ('卡牌', ('cards', 'card_update', 'collections', 'items'),
-     '更新已有卡表会保留人工列。收藏档案列出卡牌关联、奖励来源和已确认的获取入口。'),
+    ('卡牌', ('cards', 'card_update', 'skills', 'collections', 'items'),
+     '更新已有卡表会保留人工列。技能分类与索引导出 SP 六大类与细分、自动技能（含图标包）及新机制漂移核对。收藏档案列出卡牌关联、奖励来源和已确认的获取入口。'),
     ('语音', ('home_voices', 'campaign_voices', 'home_voice_duo', 'card_combi_voices', 'audio'),
      '活动语音收录活动页台词和按顺序排列的 Shuffle Talk。主页 / 生日祝福来自角色 ACB；双人主页台词按搭档配对；多段协作语音单独成表。缺资源时会写明缺哪一项。'),
     ('活动', ('events', 'exchange_events', 'bar_events', 'vignette_events', 'ojt', 'charts', 'missions'),
@@ -39,7 +39,7 @@ TASK_GROUPS = [
     ('网站数据', ('groove',), '供计算器网站使用的源数据。'),
 ]
 PRESETS = {
-    '版本更新全套': ('cards', 'collections', 'items', 'events', 'exchange_events', 'bar_events', 'vignette_events',
+    '版本更新全套': ('cards', 'skills', 'collections', 'items', 'events', 'exchange_events', 'bar_events', 'vignette_events',
                 'ojt', 'missions', 'story_catalog',
                 'birthday', 'home_voices', 'campaign_voices', 'home_voice_duo', 'music', 'snap'),
     '只更新语音': ('home_voices', 'campaign_voices', 'home_voice_duo', 'card_combi_voices'),
@@ -55,6 +55,7 @@ TASK_HELP = {
     'campaign_voices': '活动页语音与 Shuffle Talk：附说话角色、对话顺序和日期状态，历史占位配置另列待核对。',
     'groove': '曲目加成、Runner 位次、Relation 与 SIDE 的源数据，供计算器网站使用。',
     'cards': '卡牌资料；联网或只用缓存时可同时填入卡面语音台词（开关在“输入与高级设置”）。',
+    'skills': 'SP 六大类与细分、全部自动技能（含 ASSIST 与图标包名）、逐卡技能标签索引及新版本未收录效果漂移核对；不修改既有卡牌表格式。',
     'card_update': '在旧卡牌工作簿上更新，人工填写的列原样保留。旧表在“输入与高级设置”里选择。',
     'collections': '服装、Mini、称号、徽章、背景和道具；获取入口列收录已确认的途径。',
     'items': '道具名称和说明；游戏数据里没有名称的道具会列入待核对汇总。',

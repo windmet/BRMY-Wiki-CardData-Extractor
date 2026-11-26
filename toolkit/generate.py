@@ -10,7 +10,7 @@ from .core.review import write_summary
 from .domains import DOMAINS
 from .core.domain_contracts import validate_domain_input
 
-MASTERDATA = {'cards', 'music', 'snap', 'birthday', 'birthday_archive', 'recipes', 'missions', 'items', 'events', 'ojt'}
+MASTERDATA = {'cards', 'skills', 'music', 'snap', 'birthday', 'birthday_archive', 'recipes', 'missions', 'items', 'events', 'ojt'}
 MASTERDATA.update({'story_catalog', 'collections', 'groove', 'jukebox', 'spin_memos',
                    'bar_events', 'exchange_events', 'vignette_events'})
 # Domains that read masterdata alongside other inputs (ACB, old workbook).
