@@ -29,7 +29,7 @@ from ..core.skill_taxonomy import (
     format_sp_categories,
     legacy_percentage_note,
 )
-from ..core.skill_text import SkillTextRenderer
+from ..core.skill_text import SkillTextRenderer, clean_sprite_words
 
 NOTICE_SKILL_RE = re.compile(
     r'SHOWER|シャワー|スキル|出現確率|バランス調整|オートスキル|SPスキル',
@@ -244,7 +244,7 @@ def extract(session):
             'card_count': len(auto_cards[eid]),
             'icon_file': f'{icon}.png' if icon else '',
             'asset_bundle': f'Files/Android/{icon}' if icon else '',
-            'raw_desc': str(meta.get('SkillDescription', '')).replace('\n', ''),
+            'raw_desc': clean_sprite_words(str(meta.get('SkillDescription', '')).replace('\n', '')),
             'note': known[1] if known else '新版本新增自动技能',
             'cards': '、'.join(str(c) for c in auto_cards[eid]),
         })

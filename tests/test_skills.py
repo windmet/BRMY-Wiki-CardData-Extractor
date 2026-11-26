@@ -54,7 +54,7 @@ def _make_tables(*, include_unknown=False):
         ],
         'mst_auto_skill_effect': [
             {'AutoSkillEffectId': 3, 'SkillName': 'SUN SHOWER', 'IconFileName': 'sun_shower',
-             'SkillDescription': 'skill_value1秒間、出現確率大アップ！'},
+             'SkillDescription': 'skill_value1秒間、<sprite name=piece_1><sprite name=piece_2>の出現確率が大アップ！'},
             {'AutoSkillEffectId': 21, 'SkillName': 'ASSIST', 'IconFileName': 'assist',
              'SkillDescription': '他のカードのオートスキルを発動させる！'},
         ],
@@ -111,6 +111,8 @@ class SkillsDomainTests(unittest.TestCase):
             self.assertEqual(2, data['Stats']['ActiveAutoEffects'])
 
             auto_by_id = {r['effect_id']: r for r in data['AutoSummary']}
+            self.assertEqual('skill_value1秒間、サンピースの出現確率が大アップ！', auto_by_id[3]['raw_desc'])
+            self.assertNotIn('<sprite', auto_by_id[3]['raw_desc'])
             self.assertEqual('assist.png', auto_by_id[21]['icon_file'])
             self.assertEqual('Files/Android/assist', auto_by_id[21]['asset_bundle'])
 
