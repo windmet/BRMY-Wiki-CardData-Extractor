@@ -25,9 +25,27 @@ from openpyxl.utils import get_column_letter
 from openpyxl.utils.cell import range_boundaries
 from openpyxl.worksheet.datavalidation import DataValidation
 
-TYPE_SORT_ORDER = {'主线': 1, '周年活动': 2, '活动': 3, '个人': 4, '卡牌': 5, '其他': 6}
+TYPE_SORT_ORDER = {'主线': 1, '活动': 2, '个人': 3, '卡牌': 4, '其他': 5}
 GARBAGE_SPEAKERS = frozenset({'・', '2'})
 PLACEHOLDER_PREFIXES = ('2001-', '3001-', '9999-')
+
+
+def _numeric_id_parts(story_id):
+    return tuple(int(part) if part.isdigit() else 0 for part in str(story_id).split('-')[1:])
+
+
+def _story_sort_key(story):
+    stype = story['type']
+    sid = story['story_id']
+    nums = _numeric_id_parts(sid)
+    dt = story['date'].isoformat() if story.get('date') else ''
+    t_rank = TYPE_SORT_ORDER.get(stype, 99)
+    if stype in ('主线', '个人'):
+        return (t_rank, 0, '', nums, sid)
+    if stype in ('活动', '卡牌'):
+        return (t_rank, 0 if dt else 1, dt or '9999-99-99', nums, sid)
+    kind_rank = 0 if sid.startswith('campaign-') else 1
+    return (t_rank, 0 if dt else 1, dt or '9999-99-99', (kind_rank, *nums), sid)
 
 
 def _display_width(text):
@@ -136,7 +154,7 @@ def export(snapshot, output, *, preserve=None, export_json=None):
         stories.append(rec)
         story_by_id[sid] = rec
 
-    stories.sort(key=lambda s: (TYPE_SORT_ORDER.get(s['type'], 99), s['date'].isoformat() if s['date'] else '9999-99-99', s['story_id']))
+    stories.sort(key=_story_sort_key)
     story_order = {s['story_id']: idx for idx, s in enumerate(stories)}
 
     entrances = {}
@@ -546,7 +564,7 @@ def export(snapshot, output, *, preserve=None, export_json=None):
     _style_merged(ws4, 'A1:L1', font=f_banner, fill=fill_banner, alignment=Alignment(horizontal='left', vertical='center', indent=1))
     ws4.row_dimensions[1].height = 30
 
-    categories = ['主线', '周年活动', '活动', '个人', '卡牌', '其他']
+    categories = ['主线', '活动', '个人', '卡牌', '其他']
     cat_end = 8 + len(categories)
     total_row = cat_end + 1
     anom_title_row, anom_header_row, anom_start = 26, 27, 28

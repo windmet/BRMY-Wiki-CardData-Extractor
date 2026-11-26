@@ -172,13 +172,15 @@ class StoryIndexTests(unittest.TestCase):
             self.assertEqual('Interlude I', by_id['main-3-1'][2])
             self.assertEqual('Interlude I', by_id['main-3-1'][4])
 
-            # Prequel and Travelogue are event -> banner; anniversary event & login -> 周年活动
+            # Prequel and Travelogue are event -> banner; anniversary event stays 活动 and login stays 其他 with series=周年活动
             self.assertEqual('活动', by_id['event-3'][1])
             self.assertEqual('部门箱活（banner）', by_id['event-3'][15])
             self.assertEqual('活动', by_id['event-25'][1])
             self.assertEqual('部门箱活（banner）', by_id['event-25'][15])
-            self.assertEqual('周年活动', by_id['event-11'][1])
-            self.assertEqual('周年活动', by_id['login-1'][1])
+            self.assertEqual('活动', by_id['event-11'][1])
+            self.assertEqual('周年活动', by_id['event-11'][4])
+            self.assertEqual('其他', by_id['login-1'][1])
+            self.assertEqual('周年活动', by_id['login-1'][4])
 
             # Rerun/pickup card does not steal origin event; missing card date falls back to origin open date
             self.assertEqual(3, by_id['card-68'][6])

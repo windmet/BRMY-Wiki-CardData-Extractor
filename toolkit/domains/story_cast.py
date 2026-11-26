@@ -31,8 +31,10 @@ SCRIPT_DIR = 'Scripts/'
 SUFFIX = '.s2bscript'
 
 PLACEHOLDER_PREFIXES = ('2001-', '3001-', '9999-')
+LAUNCH_DATE = '2024-05-09'
+LAUNCH_CARD_MAX_ID = 63
 GARBAGE_SPEAKERS = frozenset({'・', '2'})
-TYPE_SORT_ORDER = {'主线': 1, '周年活动': 2, '活动': 3, '个人': 4, '卡牌': 5, '其他': 6}
+TYPE_SORT_ORDER = {'主线': 1, '活动': 2, '个人': 3, '卡牌': 4, '其他': 5}
 BANNER_PREFIXES = ('Prequel', 'Travelogue')
 EVENT_CARD_TABLES = ('mst_event_a', 'mst_event_b', 'mst_event_c', 'mst_event_accumulate_item')
 EVENT_CARD_FIELDS = ('CharacterCardIds', 'PickUpCharacterCardIds', 'PickUpCharacterCardId')
@@ -217,6 +219,61 @@ def _valid_date(value):
     return text[:10]
 
 
+def _earliest_gacha_dates(tables):
+    """Map CharacterCardId -> earliest valid mst_gacha.StartTime[:10] from masterdata."""
+    gacha_by_id = tables.by_id('mst_gacha', 'GachaId', required=False)
+    if not gacha_by_id:
+        return {}
+    lot_to_gachas = defaultdict(set)
+    for btn in tables.rows('mst_gacha_button', active_only=True):
+        gid = btn.get('GachaId')
+        if gid is None:
+            continue
+        for field in ('GachaLotteryGroupId', 'FixedGachaLotteryGroupId'):
+            if btn.get(field):
+                lot_to_gachas[btn[field]].add(gid)
+    rg_to_gachas = defaultdict(set)
+    for lot in tables.rows('mst_gacha_lottery', active_only=True):
+        rg = lot.get('GachaReturnGroupId')
+        if rg is None:
+            continue
+        for gid in lot_to_gachas.get(lot.get('GachaLotteryGroupId'), ()):
+            rg_to_gachas[rg].add(gid)
+    earliest = {}
+    for ret in tables.rows('mst_gacha_return', active_only=True):
+        cid = ret.get('CharacterCardId')
+        if cid is None:
+            continue
+        for gid in rg_to_gachas.get(ret.get('GachaReturnGroupId'), ()):
+            dt = _valid_date(gacha_by_id.get(gid, {}).get('StartTime'))
+            if dt and (cid not in earliest or dt < earliest[cid]):
+                earliest[cid] = dt
+    return earliest
+
+
+def _numeric_id_parts(story_id):
+    return tuple(int(part) if part.isdigit() else 0 for part in str(story_id).split('-')[1:])
+
+
+def story_sort_key(story):
+    """Natural display order per top-level category (never string-sorting numeric IDs)."""
+    stype = story['type']
+    sid = story['story_id']
+    nums = _numeric_id_parts(sid)
+    date_str = str(story.get('release_date') or '')[:10]
+    t_rank = TYPE_SORT_ORDER.get(stype, 99)
+    if stype == '主线':
+        return (t_rank, 0, '', nums, sid)
+    if stype == '个人':
+        return (t_rank, 0, '', nums, sid)
+    if stype == '活动':
+        return (t_rank, 0 if date_str else 1, date_str or '9999-99-99', nums, sid)
+    if stype == '卡牌':
+        return (t_rank, 0 if date_str else 1, date_str or '9999-99-99', nums, sid)
+    kind_rank = 0 if sid.startswith('campaign-') else 1
+    return (t_rank, 0 if date_str else 1, date_str or '9999-99-99', (kind_rank, *nums), sid)
+
+
 def extract(session, source=None, *, as_of=None):
     tables = session.tables
     catalog = extract_catalog(session, as_of=as_of)
@@ -345,17 +402,25 @@ def extract(session, source=None, *, as_of=None):
             if card_relation(ev, release, earlier) == '首发活动候选':
                 origins[sid].add(eid)
 
-    # Classify stories & resolve release dates
+    # Classify stories & resolve release dates (including launch-day 2024-05-09 & gacha fallback)
+    gacha_dates = _earliest_gacha_dates(tables)
     for sid, story in stories.items():
         eps = episodes_by_story[sid]
         valid_dates = sorted(d for ep in eps if (d := _valid_date(ep['raw_date'])))
+        has_launch_sentinel = any(str(ep['raw_date'] or '').startswith('2001-') for ep in eps)
         if valid_dates:
             story['release_date'] = valid_dates[0]
             story['date_basis'] = '原表'
         original_type = story['type']
         if original_type == '卡牌':
+            card_id = story['card_id']
+            card_raw_date = str(cards.get(card_id, {}).get('ReleaseDateTime') or '')
             story['series'] = card_series(story['jp_title'])
-            if len(origins[sid]) == 1:
+            if card_id is not None and card_id <= LAUNCH_CARD_MAX_ID and not story['release_date'] and (has_launch_sentinel or card_raw_date.startswith('2001-')):
+                story['series'] = story['series'] or '初始常驻'
+                story['release_date'] = LAUNCH_DATE
+                story['date_basis'] = '开服日（2024-05-09）'
+            elif len(origins[sid]) == 1:
                 ev_id = next(iter(origins[sid]))
                 ev = events[ev_id]
                 story['event_id'] = ev_id
@@ -365,16 +430,19 @@ def extract(session, source=None, *, as_of=None):
                     if inherited:
                         story['release_date'] = inherited
                         story['date_basis'] = '关联活动开放日（推定）'
+            if not story['release_date'] and card_id in gacha_dates:
+                story['release_date'] = gacha_dates[card_id]
+                story['date_basis'] = '卡池开放日（mst_gacha）'
         elif original_type in ('活动', '其他') and 'anniversary' in story['jp_title'].casefold():
-            story['type'] = '周年活动'
+            story['series'] = '周年活动'
         elif original_type == '活动' and story['series'] in BANNER_PREFIXES:
             story['banner'] = True
             story['series'] = f"部门箱活（banner） / {story['series']}"
+        elif original_type in ('主线', '个人') and not story['release_date'] and has_launch_sentinel:
+            story['release_date'] = LAUNCH_DATE
+            story['date_basis'] = '开服日（2024-05-09）'
 
-    ordered_stories = sorted(
-        stories.values(),
-        key=lambda s: (TYPE_SORT_ORDER.get(s['type'], 99), s['release_date'] or '9999-99-99', s['story_id']),
-    )
+    ordered_stories = sorted(stories.values(), key=story_sort_key)
     story_order = {s['story_id']: idx for idx, s in enumerate(ordered_stories)}
     episodes.sort(key=lambda ep: (story_order.get(ep['story_id'], 999999), ep['seq']))
 
@@ -753,7 +821,8 @@ def export(data):
         ['总计', f"共 {len(data['Stories'])} 篇剧情、{data['TotalEpisodes']} 话：已解析 {data['Loaded']} 话，未公开 {data['Unreleased']} 话，待复核 {len(data['Issues'])} 话"],
         ['署名口径', '严格保留剧本原样署名，不做别名归并；仅剔除玩家占位符及纯标点脏署名，全部 NPC 原样保留'],
         ['身份分类', '主要角色（21 位 Aporia 成员）与 NPC（含配角与路人署名）分列，按台词数降序'],
-        ['分类口径', '周年活动独立拆分；Prequel / Travelogue 归入「活动 → 部门箱活（banner）」，全语音重读不重复计数；生日卡留在「卡牌」并标一至三轮系列'],
+        ['分类口径', '大分类统一为「主线 / 活动 / 个人 / 卡牌 / 其他」；周年活动归入「活动」并在系列标「周年活动」，Prequel / Travelogue 归入「活动 → 部门箱活（banner）」，全语音重读不重复计数；初始常驻卡与开服主线/个人故事补齐开服日 2024-05-09'],
+        ['排序规则', '主线按部/章顺序，个人按官方角色编号（1–21），活动与卡牌按实装日期+数值ID正序，不再因开服占位或字符串字典序错位'],
         ['主线拼图关', '含剧情内拼图关的主线话优先读取完整重读脚本（RereadStoryFileName），避免截断拼图后半段对话'],
         ['分支台词', '沿剧情命令图广度遍历全部可达分支，不遗漏选项分支内的出场角色'],
     ]

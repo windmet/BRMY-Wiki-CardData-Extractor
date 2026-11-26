@@ -83,20 +83,26 @@ def _make_tables():
              'TitleName': '第2話', 'ReleaseDateTime': '3001-01-01T00:00:00+00:00', 'IsActive': True},
         ],
         'mst_character_card': [
-            {'CharacterCardId': 10, 'CharacterId': 1, 'CharacterCardName': '#1a2b3c', 'ReleaseDateTime': '2001-01-01T00:00:00+00:00', 'IsActive': True},
+            {'CharacterCardId': 2, 'CharacterId': 1, 'CharacterCardName': '初始常驻卡', 'ReleaseDateTime': '2001-01-01T00:00:00+00:00', 'IsActive': True},
+            {'CharacterCardId': 10, 'CharacterId': 1, 'CharacterCardName': '#1a2b3c', 'ReleaseDateTime': '2024-05-14T00:00:00+00:00', 'IsActive': True},
+            {'CharacterCardId': 65, 'CharacterId': 1, 'CharacterCardName': '早期活动卡', 'ReleaseDateTime': '2001-01-01T00:00:00+00:00', 'IsActive': True},
         ],
         'mst_character_card_story': [
+            {'CharacterCardId': 2, 'TitleName': '初始常驻卡', 'IsActive': True},
             {'CharacterCardId': 10, 'TitleName': '#1a2b3c', 'IsActive': True},
+            {'CharacterCardId': 65, 'TitleName': '早期活动卡', 'IsActive': True},
         ],
         'mst_character_card_story_section': [
+            {'CharacterCardId': 2, 'CharacterCardStorySectionNo': 1, 'TitleName': '第1話', 'IsActive': True},
             {'CharacterCardId': 10, 'CharacterCardStorySectionNo': 1, 'TitleName': '第1話', 'IsActive': True},
+            {'CharacterCardId': 65, 'CharacterCardStorySectionNo': 1, 'TitleName': '第1話', 'IsActive': True},
         ],
         'mst_campaign': [],
         'mst_campaign_story_section': [],
         'mst_login_story_section': [],
         'mst_event_a': [
-            {'EventId': 3, 'CharacterCardIds': [10], 'IsActive': True},
-            {'EventId': 99, 'PickUpCharacterCardIds': [10], 'IsActive': True},
+            {'EventId': 3, 'CharacterCardIds': [65], 'IsActive': True},
+            {'EventId': 99, 'PickUpCharacterCardIds': [65], 'IsActive': True},
         ],
         'mst_event_b': [],
         'mst_event_c': [],
@@ -163,23 +169,38 @@ class StoryCastDomainTests(unittest.TestCase):
             (scripts_dir / 'personal_1_1_1.s2bscript').write_bytes(_script_bytes([
                 [1, [-1], 'Chat', 'Show', {'chatTitle': '皇坂 逢', 'chat': 'ep1'}],
             ]))
+            (scripts_dir / 'card_2_1_1.s2bscript').write_bytes(_script_bytes([
+                [1, [-1], 'Chat', 'Show', {'chatTitle': '皇坂 逢', 'chat': 'launch'}],
+            ]))
             (scripts_dir / 'card_10_1_1.s2bscript').write_bytes(_script_bytes([
                 [1, [-1], 'Chat', 'Show', {'chatTitle': '皇坂 逢', 'chat': 'bday'}],
+            ]))
+            (scripts_dir / 'card_65_1_1.s2bscript').write_bytes(_script_bytes([
+                [1, [-1], 'Chat', 'Show', {'chatTitle': '皇坂 逢', 'chat': 'evcard'}],
             ]))
 
             session = MasterDataSession.open(master)
             data = story_cast.extract(session, source=scripts_dir, as_of='2026-11-26T00:00:00+00:00')
             self.assertEqual([], data['Issues'])
             self.assertEqual(1, data['Unreleased'])
-            self.assertEqual(6, data['Loaded'])
+            self.assertEqual(8, data['Loaded'])
 
             by_sid = {s['story_id']: s for s in data['Stories']}
             self.assertEqual('Interlude I', by_sid['main-3-1']['jp_title'])
-            self.assertEqual('周年活动', by_sid['event-99']['type'])
+            self.assertEqual('活动', by_sid['event-99']['type'])
+            self.assertEqual('周年活动', by_sid['event-99']['series'])
             self.assertEqual('活动', by_sid['event-3']['type'])
             self.assertEqual('部门箱活（banner） / Prequel', by_sid['event-3']['series'])
+            self.assertEqual('初始常驻', by_sid['card-2']['series'])
+            self.assertEqual('2024-05-09', by_sid['card-2']['release_date'])
             self.assertEqual('一轮生日', by_sid['card-10']['series'])
-            self.assertEqual('2024-06-01', by_sid['card-10']['release_date'])
+            self.assertEqual('2024-05-14', by_sid['card-10']['release_date'])
+            self.assertEqual('Prequel Test', by_sid['card-65']['series'])
+            self.assertEqual('2024-06-01', by_sid['card-65']['release_date'])
+
+            # Natural ordering: main -> event -> character -> card (launch card-2 first, then 10, then 65)
+            ordered_ids = [s['story_id'] for s in data['Stories']]
+            self.assertEqual(['main-2-3', 'main-3-1', 'event-3', 'event-99', 'character-1-1', 'card-2', 'card-10', 'card-65'], ordered_ids)
 
             by_eid = {e['episode_id']: e for e in data['Episodes']}
             self.assertEqual('未公开', by_eid['character-1-1-2']['status'])

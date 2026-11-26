@@ -10,7 +10,15 @@ from urllib.parse import parse_qs, urlparse
 
 from .core.session import MasterDataSession
 from .domains.story_catalog import extract
-from .domains.story_cast import GARBAGE_SPEAKERS, card_relation, card_series
+from .domains.story_cast import (
+    GARBAGE_SPEAKERS,
+    LAUNCH_CARD_MAX_ID,
+    LAUNCH_DATE,
+    _earliest_gacha_dates,
+    card_relation,
+    card_series,
+    story_sort_key,
+)
 
 
 def read(path):
@@ -155,20 +163,35 @@ def build(master, station, wiki, checked):
         release = (cards[stories[sid][7]].get('ReleaseDateTime') or '')[:10]
         relation[1] = card_relation(event, '' if release.startswith(('2001-','3001-','9999-')) else release, earlier)
         if relation[1] == '首发活动候选': origins[sid].add(number)
+    gacha_dates = _earliest_gacha_dates(tables)
+    catalog_rows = []
     for sid, row in stories.items():
         items = grouped[sid]; dates = sorted(item[4] for item in items if item[4] and not item[4].startswith(('2001-','3001-','9999-')))
+        has_launch = any(str(item[4] or '').startswith('2001-') for item in items)
         date = dates[0] if dates else ''; basis = '原表' if date else ''; original = row[1]
         if original == '卡牌':
+            card_id = row[7]
+            card_raw_date = str(cards.get(card_id, {}).get('ReleaseDateTime') or '')
             row[4] = card_series(row[2])
-            if len(origins[sid]) == 1:
+            if isinstance(card_id, int) and card_id <= LAUNCH_CARD_MAX_ID and not date and (has_launch or card_raw_date.startswith('2001-')):
+                row[4] = row[4] or '初始常驻'
+                date, basis = LAUNCH_DATE, '开服日（2024-05-09）'
+            elif len(origins[sid]) == 1:
                 number = next(iter(origins[sid])); event = events[number]; row[6] = number
                 row[4] = row[4] or event['EventTitle']
                 if not date and (opening := event.get('OpenStartTime')) and not opening.startswith(('2001-','3001-','9999-')):
                     date, basis = opening, '关联活动开放日（推定）'
+            if not date and card_id in gacha_dates:
+                date, basis = gacha_dates[card_id], '卡池开放日（mst_gacha）'
         elif original in ('活动','其他') and 'anniversary' in row[2].casefold():
-            row[1] = '周年活动'
-        row.extend([date,date[:4],len(items),'已索引·范围待核' if sid in matched else '待补录','未核实','','部门箱活（banner）' if original=='活动' and row[4] in ('Prequel','Travelogue') else '',sum(bool(item[-1]) for item in items),original,basis]); catalog.append(row)
+            row[4] = '周年活动'
+        elif original in ('主线','个人') and not date and has_launch:
+            date, basis = LAUNCH_DATE, '开服日（2024-05-09）'
+        row.extend([date,date[:4],len(items),'已索引·范围待核' if sid in matched else '待补录','未核实','','部门箱活（banner）' if original=='活动' and row[4] in ('Prequel','Travelogue') else '',sum(bool(item[-1]) for item in items),original,basis])
+        catalog_rows.append(row)
         if sid not in matched: gaps.append([sid,'未对齐资源','不等于没有翻译'])
+    catalog_rows.sort(key=lambda r: story_sort_key({'story_id': r[0], 'type': r[1], 'release_date': r[9]}))
+    catalog.extend(catalog_rows)
     chapters.extend(episodes.values())
     for item in episodes.values():
         if not item[-1] and ep_availability.get(item[1]) not in ('unreleased_placeholder', 'upcoming'):
