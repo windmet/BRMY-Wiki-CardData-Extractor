@@ -13,6 +13,7 @@ from ..core.output import record_warning
 
 
 SPECS = [
+    ('campaign', 'mst_campaign_story_section', ('CampaignId', 'CampaignStorySectionNo'), 'mst_campaign', ('CampaignId',)),
     ('main', 'mst_main_story_section', ('MainStoryThreadNo', 'MainStoryChapterNo', 'MainStorySectionNo'), 'mst_main_story_chapter', ('MainStoryThreadNo', 'MainStoryChapterNo')),
     ('character', 'mst_character_story_section', ('CharacterId', 'CharacterStoryChapterNo', 'CharacterStorySectionNo'), 'mst_character_story', ('CharacterId', 'CharacterStoryChapterNo')),
     ('card', 'mst_character_card_story_section', ('CharacterCardId', 'CharacterCardStorySectionNo'), 'mst_character_card_story', ('CharacterCardId',)),
@@ -100,7 +101,7 @@ def export(data):
     wb = Workbook(); ws = wb.active; ws.title = 'StoryCatalog'
     ws.append(['类别', '复合编号', '章节标题', '上级标题', '有语音标志', '发布日期/开始', '结束',
                '日期状态', '阅读奖励', '明确脚本名'])
-    labels = {'main': '主线', 'character': '角色', 'card': '卡牌', 'event': '活动', 'login': '登录', 'puzzle': '剧情内Puzzle'}
+    labels = {'main': '主线', 'character': '角色', 'card': '卡牌', 'event': '活动', 'login': '登录', 'campaign': '纪念短篇', 'puzzle': '剧情内Puzzle'}
     for entry in data['Sections']:
         raw = entry['Raw']
         ws.append([labels[entry['Kind']], entry['SourceTable'] + ':' + '/'.join(map(str, entry['Key'])),
