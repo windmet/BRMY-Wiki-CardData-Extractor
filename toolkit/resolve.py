@@ -22,7 +22,7 @@ from .generate import generate, NEEDS_MASTERDATA
 MASTER_KEY = 'Tables/master_data.s2b'
 SUFFIXES = {'scripts': '.s2bscript', 'lyrics': '.s2blyrics', 'charts': '.s2bchart'}
 # Domains fed by one small standalone file per masterdata row.
-TABLE_FILE_DOMAINS = {'puzzle_stages': 'stages', 'groove_charts': 'scores'}
+TABLE_FILE_DOMAINS = {'puzzle_stages': 'stages', 'groove_charts': 'scores', 'story_cast': 'story_scripts'}
 
 
 def build_plan(domains, resources, tables=None, *, include_card_audio=True, resource_keys=None):
@@ -261,7 +261,7 @@ def synchronize(domains, output, cache, *, offline=False, include_card_audio=Tru
         # they get a wider pool than manifest resources such as ACB packages.
         regular = ThreadPoolExecutor(max_workers=4)
         small = ThreadPoolExecutor(max_workers=16)
-        futures = {(small if item.get('derived') else regular).submit(fetch, item): item for item in pending}
+        futures = {(small if (item.get('derived') or item['kind'] in TABLE_FILE_DOMAINS.values()) else regular).submit(fetch, item): item for item in pending}
         try:
             for index, future in enumerate(as_completed(futures), start=1):
                 result, warning = future.result()
