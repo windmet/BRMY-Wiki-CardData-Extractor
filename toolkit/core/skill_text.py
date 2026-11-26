@@ -42,6 +42,14 @@ SPRITE_WORDS = (
 )
 
 
+def clean_sprite_words(text: str) -> str:
+    """Replace TextMeshPro piece-sprite tags with Wiki-readable Japanese labels."""
+    text = str(text or "")
+    for old, new in SPRITE_WORDS:
+        text = text.replace(old, new)
+    return text
+
+
 def skill_values(row):
     """SkillValue1..6 as the client's uint arguments (missing values are 0)."""
     return [row.get(f"SkillValue{index}") or 0 for index in range(1, 7)]
@@ -107,7 +115,4 @@ class SkillTextRenderer:
         return description
 
     def wiki_text(self, description, row):
-        text = self.parse(description, skill_values(row))
-        for old, new in SPRITE_WORDS:
-            text = text.replace(old, new)
-        return text
+        return clean_sprite_words(self.parse(description, skill_values(row)))

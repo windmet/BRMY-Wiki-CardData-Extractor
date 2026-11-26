@@ -94,6 +94,14 @@ CONTRACTS = {
         'mst_honor': ('HonorId',), 'mst_pin': ('PinId',),
         'mst_home_background': ('BackgroundId',), 'mst_item': ('ItemId',),
     },
+    'skills': {
+        'mst_character_card': ('CharacterCardId', 'CharacterId'),
+        'mst_sp_skill_effect': ('SpSkillEffectId', 'SkillEffect'),
+        'mst_character_card_sp_skill_level': ('CharacterCardId', 'SpSkillLevel', 'SpSkillEffectId'),
+        'mst_auto_skill_effect': ('AutoSkillEffectId', 'SkillName'),
+        'mst_character_card_auto_skill_level': ('CharacterCardId', 'AutoSkillLevel', 'AutoSkillEffectId'),
+        'mst_leader_skill_effect': ('LeaderSkillEffectId',),
+    },
 }
 
 
