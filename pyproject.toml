@@ -16,7 +16,11 @@ dependencies = [
 ]
 
 [project.scripts]
+brmy-story-index = "toolkit.story_index:main"
 brmy-masterdata = "toolkit.cli:main"
+
+[project.optional-dependencies]
+story-index = ["beautifulsoup4>=4.12"]
 
 [tool.setuptools.packages.find]
 where = ["."]

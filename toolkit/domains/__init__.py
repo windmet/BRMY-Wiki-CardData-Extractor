@@ -1,6 +1,6 @@
 from . import cards, card_update, skills, music, snap, birthday, recipes, missions, items, events, audio, home_voices
 from . import lyrics, scripts, charts, ojt, birthday_archive, home_voice_duo, card_combi_voices
-from . import story_catalog, collections, groove, jukebox, puzzle_stages, groove_charts, spin_memos
+from . import story_catalog, story_cast, collections, groove, jukebox, puzzle_stages, groove_charts, spin_memos
 from . import bar_events, exchange_events, vignette_events, campaign_voices
 
 DOMAINS = {
@@ -10,6 +10,7 @@ DOMAINS = {
     'jukebox': jukebox,
     'collections': collections,
     'story_catalog': story_catalog,
+    'story_cast': story_cast,
     'cards': cards,
     'card_update': card_update,
     'skills': skills,

@@ -15,7 +15,7 @@ MASTERDATA.update({'story_catalog', 'collections', 'groove', 'jukebox', 'spin_me
                    'bar_events', 'exchange_events', 'vignette_events'})
 # Domains that read masterdata alongside other inputs (ACB, old workbook).
 NEEDS_MASTERDATA = MASTERDATA | {'audio', 'campaign_voices', 'home_voices', 'home_voice_duo', 'card_combi_voices', 'card_update',
-                                 'puzzle_stages', 'groove_charts'}
+                                 'puzzle_stages', 'groove_charts', 'story_cast'}
 
 
 def generate(domains, output, *, masterdata=None, audio=None, source=None,
@@ -104,6 +104,11 @@ def generate(domains, output, *, masterdata=None, audio=None, source=None,
                         if not inputs:
                             raise ValueError('此任务需要关卡 / 谱面文件或目录')
                         module.run(session=session, source=inputs)
+                    elif domain == 'story_cast':
+                        inputs = source.get(domain) if isinstance(source, dict) else source
+                        if not inputs:
+                            raise ValueError('剧情分话出场需要 .s2bscript 脚本文件或目录')
+                        module.run(session=session, source=inputs, as_of=as_of or started_at)
                     elif domain in {'events', 'bar_events', 'exchange_events', 'vignette_events', 'birthday_archive', 'story_catalog', 'collections'}:
                         module.run(session=session, as_of=as_of or started_at)
                     elif domain in MASTERDATA:

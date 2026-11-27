@@ -19,7 +19,7 @@ TASKS = {
     'lyrics': '歌词', 'scripts': '剧情脚本', 'charts': 'OJT Chart（本地）', 'audio': '通用语音文本',
     'ojt': 'OJT 活动档案', 'birthday_archive': '年度生日档案',
     'exchange_events': '交换所·剧情活动', 'bar_events': '营业（摇酒）活动', 'vignette_events': 'Vignette 活动',
-    'home_voice_duo': '双人主页台词', 'card_combi_voices': '多段协作语音（例外表）', 'story_catalog': '剧情目录', 'collections': '收藏档案',
+    'home_voice_duo': '双人主页台词', 'card_combi_voices': '多段协作语音（例外表）', 'story_catalog': '剧情目录', 'story_cast': '剧情分话出场', 'collections': '收藏档案',
     'puzzle_stages': '消消乐关卡', 'groove_charts': 'GROOVE 谱面', 'spin_memos': 'Spin 备忘录检索',
 }
 # Not a selectable task: written after every run that produced Wiki tables.
@@ -32,8 +32,8 @@ TASK_GROUPS = [
     ('活动', ('events', 'exchange_events', 'bar_events', 'vignette_events', 'ojt', 'charts', 'missions'),
      '活动总表是全部活动的索引（剧情章节、任务、规则）；交换所·剧情、营业（摇酒）、Vignette、OJT 各有一份玩法档案。'
      'OJT 活动档案包含轮次、关卡、奖箱和站位坐标。'),
-    ('剧情与台词', ('story_catalog', 'scripts', 'birthday', 'birthday_archive', 'snap', 'spin_memos'),
-     '剧情目录列出标题、解锁条件和奖励，剧情脚本解析正文。生日庆典台词按轮次整理，年度生日档案按角色和年份汇总。'),
+    ('剧情与台词', ('story_catalog', 'story_cast', 'scripts', 'birthday', 'birthday_archive', 'snap', 'spin_memos'),
+     '剧情目录列出标题、解锁条件和奖励；剧情分话出场按 V3 口径精确到每一话统计出场人物（原样署名、保留全部 NPC）；剧情脚本解析正文。生日庆典台词按轮次整理，年度生日档案按角色和年份汇总。'),
     ('音乐', ('music', 'lyrics', 'groove_charts'), '音乐主表及可关联资源；歌词需要指定资源。GROOVE 谱面统计每首曲 A/B/C 面的音符。'),
     ('关卡', ('puzzle_stages',), '消消乐每关的通关目标、生命、步数和机关，按用途分表。'),
     ('网站数据', ('groove',), '供计算器网站使用的源数据。'),
@@ -73,6 +73,7 @@ TASK_HELP = {
     'birthday': '生日庆典小游戏台词，按轮次分表。角色 ACB 里的生日祝福在“主页 / 生日祝福”。',
     'birthday_archive': '按角色和年份整理年度生日的登录、点击奖励、服装和台词。',
     'story_catalog': '剧情目录：标题、解锁条件和奖励。剧情正文由“剧情脚本”解析。',
+    'story_cast': '精确到每一话的剧情出场人物表（含剧情总表、分话出场表、分话角色明细）：不做别名归并、保留全部 NPC，未实装占位标为未公开，主线拼图关自动取完整重读脚本。联网首次会同步约两千个脚本小文件。',
     'spin_memos': 'Spin 相片备忘录：R/SR/SSR 三联合并去重，附话题对照、评论检索和角色统计。',
     'puzzle_stages': '消消乐每关 A–F 面的目标、SS 分数线、生命、步数和盘面机关。联网时会下载约两千个小文件。',
     'groove_charts': 'GROOVE（音游）已上线曲目 A/B/C 面的 BPM、时长、音符数与机关。',
@@ -140,6 +141,9 @@ class JobRequest:
             if set(self.domains) & {'puzzle_stages', 'groove_charts'}:
                 if not self.source or not Path(self.source).exists():
                     raise ValueError('关卡 / 谱面任务需要选择 .s2bStage / .s2bscore 文件夹')
+            if 'story_cast' in self.domains:
+                if not self.source or not Path(self.source).exists():
+                    raise ValueError('剧情分话出场任务需要选择 .s2bscript 文件夹')
             if set(self.domains) & {'scripts', 'lyrics', 'charts'}:
                 if not self.source or not Path(self.source).exists():
                     raise ValueError('请选择独立歌词、脚本或OJT Chart文件 / 文件夹')
